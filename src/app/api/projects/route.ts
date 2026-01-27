@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { authOptions } from "@/lib/auth";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -48,6 +50,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { message: "No autorizado." },
+      { status: 401 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       key?: string;
@@ -72,6 +82,7 @@ export async function POST(request: NextRequest) {
         name,
         description: body.description?.trim() || null,
         isActive: body.isActive ?? true,
+        createdById: session.user.id,
       },
     });
 
