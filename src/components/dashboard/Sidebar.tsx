@@ -16,7 +16,7 @@ import {
 const navItems = [
   { label: "Overview", icon: IconGrid, href: "/manager" },
   { label: "Projects", icon: IconFolder, href: "/manager/projects" },
-  { label: "Test Plans", icon: IconLayers },
+  { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
   { label: "Runs", icon: IconChart },
   { label: "Cases", icon: IconClipboard },
 ];
