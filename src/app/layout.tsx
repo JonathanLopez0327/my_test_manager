@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Manrope, Sora } from "next/font/google";
+import { Sora } from "next/font/google";
 import "./globals.css";
-
-const bodyFont = Manrope({
-  variable: "--font-body",
-  subsets: ["latin"],
-});
 
 const displayFont = Sora({
   variable: "--font-display",
@@ -24,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased`}>
+      <body className={`${displayFont.variable} antialiased`}>
         {children}
       </body>
     </html>

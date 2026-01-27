@@ -47,13 +47,6 @@ export function Sidebar() {
         </button>
       </div>
 
-      <Button className={`w-full justify-between ${collapsed ? "lg:justify-center" : ""}`}>
-        <span className={collapsed ? "lg:hidden" : ""}>New Test Run</span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
-          <IconPlus className="h-4 w-4" />
-        </span>
-      </Button>
-
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => {
           const Icon = item.icon;

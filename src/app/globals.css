@@ -6,6 +6,7 @@
   --surface: #ffffff;
   --surface-muted: #f0eef8;
   --stroke: #e3def3;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --brand-50: #f1ecff;
   --brand-100: #e2d8ff;
   --brand-300: #b69bff;
