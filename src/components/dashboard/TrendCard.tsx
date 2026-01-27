@@ -17,7 +17,7 @@ export function TrendCard() {
       </div>
       <div className="mt-6 flex h-32 items-end gap-3">
         {bars.map((value, index) => (
-          <div key={value + index} className="flex-1">
+          <div key={`bar-${index}`} className="flex-1">
             <div className="h-full rounded-full bg-brand-100/60 p-1">
               <div
                 className="w-full rounded-full bg-gradient-to-t from-brand-600 to-brand-300"
