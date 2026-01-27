@@ -4,14 +4,14 @@ type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:opacity-60 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:opacity-60 disabled:pointer-events-none";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-600 text-white shadow-soft-sm hover:bg-brand-700 hover:shadow-soft",
+    "bg-brand-600 text-white hover:bg-brand-700",
   secondary:
-    "bg-surface-muted text-ink border border-stroke hover:border-brand-300 hover:text-brand-700",
-  ghost: "bg-transparent text-ink-muted hover:text-ink hover:bg-brand-50",
+    "bg-surface text-ink border border-stroke hover:border-brand-300",
+  ghost: "bg-transparent text-ink-muted hover:text-ink hover:bg-brand-50/70",
 };
 
 const sizes: Record<ButtonSize, string> = {

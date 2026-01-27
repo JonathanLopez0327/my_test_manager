@@ -42,7 +42,7 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/80 p-8 shadow-soft backdrop-blur">
+    <div className="w-full max-w-md rounded-xl border border-white/60 bg-white/80 p-8 shadow-soft backdrop-blur">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
           Test Manager
@@ -95,7 +95,7 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="mt-8 rounded-3xl bg-brand-50 px-5 py-4 text-xs text-ink-muted">
+      <div className="mt-8 rounded-xl bg-brand-50 px-5 py-4 text-xs text-ink-muted">
         <p className="font-semibold text-ink">Next Auth ready</p>
         <p className="mt-2">
           Connect your provider to enable secure logins for every project.

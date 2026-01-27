@@ -22,14 +22,14 @@ export function ActivityCard() {
         {timeline.map((item) => (
           <div
             key={item.title}
-            className="flex items-center justify-between rounded-2xl border border-stroke bg-surface-muted/60 px-4 py-3"
+            className="flex items-center justify-between rounded-lg border border-stroke bg-surface-muted/60 px-4 py-3"
           >
             <p className="text-sm font-semibold text-ink">{item.title}</p>
             <Badge tone={item.tone}>{item.status}</Badge>
           </div>
         ))}
       </div>
-      <div className="mt-6 rounded-3xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-4 text-white">
+      <div className="mt-6 rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-4 text-white">
         <p className="text-xs uppercase tracking-[0.2em] text-white/70">
           Pipeline Health
         </p>

@@ -24,7 +24,7 @@ export default function LoginPage() {
             ].map((item) => (
               <div
                 key={item}
-                className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 text-xs font-semibold text-ink"
+                className="rounded-lg border border-white/70 bg-white/70 px-4 py-3 text-xs font-semibold text-ink"
               >
                 {item}
               </div>

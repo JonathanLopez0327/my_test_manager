@@ -3,21 +3,27 @@ import {
   ChartBarIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
   ExclamationTriangleIcon,
   FolderIcon,
   MagnifyingGlassIcon,
+  PencilSquareIcon,
   PlayIcon,
   PlusIcon,
   RectangleStackIcon,
   SparklesIcon,
   Squares2X2Icon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 
 export const IconSearch = MagnifyingGlassIcon;
 export const IconBell = BellIcon;
 export const IconChevronDown = ChevronDownIcon;
+export const IconChevronLeft = ChevronLeftIcon;
+export const IconChevronRight = ChevronRightIcon;
 export const IconGrid = Squares2X2Icon;
 export const IconFolder = FolderIcon;
 export const IconLayers = RectangleStackIcon;
@@ -29,3 +35,5 @@ export const IconClipboard = ClipboardDocumentIcon;
 export const IconCheck = CheckIcon;
 export const IconAlert = ExclamationTriangleIcon;
 export const IconSpark = SparklesIcon;
+export const IconEdit = PencilSquareIcon;
+export const IconTrash = TrashIcon;
