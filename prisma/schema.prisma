@@ -12,3 +12,307 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum TestPlanStatus {
+  draft
+  active
+  completed
+  archived
+}
+
+enum TestCaseStatus {
+  draft
+  ready
+  deprecated
+}
+
+enum TestRunType {
+  manual
+  automated
+}
+
+enum TestRunStatus {
+  queued
+  running
+  completed
+  canceled
+  failed
+}
+
+enum TestResultStatus {
+  passed
+  failed
+  skipped
+  blocked
+  not_run
+}
+
+enum ArtifactType {
+  screenshot
+  video
+  log
+  report
+  link
+  other
+}
+
+enum MemberRole {
+  admin
+  editor
+  viewer
+}
+
+model User {
+  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String          @unique
+  fullName     String?         @map("full_name")
+  passwordHash String          @map("password_hash")
+  isActive     Boolean         @default(true) @map("is_active")
+  lastLoginAt  DateTime?       @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sessions            UserSession[]
+  createdProjects     Project[]      @relation("ProjectCreatedBy")
+  projectMemberships  ProjectMember[]
+  createdTestPlans    TestPlan[]      @relation("TestPlanCreatedBy")
+  ownedTestCases      TestCase[]      @relation("TestCaseAutomationOwner")
+  createdTestCases    TestCase[]      @relation("TestCaseCreatedBy")
+  triggeredTestRuns   TestRun[]       @relation("TestRunTriggeredBy")
+  executedRunItems    TestRunItem[]   @relation("TestRunItemExecutedBy")
+  auditLogEntries     AuditLog[]      @relation("AuditLogActor")
+
+  @@map("users")
+}
+
+model UserSession {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model Project {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy   User?          @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members     ProjectMember[]
+  testPlans   TestPlan[]
+  testRuns    TestRun[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId String     @map("project_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
+  role      MemberRole @default(viewer)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId], map: "idx_project_members_user")
+  @@map("project_members")
+}
+
+model TestPlan {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String         @map("project_id") @db.Uuid
+  name        String
+  description String?
+  status      TestPlanStatus @default(draft)
+  startsOn    DateTime?      @map("starts_on") @db.Date
+  endsOn      DateTime?      @map("ends_on") @db.Date
+  createdById String?        @map("created_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation("TestPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  suites    TestSuite[]
+  runs      TestRun[]
+
+  @@unique([projectId, name])
+  @@index([projectId], map: "idx_test_plans_project")
+  @@index([status], map: "idx_test_plans_status")
+  @@map("test_plans")
+}
+
+model TestSuite {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  testPlanId    String   @map("test_plan_id") @db.Uuid
+  parentSuiteId String?  @map("parent_suite_id") @db.Uuid
+  name          String
+  description   String?
+  displayOrder  Int      @default(0) @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  testPlan   TestPlan   @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
+  parent     TestSuite? @relation("TestSuiteHierarchy", fields: [parentSuiteId], references: [id], onDelete: SetNull)
+  children   TestSuite[] @relation("TestSuiteHierarchy")
+  testCases  TestCase[]
+  runs       TestRun[]
+
+  @@unique([testPlanId, parentSuiteId, name])
+  @@index([testPlanId], map: "idx_suites_plan")
+  @@index([parentSuiteId], map: "idx_suites_parent")
+  @@map("test_suites")
+}
+
+model TestCase {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  suiteId         String         @map("suite_id") @db.Uuid
+  externalKey     String?        @map("external_key")
+  title           String
+  description     String?
+  preconditions   String?
+  steps           Json           @default("[]") @db.JsonB
+  status          TestCaseStatus @default(draft)
+  isAutomated     Boolean        @default(false) @map("is_automated")
+  automationType  String?        @map("automation_type")
+  automationRef   String?        @map("automation_ref")
+  automationOwnerId String?      @map("automation_owner") @db.Uuid
+  priority        Int            @default(3) @db.SmallInt
+  createdById     String?        @map("created_by") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  suite            TestSuite   @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  automationOwner  User?       @relation("TestCaseAutomationOwner", fields: [automationOwnerId], references: [id], onDelete: SetNull)
+  createdBy        User?       @relation("TestCaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  runItems         TestRunItem[]
+
+  @@index([suiteId], map: "idx_test_cases_suite")
+  @@index([status], map: "idx_test_cases_status")
+  @@index([isAutomated], map: "idx_test_cases_automated")
+  @@index([steps], type: Gin, map: "idx_test_cases_steps_gin")
+  @@map("test_cases")
+}
+
+model TestRun {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  testPlanId  String?       @map("test_plan_id") @db.Uuid
+  suiteId     String?       @map("suite_id") @db.Uuid
+  runType     TestRunType   @map("run_type")
+  status      TestRunStatus @default(queued)
+  name        String?
+  triggeredById String?     @map("triggered_by") @db.Uuid
+  environment String?
+  buildNumber String?       @map("build_number")
+  branch      String?
+  commitSha   String?       @map("commit_sha")
+  ciProvider  String?       @map("ci_provider")
+  ciRunUrl    String?       @map("ci_run_url")
+  startedAt   DateTime?     @map("started_at") @db.Timestamptz(6)
+  finishedAt  DateTime?     @map("finished_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testPlan    TestPlan? @relation(fields: [testPlanId], references: [id], onDelete: SetNull)
+  suite       TestSuite? @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  triggeredBy User?     @relation("TestRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  items       TestRunItem[]
+  artifacts   TestRunArtifact[]
+  metrics     TestRunMetrics?
+
+  @@index([projectId], map: "idx_runs_project")
+  @@index([testPlanId], map: "idx_runs_plan")
+  @@index([status], map: "idx_runs_status")
+  @@index([runType], map: "idx_runs_type")
+  @@map("test_runs")
+}
+
+model TestRunItem {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId        String           @map("run_id") @db.Uuid
+  testCaseId   String           @map("test_case_id") @db.Uuid
+  status       TestResultStatus @default(not_run)
+  durationMs   Int?             @map("duration_ms")
+  executedById String?          @map("executed_by") @db.Uuid
+  executedAt   DateTime?        @map("executed_at") @db.Timestamptz(6)
+  errorMessage String?          @map("error_message")
+  stacktrace   String?
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  run        TestRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testCase   TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
+  executedBy User?        @relation("TestRunItemExecutedBy", fields: [executedById], references: [id], onDelete: SetNull)
+  artifacts  TestRunArtifact[]
+
+  @@unique([runId, testCaseId])
+  @@index([runId], map: "idx_run_items_run")
+  @@index([testCaseId], map: "idx_run_items_case")
+  @@index([status], map: "idx_run_items_status")
+  @@map("test_run_items")
+}
+
+model TestRunArtifact {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId        String?      @map("run_id") @db.Uuid
+  runItemId    String?      @map("run_item_id") @db.Uuid
+  type         ArtifactType @default(other)
+  name         String?
+  url          String
+  mimeType     String?      @map("mime_type")
+  sizeBytes    BigInt?      @map("size_bytes")
+  checksumSha256 String?    @map("checksum_sha256")
+  metadata     Json         @default("{}") @db.JsonB
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  run     TestRun?     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runItem TestRunItem? @relation(fields: [runItemId], references: [id], onDelete: Cascade)
+
+  @@index([runId], map: "idx_artifacts_run")
+  @@index([runItemId], map: "idx_artifacts_run_item")
+  @@index([metadata], type: Gin, map: "idx_artifacts_meta_gin")
+  @@map("test_run_artifacts")
+}
+
+model TestRunMetrics {
+  runId      String   @id @map("run_id") @db.Uuid
+  total      Int
+  passed     Int
+  failed     Int
+  skipped    Int
+  blocked    Int
+  notRun     Int      @map("not_run")
+  passRate   Decimal  @map("pass_rate") @db.Decimal(5, 2)
+  durationMs BigInt?  @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  run TestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@map("test_run_metrics")
+}
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  action      String
+  details     Json     @default("{}") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actorUser User? @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId], map: "idx_audit_entity")
+  @@index([actorUserId], map: "idx_audit_actor")
+  @@map("audit_log")
+}
