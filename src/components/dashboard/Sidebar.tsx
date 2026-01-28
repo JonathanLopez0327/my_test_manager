@@ -21,7 +21,7 @@ const navItems = [
   { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
   { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites" },
   { label: "Runs", icon: IconChart },
-  { label: "Cases", icon: IconClipboard },
+  { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases" },
 ];
 
 export function Sidebar() {
