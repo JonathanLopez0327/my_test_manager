@@ -14,6 +14,12 @@ async function main() {
   const password = "Qa123456!";
   const passwordHash = await hash(password, 10);
 
+  const superAdminEmail =
+    process.env.SEED_SUPER_ADMIN_EMAIL ?? "super.admin@product.io";
+  const superAdminPassword =
+    process.env.SEED_SUPER_ADMIN_PASSWORD ?? "SuperAdmin123!";
+  const superAdminHash = await hash(superAdminPassword, 10);
+
   const user = await prisma.user.upsert({
     where: { email },
     update: {
@@ -29,9 +35,57 @@ async function main() {
     },
   });
 
+  await prisma.userGlobalRole.upsert({
+    where: {
+      userId_role: {
+        userId: user.id,
+        role: "super_admin",
+      },
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      role: "super_admin",
+    },
+  });
+
   console.log("Seeded user:", {
     email: user.email,
     password,
+  });
+
+  const superAdmin = await prisma.user.upsert({
+    where: { email: superAdminEmail },
+    update: {
+      fullName: "Super Admin",
+      passwordHash: superAdminHash,
+      isActive: true,
+    },
+    create: {
+      email: superAdminEmail,
+      fullName: "Super Admin",
+      passwordHash: superAdminHash,
+      isActive: true,
+    },
+  });
+
+  await prisma.userGlobalRole.upsert({
+    where: {
+      userId_role: {
+        userId: superAdmin.id,
+        role: "super_admin",
+      },
+    },
+    update: {},
+    create: {
+      userId: superAdmin.id,
+      role: "super_admin",
+    },
+  });
+
+  console.log("Seeded super admin:", {
+    email: superAdmin.email,
+    password: superAdminPassword,
   });
 }
 

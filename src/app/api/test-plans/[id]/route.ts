@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma, TestPlanStatus } from "@/generated/prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  getGlobalRoles,
+  getProjectRole,
+  hasProjectPermission,
+  isReadOnlyGlobal,
+  isSuperAdmin,
+} from "@/lib/permissions";
 
 type RouteParams = {
   params: {
@@ -30,7 +39,24 @@ function parseDate(value?: string | null) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
   try {
+    const existing = await prisma.testPlan.findUnique({
+      where: { id },
+      select: { projectId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Plan no encontrado." },
+        { status: 404 },
+      );
+    }
+
     const body = (await request.json()) as {
       projectId?: string;
       name?: string;
@@ -74,6 +100,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const globalRoles = await getGlobalRoles(session.user.id);
+    if (!isSuperAdmin(globalRoles)) {
+      if (isReadOnlyGlobal(globalRoles)) {
+        return NextResponse.json(
+          { message: "Solo lectura." },
+          { status: 403 },
+        );
+      }
+      const currentRole = await getProjectRole(
+        session.user.id,
+        existing.projectId,
+      );
+      if (!hasProjectPermission(currentRole, "editor")) {
+        return NextResponse.json(
+          { message: "No tienes permisos para editar este plan." },
+          { status: 403 },
+        );
+      }
+      if (projectId && projectId !== existing.projectId) {
+        const targetRole = await getProjectRole(session.user.id, projectId);
+        if (!hasProjectPermission(targetRole, "editor")) {
+          return NextResponse.json(
+            { message: "No tienes permisos en el proyecto destino." },
+            { status: 403 },
+          );
+        }
+      }
+    }
+
     const plan = await prisma.testPlan.update({
       where: { id },
       data: {
@@ -106,7 +161,41 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_: NextRequest, { params }: RouteParams) {
   const { id } = params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
   try {
+    const existing = await prisma.testPlan.findUnique({
+      where: { id },
+      select: { projectId: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { message: "Plan no encontrado." },
+        { status: 404 },
+      );
+    }
+
+    const globalRoles = await getGlobalRoles(session.user.id);
+    if (!isSuperAdmin(globalRoles)) {
+      if (isReadOnlyGlobal(globalRoles)) {
+        return NextResponse.json(
+          { message: "Solo lectura." },
+          { status: 403 },
+        );
+      }
+      const role = await getProjectRole(session.user.id, existing.projectId);
+      if (!hasProjectPermission(role, "admin")) {
+        return NextResponse.json(
+          { message: "No tienes permisos para eliminar este plan." },
+          { status: 403 },
+        );
+      }
+    }
+
     await prisma.testPlan.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {

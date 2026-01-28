@@ -3,6 +3,12 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { authOptions } from "@/lib/auth";
+import {
+  canCreateProject,
+  getGlobalRoles,
+  isReadOnlyGlobal,
+  isSuperAdmin,
+} from "@/lib/permissions";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -13,6 +19,15 @@ function parseNumber(value: string | null, fallback: number) {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
+  const globalRoles = await getGlobalRoles(session.user.id);
+  const isGlobalAdmin = isSuperAdmin(globalRoles);
+  const isGlobalReadOnly = isReadOnlyGlobal(globalRoles);
+
   const { searchParams } = new URL(request.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -21,14 +36,28 @@ export async function GET(request: NextRequest) {
   );
   const query = searchParams.get("query")?.trim();
 
-  const where: Prisma.ProjectWhereInput = query
-    ? {
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { key: { contains: query, mode: "insensitive" } },
-          { description: { contains: query, mode: "insensitive" } },
-        ],
-      }
+  const filters: Prisma.ProjectWhereInput[] = [];
+  if (query) {
+    filters.push({
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { key: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (!isGlobalAdmin && !isGlobalReadOnly) {
+    filters.push({
+      members: {
+        some: {
+          userId: session.user.id,
+        },
+      },
+    });
+  }
+
+  const where: Prisma.ProjectWhereInput = filters.length
+    ? { AND: filters }
     : {};
 
   const [items, total] = await prisma.$transaction([
@@ -58,6 +87,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const globalRoles = await getGlobalRoles(session.user.id);
+  const allowed = await canCreateProject(session.user.id, globalRoles);
+  if (!allowed) {
+    return NextResponse.json(
+      { message: "No tienes permisos para crear proyectos." },
+      { status: 403 },
+    );
+  }
+
   try {
     const body = (await request.json()) as {
       key?: string;
@@ -76,14 +114,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = await prisma.project.create({
-      data: {
-        key,
-        name,
-        description: body.description?.trim() || null,
-        isActive: body.isActive ?? true,
-        createdById: session.user.id,
-      },
+    const project = await prisma.$transaction(async (tx) => {
+      const created = await tx.project.create({
+        data: {
+          key,
+          name,
+          description: body.description?.trim() || null,
+          isActive: body.isActive ?? true,
+          createdById: session.user.id,
+        },
+      });
+
+      await tx.projectMember.create({
+        data: {
+          projectId: created.id,
+          userId: session.user.id,
+          role: "admin",
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json(project, { status: 201 });

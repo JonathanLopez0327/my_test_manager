@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestPlansHeader } from "./TestPlansHeader";
@@ -22,6 +23,7 @@ type ProjectOption = {
 };
 
 export function TestPlansPage() {
+  const { data: session } = useSession();
   const [items, setItems] = useState<TestPlanRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -33,6 +35,16 @@ export function TestPlansPage() {
   const [editing, setEditing] = useState<TestPlanRecord | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+
+  const isReadOnlyGlobal = useMemo(
+    () =>
+      session?.user?.globalRoles?.some(
+        (role) => role === "support" || role === "auditor",
+      ) ?? false,
+    [session?.user?.globalRoles],
+  );
+
+  const canManage = !isReadOnlyGlobal;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -118,16 +130,19 @@ export function TestPlansPage() {
   }, [page, totalPages]);
 
   const handleCreate = () => {
+    if (!canManage) return;
     setEditing(null);
     setModalOpen(true);
   };
 
   const handleEdit = (plan: TestPlanRecord) => {
+    if (!canManage) return;
     setEditing(plan);
     setModalOpen(true);
   };
 
   const handleDelete = async (plan: TestPlanRecord) => {
+    if (!canManage) return;
     const confirmed = window.confirm(
       `¿Eliminar el plan "${plan.name}"? Esta acción no se puede deshacer.`,
     );
@@ -180,6 +195,7 @@ export function TestPlansPage() {
           onCreate={handleCreate}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
+          canCreate={canManage}
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -211,6 +227,7 @@ export function TestPlansPage() {
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canManage={canManage}
           />
         </div>
 
@@ -224,13 +241,15 @@ export function TestPlansPage() {
         </div>
       </Card>
 
-      <TestPlanFormModal
-        open={modalOpen}
-        plan={editing}
-        projects={projects}
-        onClose={() => setModalOpen(false)}
-        onSave={handleSave}
-      />
+      {canManage ? (
+        <TestPlanFormModal
+          open={modalOpen}
+          plan={editing}
+          projects={projects}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSave}
+        />
+      ) : null}
     </div>
   );
 }

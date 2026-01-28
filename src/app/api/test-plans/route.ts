@@ -3,6 +3,13 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, TestPlanStatus } from "@/generated/prisma/client";
 import { authOptions } from "@/lib/auth";
+import {
+  getGlobalRoles,
+  getProjectRole,
+  hasProjectPermission,
+  isReadOnlyGlobal,
+  isSuperAdmin,
+} from "@/lib/permissions";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -32,6 +39,15 @@ function parseDate(value?: string | null) {
 }
 
 export async function GET(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
+  const globalRoles = await getGlobalRoles(session.user.id);
+  const isGlobalAdmin = isSuperAdmin(globalRoles);
+  const isGlobalReadOnly = isReadOnlyGlobal(globalRoles);
+
   const { searchParams } = new URL(request.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -42,20 +58,48 @@ export async function GET(request: NextRequest) {
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
   const projectId = searchParams.get("projectId")?.trim();
 
-  const where: Prisma.TestPlanWhereInput = {
-    ...(status ? { status } : {}),
-    ...(projectId ? { projectId } : {}),
-    ...(query
-      ? {
-          OR: [
-            { name: { contains: query, mode: "insensitive" } },
-            { description: { contains: query, mode: "insensitive" } },
-            { project: { name: { contains: query, mode: "insensitive" } } },
-            { project: { key: { contains: query, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
-  };
+  if (projectId && !isGlobalAdmin && !isGlobalReadOnly) {
+    const role = await getProjectRole(session.user.id, projectId);
+    if (!role) {
+      return NextResponse.json(
+        { message: "No tienes acceso a este proyecto." },
+        { status: 403 },
+      );
+    }
+  }
+
+  const filters: Prisma.TestPlanWhereInput[] = [];
+  if (status) {
+    filters.push({ status });
+  }
+  if (projectId) {
+    filters.push({ projectId });
+  }
+  if (query) {
+    filters.push({
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
+        { project: { name: { contains: query, mode: "insensitive" } } },
+        { project: { key: { contains: query, mode: "insensitive" } } },
+      ],
+    });
+  }
+  if (!isGlobalAdmin && !isGlobalReadOnly) {
+    filters.push({
+      project: {
+        members: {
+          some: {
+            userId: session.user.id,
+          },
+        },
+      },
+    });
+  }
+
+  const where: Prisma.TestPlanWhereInput = filters.length
+    ? { AND: filters }
+    : {};
 
   const [items, total] = await prisma.$transaction([
     prisma.testPlan.findMany({
@@ -111,6 +155,23 @@ export async function POST(request: NextRequest) {
         { message: "Proyecto y nombre son requeridos." },
         { status: 400 },
       );
+    }
+
+    const globalRoles = await getGlobalRoles(session.user.id);
+    if (!isSuperAdmin(globalRoles)) {
+      if (isReadOnlyGlobal(globalRoles)) {
+        return NextResponse.json(
+          { message: "Solo lectura." },
+          { status: 403 },
+        );
+      }
+      const role = await getProjectRole(session.user.id, projectId);
+      if (!hasProjectPermission(role, "editor")) {
+        return NextResponse.json(
+          { message: "No tienes permisos para crear planes." },
+          { status: 403 },
+        );
+      }
     }
 
     if (body.startsOn && !startsOn) {

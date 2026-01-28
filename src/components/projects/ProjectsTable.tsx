@@ -10,6 +10,7 @@ type ProjectsTableProps = {
   loading: boolean;
   onEdit: (project: ProjectRecord) => void;
   onDelete: (project: ProjectRecord) => void;
+  canManage?: boolean;
 };
 
 export function ProjectsTable({
@@ -17,6 +18,7 @@ export function ProjectsTable({
   loading,
   onEdit,
   onDelete,
+  canManage = true,
 }: ProjectsTableProps) {
   if (loading) {
     return (
@@ -45,7 +47,9 @@ export function ProjectsTable({
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Descripción</th>
               <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-4 py-3 text-right">
+                {canManage ? "Acciones" : ""}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -67,22 +71,24 @@ export function ProjectsTable({
                   </Badge>
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => onEdit(project)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                      aria-label="Editar proyecto"
-                    >
-                      <IconEdit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onDelete(project)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                      aria-label="Eliminar proyecto"
-                    >
-                      <IconTrash className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {canManage ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => onEdit(project)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                        aria-label="Editar proyecto"
+                      >
+                        <IconEdit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(project)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                        aria-label="Eliminar proyecto"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -112,22 +118,24 @@ export function ProjectsTable({
             <p className="mt-3 text-sm text-ink-muted">
               {project.description ?? "Sin descripción"}
             </p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => onEdit(project)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                aria-label="Editar proyecto"
-              >
-                <IconEdit className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => onDelete(project)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                aria-label="Eliminar proyecto"
-              >
-                <IconTrash className="h-5 w-5" />
-              </button>
-            </div>
+            {canManage ? (
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={() => onEdit(project)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                  aria-label="Editar proyecto"
+                >
+                  <IconEdit className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => onDelete(project)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                  aria-label="Eliminar proyecto"
+                >
+                  <IconTrash className="h-5 w-5" />
+                </button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

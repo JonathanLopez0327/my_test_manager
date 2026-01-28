@@ -4,16 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
-import { ProjectsHeader } from "./ProjectsHeader";
-import { ProjectFormModal } from "./ProjectFormModal";
-import { ProjectsTable } from "./ProjectsTable";
-import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
+import { UserFormModal } from "./UserFormModal";
+import { UsersHeader } from "./UsersHeader";
+import { UsersTable } from "./UsersTable";
+import type { UserPayload, UserRecord, UsersResponse } from "./types";
+
+type ProjectOption = {
+  id: string;
+  key: string;
+  name: string;
+};
+
+type ProjectsResponse = {
+  items: ProjectOption[];
+};
 
 const DEFAULT_PAGE_SIZE = 10;
 
-export function ProjectsPage() {
+export function UsersPage() {
   const { data: session } = useSession();
-  const [items, setItems] = useState<ProjectRecord[]>([]);
+  const [items, setItems] = useState<UserRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
@@ -21,24 +31,19 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<ProjectRecord | null>(null);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
 
-  const isReadOnlyGlobal = useMemo(
-    () =>
-      session?.user?.globalRoles?.some(
-        (role) => role === "support" || role === "auditor",
-      ) ?? false,
+  const canCreate = useMemo(
+    () => session?.user?.globalRoles?.includes("super_admin") ?? false,
     [session?.user?.globalRoles],
   );
-
-  const canManage = !isReadOnlyGlobal;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize],
   );
 
-  const fetchProjects = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -47,12 +52,12 @@ export function ProjectsPage() {
         pageSize: String(pageSize),
         query,
       });
-      const response = await fetch(`/api/projects?${params.toString()}`);
-      const data = (await response.json()) as ProjectsResponse & {
+      const response = await fetch(`/api/users?${params.toString()}`);
+      const data = (await response.json()) as UsersResponse & {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los proyectos.");
+        throw new Error(data.message || "No se pudieron cargar los usuarios.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -60,12 +65,35 @@ export function ProjectsPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los proyectos.",
+          : "No se pudieron cargar los usuarios.",
       );
     } finally {
       setLoading(false);
     }
   }, [page, pageSize, query]);
+
+  const fetchProjects = useCallback(async () => {
+    if (!canCreate) return;
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "50",
+      });
+      const response = await fetch(`/api/projects?${params.toString()}`);
+      const data = (await response.json()) as ProjectsResponse & {
+        message?: string;
+      };
+      if (response.ok && data.items) {
+        setProjects(data.items);
+      }
+    } catch {
+      setProjects([]);
+    }
+  }, [canCreate]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
     fetchProjects();
@@ -82,50 +110,13 @@ export function ProjectsPage() {
   }, [page, totalPages]);
 
   const handleCreate = () => {
-    if (!canManage) return;
-    setEditing(null);
+    if (!canCreate) return;
     setModalOpen(true);
   };
 
-  const handleEdit = (project: ProjectRecord) => {
-    if (!canManage) return;
-    setEditing(project);
-    setModalOpen(true);
-  };
-
-  const handleDelete = async (project: ProjectRecord) => {
-    if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar el proyecto "${project.name}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: "DELETE",
-      });
-      const data = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar el proyecto.");
-      }
-      await fetchProjects();
-    } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "No se pudo eliminar el proyecto.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async (payload: ProjectPayload, projectId?: string) => {
-    const method = projectId ? "PUT" : "POST";
-    const endpoint = projectId ? `/api/projects/${projectId}` : "/api/projects";
-    const response = await fetch(endpoint, {
-      method,
+  const handleSave = async (payload: UserPayload) => {
+    const response = await fetch("/api/users", {
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
@@ -133,26 +124,26 @@ export function ProjectsPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar el proyecto.");
+      throw new Error(data.message || "No se pudo crear el usuario.");
     }
-    await fetchProjects();
+    await fetchUsers();
   };
 
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <ProjectsHeader
+        <UsersHeader
           query={query}
           onQueryChange={setQuery}
           onCreate={handleCreate}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
-          canCreate={canManage}
+          canCreate={canCreate}
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-ink">Listado de proyectos</p>
+            <p className="text-sm font-semibold text-ink">Listado de usuarios</p>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-soft">
             {loading ? "Actualizando..." : `Total: ${total}`}
@@ -166,13 +157,7 @@ export function ProjectsPage() {
         ) : null}
 
         <div className="mt-6">
-          <ProjectsTable
-            items={items}
-            loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            canManage={canManage}
-          />
+          <UsersTable items={items} loading={loading} />
         </div>
 
         <div className="mt-6">
@@ -185,12 +170,12 @@ export function ProjectsPage() {
         </div>
       </Card>
 
-      {canManage ? (
-        <ProjectFormModal
+      {canCreate ? (
+        <UserFormModal
           open={modalOpen}
-          project={editing}
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
+          projects={projects}
         />
       ) : null}
     </div>

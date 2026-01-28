@@ -11,11 +11,13 @@ import {
   IconLayers,
   IconPlus,
   IconSettings,
+  IconUsers,
 } from "../icons";
 
 const navItems = [
   { label: "Overview", icon: IconGrid, href: "/manager" },
   { label: "Projects", icon: IconFolder, href: "/manager/projects" },
+  { label: "Users", icon: IconUsers, href: "/manager/users" },
   { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
   { label: "Runs", icon: IconChart },
   { label: "Cases", icon: IconClipboard },

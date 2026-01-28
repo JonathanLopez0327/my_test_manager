@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import {
+  getGlobalRoles,
+  isProjectAdmin,
+  isReadOnlyGlobal,
+  isSuperAdmin,
+} from "@/lib/permissions";
 
 type RouteParams = {
   params: {
@@ -10,6 +18,28 @@ type RouteParams = {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
+  const globalRoles = await getGlobalRoles(session.user.id);
+  if (!isSuperAdmin(globalRoles)) {
+    if (isReadOnlyGlobal(globalRoles)) {
+      return NextResponse.json(
+        { message: "Solo lectura." },
+        { status: 403 },
+      );
+    }
+    const isAdmin = await isProjectAdmin(session.user.id, id);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { message: "No tienes permisos para editar este proyecto." },
+        { status: 403 },
+      );
+    }
+  }
+
   try {
     const body = (await request.json()) as {
       key?: string;
@@ -58,6 +88,28 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_: NextRequest, { params }: RouteParams) {
   const { id } = params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+  }
+
+  const globalRoles = await getGlobalRoles(session.user.id);
+  if (!isSuperAdmin(globalRoles)) {
+    if (isReadOnlyGlobal(globalRoles)) {
+      return NextResponse.json(
+        { message: "Solo lectura." },
+        { status: 403 },
+      );
+    }
+    const isAdmin = await isProjectAdmin(session.user.id, id);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { message: "No tienes permisos para eliminar este proyecto." },
+        { status: 403 },
+      );
+    }
+  }
+
   try {
     await prisma.project.delete({ where: { id } });
     return NextResponse.json({ ok: true });

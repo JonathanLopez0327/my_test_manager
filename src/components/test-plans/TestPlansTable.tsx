@@ -9,6 +9,7 @@ type TestPlansTableProps = {
   loading: boolean;
   onEdit: (plan: TestPlanRecord) => void;
   onDelete: (plan: TestPlanRecord) => void;
+  canManage?: boolean;
 };
 
 const statusLabels: Record<TestPlanStatus, string> = {
@@ -51,6 +52,7 @@ export function TestPlansTable({
   loading,
   onEdit,
   onDelete,
+  canManage = true,
 }: TestPlansTableProps) {
   if (loading) {
     return (
@@ -79,7 +81,9 @@ export function TestPlansTable({
               <th className="px-4 py-3">Proyecto</th>
               <th className="px-4 py-3">Estado</th>
               <th className="px-4 py-3">Fechas</th>
-              <th className="px-4 py-3 text-right">Acciones</th>
+              <th className="px-4 py-3 text-right">
+                {canManage ? "Acciones" : ""}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -104,22 +108,24 @@ export function TestPlansTable({
                   {getRangeText(plan)}
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => onEdit(plan)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                      aria-label="Editar plan"
-                    >
-                      <IconEdit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onDelete(plan)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                      aria-label="Eliminar plan"
-                    >
-                      <IconTrash className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {canManage ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => onEdit(plan)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                        aria-label="Editar plan"
+                      >
+                        <IconEdit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(plan)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                        aria-label="Eliminar plan"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
                 </td>
               </tr>
             ))}
@@ -153,22 +159,24 @@ export function TestPlansTable({
             <p className="mt-3 text-xs text-ink-soft">
               {getRangeText(plan)}
             </p>
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                onClick={() => onEdit(plan)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                aria-label="Editar plan"
-              >
-                <IconEdit className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => onDelete(plan)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                aria-label="Eliminar plan"
-              >
-                <IconTrash className="h-5 w-5" />
-              </button>
-            </div>
+            {canManage ? (
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={() => onEdit(plan)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                  aria-label="Editar plan"
+                >
+                  <IconEdit className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => onDelete(plan)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                  aria-label="Eliminar plan"
+                >
+                  <IconTrash className="h-5 w-5" />
+                </button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

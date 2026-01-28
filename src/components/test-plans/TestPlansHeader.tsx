@@ -10,6 +10,7 @@ type TestPlansHeaderProps = {
   onCreate: () => void;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
+  canCreate?: boolean;
 };
 
 export function TestPlansHeader({
@@ -18,6 +19,7 @@ export function TestPlansHeader({
   onCreate,
   pageSize,
   onPageSizeChange,
+  canCreate = true,
 }: TestPlansHeaderProps) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -50,10 +52,12 @@ export function TestPlansHeader({
             </option>
           ))}
         </select>
-        <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
-          <IconPlus className="h-4 w-4" />
-          Nuevo plan
-        </Button>
+        {canCreate ? (
+          <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
+            <IconPlus className="h-4 w-4" />
+            Nuevo plan
+          </Button>
+        ) : null}
       </div>
     </div>
   );

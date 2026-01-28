@@ -49,15 +49,23 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user?.id) {
         token.id = user.id;
+      }
+      if (token.id && !token.globalRoles) {
+        const roles = await prisma.userGlobalRole.findMany({
+          where: { userId: token.id as string },
+          select: { role: true },
+        });
+        token.globalRoles = roles.map((item) => item.role);
       }
       return token;
     },
     session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
+        session.user.globalRoles = (token.globalRoles as string[]) ?? [];
       }
       return session;
     },

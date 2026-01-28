@@ -17,6 +17,7 @@ import {
   SparklesIcon,
   Squares2X2Icon,
   TrashIcon,
+  UserGroupIcon,
 } from "@heroicons/react/24/outline";
 
 export const IconSearch = MagnifyingGlassIcon;
@@ -37,3 +38,4 @@ export const IconAlert = ExclamationTriangleIcon;
 export const IconSpark = SparklesIcon;
 export const IconEdit = PencilSquareIcon;
 export const IconTrash = TrashIcon;
+export const IconUsers = UserGroupIcon;

@@ -4,30 +4,30 @@ import { IconPlus, IconSearch } from "../icons";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 
-type ProjectsHeaderProps = {
+type UsersHeaderProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onCreate: () => void;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
-  canCreate?: boolean;
+  canCreate: boolean;
 };
 
-export function ProjectsHeader({
+export function UsersHeader({
   query,
   onQueryChange,
   onCreate,
   pageSize,
   onPageSizeChange,
-  canCreate = true,
-}: ProjectsHeaderProps) {
+  canCreate,
+}: UsersHeaderProps) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Gestión de proyectos
+          Gestión de usuarios
         </p>
-        <h2 className="text-2xl font-semibold text-ink">Project Manager</h2>
+        <h2 className="text-2xl font-semibold text-ink">User Manager</h2>
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:flex-1">
         <div className="relative flex w-full min-w-[220px] flex-1 items-center gap-2 sm:max-w-sm">
@@ -35,7 +35,7 @@ export function ProjectsHeader({
             <IconSearch className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Buscar por key, nombre o descripción..."
+            placeholder="Buscar por email o nombre..."
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             className="pl-11"
@@ -55,7 +55,7 @@ export function ProjectsHeader({
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            Nuevo proyecto
+            Nuevo usuario
           </Button>
         ) : null}
       </div>
