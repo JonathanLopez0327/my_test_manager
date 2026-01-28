@@ -20,7 +20,7 @@ const navItems = [
   { label: "Users", icon: IconUsers, href: "/manager/users" },
   { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
   { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites" },
-  { label: "Runs", icon: IconChart },
+  { label: "Test Runs", icon: IconChart, href: "/manager/test-runs" },
   { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases" },
 ];
 
