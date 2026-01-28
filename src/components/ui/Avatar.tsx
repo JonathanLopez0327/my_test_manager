@@ -12,8 +12,8 @@ export function Avatar({ name, role }: AvatarProps) {
     .toUpperCase();
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+    <div className="flex items-center gap-2">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
         {initials}
       </div>
       <div className="hidden text-left sm:block">

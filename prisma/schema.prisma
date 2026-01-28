@@ -5,8 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -63,25 +63,32 @@ enum MemberRole {
   viewer
 }
 
-model User {
-  id           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String          @unique
-  fullName     String?         @map("full_name")
-  passwordHash String          @map("password_hash")
-  isActive     Boolean         @default(true) @map("is_active")
-  lastLoginAt  DateTime?       @map("last_login_at") @db.Timestamptz(6)
-  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+enum GlobalRole {
+  super_admin
+  support
+  auditor
+}
 
-  sessions            UserSession[]
-  createdProjects     Project[]      @relation("ProjectCreatedBy")
-  projectMemberships  ProjectMember[]
-  createdTestPlans    TestPlan[]      @relation("TestPlanCreatedBy")
-  ownedTestCases      TestCase[]      @relation("TestCaseAutomationOwner")
-  createdTestCases    TestCase[]      @relation("TestCaseCreatedBy")
-  triggeredTestRuns   TestRun[]       @relation("TestRunTriggeredBy")
-  executedRunItems    TestRunItem[]   @relation("TestRunItemExecutedBy")
-  auditLogEntries     AuditLog[]      @relation("AuditLogActor")
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  fullName     String?   @map("full_name")
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  sessions           UserSession[]
+  createdProjects    Project[]        @relation("ProjectCreatedBy")
+  projectMemberships ProjectMember[]
+  createdTestPlans   TestPlan[]       @relation("TestPlanCreatedBy")
+  ownedTestCases     TestCase[]       @relation("TestCaseAutomationOwner")
+  createdTestCases   TestCase[]       @relation("TestCaseCreatedBy")
+  triggeredTestRuns  TestRun[]        @relation("TestRunTriggeredBy")
+  executedRunItems   TestRunItem[]    @relation("TestRunItemExecutedBy")
+  auditLogEntries    AuditLog[]       @relation("AuditLogActor")
+  globalRoles        UserGlobalRole[]
 
   @@map("users")
 }
@@ -95,7 +102,20 @@ model UserSession {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId], map: "idx_user_sessions_user")
   @@map("user_sessions")
+}
+
+model UserGlobalRole {
+  userId    String     @map("user_id") @db.Uuid
+  role      GlobalRole
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@index([role])
+  @@map("user_global_roles")
 }
 
 model Project {
@@ -108,11 +128,12 @@ model Project {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  createdBy   User?          @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  members     ProjectMember[]
-  testPlans   TestPlan[]
-  testRuns    TestRun[]
+  createdBy User?           @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members   ProjectMember[]
+  testPlans TestPlan[]
+  testRuns  TestRun[]
 
+  @@index([isActive], map: "idx_projects_active")
   @@map("projects")
 }
 
@@ -163,11 +184,11 @@ model TestSuite {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  testPlan   TestPlan   @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
-  parent     TestSuite? @relation("TestSuiteHierarchy", fields: [parentSuiteId], references: [id], onDelete: SetNull)
-  children   TestSuite[] @relation("TestSuiteHierarchy")
-  testCases  TestCase[]
-  runs       TestRun[]
+  testPlan  TestPlan    @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
+  parent    TestSuite?  @relation("TestSuiteHierarchy", fields: [parentSuiteId], references: [id], onDelete: SetNull)
+  children  TestSuite[] @relation("TestSuiteHierarchy")
+  testCases TestCase[]
+  runs      TestRun[]
 
   @@unique([testPlanId, parentSuiteId, name])
   @@index([testPlanId], map: "idx_suites_plan")
@@ -176,27 +197,27 @@ model TestSuite {
 }
 
 model TestCase {
-  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  suiteId         String         @map("suite_id") @db.Uuid
-  externalKey     String?        @map("external_key")
-  title           String
-  description     String?
-  preconditions   String?
-  steps           Json           @default("[]") @db.JsonB
-  status          TestCaseStatus @default(draft)
-  isAutomated     Boolean        @default(false) @map("is_automated")
-  automationType  String?        @map("automation_type")
-  automationRef   String?        @map("automation_ref")
-  automationOwnerId String?      @map("automation_owner") @db.Uuid
-  priority        Int            @default(3) @db.SmallInt
-  createdById     String?        @map("created_by") @db.Uuid
-  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  suiteId           String         @map("suite_id") @db.Uuid
+  externalKey       String?        @map("external_key")
+  title             String
+  description       String?
+  preconditions     String?
+  steps             Json           @default("[]") @db.JsonB
+  status            TestCaseStatus @default(draft)
+  isAutomated       Boolean        @default(false) @map("is_automated")
+  automationType    String?        @map("automation_type")
+  automationRef     String?        @map("automation_ref")
+  automationOwnerId String?        @map("automation_owner") @db.Uuid
+  priority          Int            @default(3) @db.SmallInt
+  createdById       String?        @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  suite            TestSuite   @relation(fields: [suiteId], references: [id], onDelete: Cascade)
-  automationOwner  User?       @relation("TestCaseAutomationOwner", fields: [automationOwnerId], references: [id], onDelete: SetNull)
-  createdBy        User?       @relation("TestCaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  runItems         TestRunItem[]
+  suite           TestSuite     @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  automationOwner User?         @relation("TestCaseAutomationOwner", fields: [automationOwnerId], references: [id], onDelete: SetNull)
+  createdBy       User?         @relation("TestCaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  runItems        TestRunItem[]
 
   @@index([suiteId], map: "idx_test_cases_suite")
   @@index([status], map: "idx_test_cases_status")
@@ -206,28 +227,28 @@ model TestCase {
 }
 
 model TestRun {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String        @map("project_id") @db.Uuid
-  testPlanId  String?       @map("test_plan_id") @db.Uuid
-  suiteId     String?       @map("suite_id") @db.Uuid
-  runType     TestRunType   @map("run_type")
-  status      TestRunStatus @default(queued)
-  name        String?
-  triggeredById String?     @map("triggered_by") @db.Uuid
-  environment String?
-  buildNumber String?       @map("build_number")
-  branch      String?
-  commitSha   String?       @map("commit_sha")
-  ciProvider  String?       @map("ci_provider")
-  ciRunUrl    String?       @map("ci_run_url")
-  startedAt   DateTime?     @map("started_at") @db.Timestamptz(6)
-  finishedAt  DateTime?     @map("finished_at") @db.Timestamptz(6)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  testPlanId    String?       @map("test_plan_id") @db.Uuid
+  suiteId       String?       @map("suite_id") @db.Uuid
+  runType       TestRunType   @map("run_type")
+  status        TestRunStatus @default(queued)
+  name          String?
+  triggeredById String?       @map("triggered_by") @db.Uuid
+  environment   String?
+  buildNumber   String?       @map("build_number")
+  branch        String?
+  commitSha     String?       @map("commit_sha")
+  ciProvider    String?       @map("ci_provider")
+  ciRunUrl      String?       @map("ci_run_url")
+  startedAt     DateTime?     @map("started_at") @db.Timestamptz(6)
+  finishedAt    DateTime?     @map("finished_at") @db.Timestamptz(6)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  testPlan    TestPlan? @relation(fields: [testPlanId], references: [id], onDelete: SetNull)
-  suite       TestSuite? @relation(fields: [suiteId], references: [id], onDelete: SetNull)
-  triggeredBy User?     @relation("TestRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testPlan    TestPlan?         @relation(fields: [testPlanId], references: [id], onDelete: SetNull)
+  suite       TestSuite?        @relation(fields: [suiteId], references: [id], onDelete: SetNull)
+  triggeredBy User?             @relation("TestRunTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
   items       TestRunItem[]
   artifacts   TestRunArtifact[]
   metrics     TestRunMetrics?
@@ -236,6 +257,8 @@ model TestRun {
   @@index([testPlanId], map: "idx_runs_plan")
   @@index([status], map: "idx_runs_status")
   @@index([runType], map: "idx_runs_type")
+  @@index([createdAt], map: "idx_runs_created_at")
+  @@index([projectId, createdAt], map: "idx_runs_project_created")
   @@map("test_runs")
 }
 
@@ -251,9 +274,9 @@ model TestRunItem {
   stacktrace   String?
   createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  run        TestRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
-  testCase   TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
-  executedBy User?        @relation("TestRunItemExecutedBy", fields: [executedById], references: [id], onDelete: SetNull)
+  run        TestRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  testCase   TestCase          @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
+  executedBy User?             @relation("TestRunItemExecutedBy", fields: [executedById], references: [id], onDelete: SetNull)
   artifacts  TestRunArtifact[]
 
   @@unique([runId, testCaseId])
@@ -264,17 +287,17 @@ model TestRunItem {
 }
 
 model TestRunArtifact {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  runId        String?      @map("run_id") @db.Uuid
-  runItemId    String?      @map("run_item_id") @db.Uuid
-  type         ArtifactType @default(other)
-  name         String?
-  url          String
-  mimeType     String?      @map("mime_type")
-  sizeBytes    BigInt?      @map("size_bytes")
-  checksumSha256 String?    @map("checksum_sha256")
-  metadata     Json         @default("{}") @db.JsonB
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runId          String?      @map("run_id") @db.Uuid
+  runItemId      String?      @map("run_item_id") @db.Uuid
+  type           ArtifactType @default(other)
+  name           String?
+  url            String
+  mimeType       String?      @map("mime_type")
+  sizeBytes      BigInt?      @map("size_bytes")
+  checksumSha256 String?      @map("checksum_sha256")
+  metadata       Json         @default("{}") @db.JsonB
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
   run     TestRun?     @relation(fields: [runId], references: [id], onDelete: Cascade)
   runItem TestRunItem? @relation(fields: [runItemId], references: [id], onDelete: Cascade)
