@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
-import type { UserPayload } from "./types";
+import type { UserPayload, UserRecord, UserUpdatePayload } from "./types";
 
 type ProjectOption = {
   id: string;
@@ -15,7 +15,11 @@ type ProjectOption = {
 type UserFormModalProps = {
   open: boolean;
   onClose: () => void;
-  onSave: (payload: UserPayload) => Promise<void>;
+  onSave: (
+    payload: UserPayload | UserUpdatePayload,
+    userId?: string,
+  ) => Promise<void>;
+  user?: UserRecord | null;
   projects: ProjectOption[];
 };
 
@@ -32,29 +36,55 @@ export function UserFormModal({
   open,
   onClose,
   onSave,
+  user,
   projects,
 }: UserFormModalProps) {
   const [form, setForm] = useState<UserPayload>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const title = useMemo(() => "Nuevo usuario", []);
+  const title = useMemo(
+    () => (user ? "Editar usuario" : "Nuevo usuario"),
+    [user],
+  );
 
   useEffect(() => {
-    if (open) {
-      setForm((prev) => ({
+    if (!open) return;
+    if (user) {
+      const membership = user.memberships[0];
+      setForm({
+        email: user.email,
+        fullName: user.fullName ?? "",
+        password: "",
+        isActive: user.isActive,
+        projectId: membership?.projectId ?? projects[0]?.id ?? "",
+        projectRole: membership?.role ?? "viewer",
+      });
+    } else {
+      setForm({
         ...emptyForm,
         projectId: projects[0]?.id ?? "",
-      }));
-      setError(null);
+      });
     }
-  }, [open, projects]);
+    setError(null);
+  }, [open, projects, user]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      await onSave(form);
+      if (user) {
+        const payload: UserUpdatePayload = {
+          fullName: form.fullName ?? null,
+          password: form.password || undefined,
+          isActive: form.isActive,
+          projectId: form.projectId,
+          projectRole: form.projectRole,
+        };
+        await onSave(payload, user.id);
+      } else {
+        await onSave(form);
+      }
       onClose();
     } catch (submitError) {
       setError(
@@ -68,12 +98,13 @@ export function UserFormModal({
   };
 
   const hasProjects = projects.length > 0;
-  const isValid =
-    form.email.trim() &&
-    form.password.trim() &&
-    form.projectId.trim() &&
-    form.password.length >= 8 &&
-    hasProjects;
+  const isValid = user
+    ? Boolean(form.projectId.trim()) && hasProjects
+    : form.email.trim() &&
+      form.password.trim() &&
+      form.projectId.trim() &&
+      form.password.length >= 8 &&
+      hasProjects;
 
   return (
     <Modal
@@ -96,6 +127,7 @@ export function UserFormModal({
             placeholder="user@empresa.com"
             type="email"
             className="mt-2"
+            disabled={Boolean(user)}
           />
         </label>
         <label className="text-sm font-semibold text-ink">
@@ -117,7 +149,9 @@ export function UserFormModal({
               setForm((prev) => ({ ...prev, password: event.target.value }))
             }
             type="password"
-            placeholder="Mínimo 8 caracteres"
+            placeholder={
+              user ? "Dejar vacío para mantener" : "Mínimo 8 caracteres"
+            }
             className="mt-2"
           />
         </label>
@@ -180,7 +214,13 @@ export function UserFormModal({
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-            {submitting ? "Creando..." : "Crear usuario"}
+            {submitting
+              ? user
+                ? "Guardando..."
+                : "Creando..."
+              : user
+                ? "Guardar cambios"
+                : "Crear usuario"}
           </Button>
         </div>
       </div>

@@ -7,7 +7,12 @@ import { Pagination } from "../ui/Pagination";
 import { UserFormModal } from "./UserFormModal";
 import { UsersHeader } from "./UsersHeader";
 import { UsersTable } from "./UsersTable";
-import type { UserPayload, UserRecord, UsersResponse } from "./types";
+import type {
+  UserPayload,
+  UserRecord,
+  UsersResponse,
+  UserUpdatePayload,
+} from "./types";
 
 type ProjectOption = {
   id: string;
@@ -31,6 +36,7 @@ export function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<UserRecord | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
 
   const canCreate = useMemo(
@@ -111,12 +117,25 @@ export function UsersPage() {
 
   const handleCreate = () => {
     if (!canCreate) return;
+    setEditing(null);
     setModalOpen(true);
   };
 
-  const handleSave = async (payload: UserPayload) => {
-    const response = await fetch("/api/users", {
-      method: "POST",
+  const handleEdit = (user: UserRecord) => {
+    if (!canCreate) return;
+    setEditing(user);
+    setModalOpen(true);
+  };
+
+  const handleSave = async (
+    payload: UserPayload | UserUpdatePayload,
+    userId?: string,
+  ) => {
+    const isEditing = Boolean(userId);
+    const endpoint = isEditing ? `/api/users/${userId}` : "/api/users";
+    const method = isEditing ? "PUT" : "POST";
+    const response = await fetch(endpoint, {
+      method,
       headers: {
         "Content-Type": "application/json",
       },
@@ -124,7 +143,12 @@ export function UsersPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo crear el usuario.");
+      throw new Error(
+        data.message ||
+          (isEditing
+            ? "No se pudo actualizar el usuario."
+            : "No se pudo crear el usuario."),
+      );
     }
     await fetchUsers();
   };
@@ -157,7 +181,12 @@ export function UsersPage() {
         ) : null}
 
         <div className="mt-6">
-          <UsersTable items={items} loading={loading} />
+        <UsersTable
+          items={items}
+          loading={loading}
+          onEdit={handleEdit}
+          canManage={canCreate}
+        />
         </div>
 
         <div className="mt-6">
@@ -176,6 +205,7 @@ export function UsersPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
           projects={projects}
+          user={editing}
         />
       ) : null}
     </div>

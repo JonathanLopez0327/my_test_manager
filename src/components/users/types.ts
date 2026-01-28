@@ -32,3 +32,11 @@ export type UserPayload = {
   projectId: string;
   projectRole: "admin" | "editor" | "viewer";
 };
+
+export type UserUpdatePayload = {
+  fullName?: string | null;
+  password?: string;
+  isActive: boolean;
+  projectId: string;
+  projectRole: "admin" | "editor" | "viewer";
+};
