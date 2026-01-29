@@ -1,83 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Test Manager
 
-## Roles y permisos
+A modern, comprehensive Test Management System built with **Next.js**, **Prisma**, and **Tailwind CSS**. This dashboard allows QA teams to organize projects, test plans, suites, cases, and track execution runs with detailed metrics.
 
-### Roles globales
-- `super_admin`: acceso total a toda la plataforma.
-- `support`: acceso global de solo lectura (soporte/debug).
-- `auditor`: acceso global de solo lectura + métricas/reportes (por ahora solo lectura).
+## 🚀 Features
 
-### Roles por proyecto
-- `admin`: gestiona el proyecto (planes, miembros, borrar).
-- `editor`: crea/edita planes, suites, casos y corridas.
-- `viewer`: solo lectura.
+-   **Project Management**: Create and manage multiple projects.
+-   **Test Planning**: Define test plans with start/end dates and status tracking.
+-   **Test Case Management**:
+    -   Organize cases into structured Test Suites (supports hierarchy/nesting).
+    -   Detailed test case steps, preconditions, and priorities.
+    -   Automation status tracking.
+-   **Execution Tracking**:
+    -   Create Test Runs (Manual or Automated).
+    -   Record results (Passed, Failed, Skipped etc.).
+    -   Upload artifacts (Screenshots, Logs) to runs.
+-   **Dashboard & Analytics**:
+    -   Real-time statistics on projects, execution rates, and failures.
+    -   Automation coverage metrics.
+-   **User Management**:
+    -   Role-based access control (Admin, Editor, Viewer).
+    -   Global roles (Super Admin, Support, Auditor).
 
-### Orden de evaluación
-1) Si tiene `super_admin` → permitir todo.  
-2) Si tiene `support` o `auditor` → permitir solo lectura.  
-3) Si es miembro del proyecto → aplicar rol del proyecto.  
-4) Si no cumple → acceso denegado.  
+## 🛠 Tech Stack
 
-### Reglas especiales
-- Crear proyectos: permitido para `super_admin` o usuarios con `MemberRole.admin` en cualquier proyecto existente.
-- Al crear un proyecto, el creador queda asignado como `admin` del proyecto.
-- Crear usuarios: solo `super_admin` (UI + API).
+-   **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+-   **Database**: [PostgreSQL](https://www.postgresql.org/)
+-   **ORM**: [Prisma](https://www.prisma.io/)
+-   **Authentication**: [NextAuth.js](https://next-auth.js.org/)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+-   **Forms & Validation**: [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/)
+-   **Storage**: AWS S3 (via `@aws-sdk/client-s3`) for artifacts.
 
-## API (resumen)
+## 📦 Data Model
 
-### Users
-```
-GET  /api/users   # Listar usuarios (super_admin/support/auditor)
-POST /api/users   # Crear usuario (solo super_admin)
-```
+The core entities in the system are:
 
-#### Crear usuario (payload)
-```
-{
-  "email": "user@empresa.com",
-  "password": "Minimo8",
-  "projectId": "uuid-proyecto",
-  "projectRole": "admin|editor|viewer",
-  "fullName": "Nombre opcional",
-  "isActive": true
-}
-```
+-   **Project**: The top-level container.
+-   **Test Plan**: A collection of suites/dates for a specific testing phase (e.g., "Release 1.0").
+-   **Test Suite**: Grouping mechanism for test cases (supports parent/child hierarchy).
+-   **Test Case**: Individual test scenarios with steps and expectations.
+-   **Test Run**: An execution instance of a Plan or Suite (contains `TestRunItems` with results).
 
-## UI
+## ⚡ Getting Started
 
-- `/manager/users`: gestión de usuarios (visible en sidebar).
+### Prerequisites
 
-## Getting Started
+-   Node.js 18+
+-   PostgreSQL database
+-   pnpm (recommended)
 
-First, run the development server:
+### Installation
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd my_test_manager
+    ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2.  **Install dependencies**:
+    ```bash
+    pnpm install
+    ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3.  **Configure Environment**:
+    Create a `.env` file in the root directory:
+    ```env
+    DATABASE_URL="postgresql://user:password@localhost:5432/test_manager?schema=public"
+    NEXTAUTH_SECRET="your-super-secret-key"
+    NEXTAUTH_URL="http://localhost:3000"
+    
+    # Optional: S3 for Artifacts
+    S3_REGION="us-east-1"
+    S3_ACCESS_KEY_ID="your-access-key"
+    S3_SECRET_ACCESS_KEY="your-secret-key"
+    S3_BUCKET_NAME="your-bucket-name"
+    ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4.  **Database Setup**:
+    ```bash
+    # Generate Prisma client
+    pnpm prisma generate
 
-## Learn More
+    # Push schema to database
+    pnpm prisma db push
 
-To learn more about Next.js, take a look at the following resources:
+    # (Optional) Seed initial data
+    pnpm prisma db seed
+    ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5.  **Run Development Server**:
+    ```bash
+    pnpm dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📝 Scripts
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+-   `pnpm dev`: Start the development server.
+-   `pnpm build`: Build the application for production.
+-   `pnpm start`: Start the production server.
+-   `pnpm lint`: Run ESLint.
+-   `pnpm db:push`: Push Prisma schema changes to the database.
