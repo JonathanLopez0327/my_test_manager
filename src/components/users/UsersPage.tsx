@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
-import { UserFormModal } from "./UserFormModal";
+import { UserFormSheet } from "./UserFormSheet";
 import { UsersHeader } from "./UsersHeader";
 import { UsersTable } from "./UsersTable";
 import type {
@@ -145,9 +145,9 @@ export function UsersPage() {
     if (!response.ok) {
       throw new Error(
         data.message ||
-          (isEditing
-            ? "No se pudo actualizar el usuario."
-            : "No se pudo crear el usuario."),
+        (isEditing
+          ? "No se pudo actualizar el usuario."
+          : "No se pudo crear el usuario."),
       );
     }
     await fetchUsers();
@@ -181,12 +181,12 @@ export function UsersPage() {
         ) : null}
 
         <div className="mt-6">
-        <UsersTable
-          items={items}
-          loading={loading}
-          onEdit={handleEdit}
-          canManage={canCreate}
-        />
+          <UsersTable
+            items={items}
+            loading={loading}
+            onEdit={handleEdit}
+            canManage={canCreate}
+          />
         </div>
 
         <div className="mt-6">
@@ -200,7 +200,7 @@ export function UsersPage() {
       </Card>
 
       {canCreate ? (
-        <UserFormModal
+        <UserFormSheet
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           onSave={handleSave}

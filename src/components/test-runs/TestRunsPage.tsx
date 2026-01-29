@@ -5,9 +5,9 @@ import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestRunsHeader } from "./TestRunsHeader";
-import { TestRunFormModal } from "./TestRunFormModal";
+import { TestRunFormSheet } from "./TestRunFormSheet";
 import { TestRunsTable } from "./TestRunsTable";
-import { TestRunDetailsModal } from "./TestRunDetailsModal";
+import { TestRunDetailsSheet } from "./TestRunDetailsSheet";
 import type {
   TestRunPayload,
   TestRunRecord,
@@ -315,7 +315,7 @@ export function TestRunsPage() {
       </Card>
 
       {canManage ? (
-        <TestRunFormModal
+        <TestRunFormSheet
           open={modalOpen}
           run={editing}
           projects={projects}
@@ -326,7 +326,7 @@ export function TestRunsPage() {
         />
       ) : null}
 
-      <TestRunDetailsModal
+      <TestRunDetailsSheet
         open={detailsOpen}
         run={detailsRun}
         canManage={canManage}

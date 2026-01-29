@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { ProjectsHeader } from "./ProjectsHeader";
-import { ProjectFormModal } from "./ProjectFormModal";
+import { ProjectFormSheet } from "./ProjectFormSheet";
 import { ProjectsTable } from "./ProjectsTable";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
@@ -186,7 +186,7 @@ export function ProjectsPage() {
       </Card>
 
       {canManage ? (
-        <ProjectFormModal
+        <ProjectFormSheet
           open={modalOpen}
           project={editing}
           onClose={() => setModalOpen(false)}

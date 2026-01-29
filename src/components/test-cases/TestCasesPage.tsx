@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
-import { TestCaseFormModal } from "./TestCaseFormModal";
+import { TestCaseFormSheet } from "./TestCaseFormSheet";
 import { TestCasesTable } from "./TestCasesTable";
 import type {
   TestCasePayload,
@@ -248,7 +248,7 @@ export function TestCasesPage() {
       </Card>
 
       {canManage ? (
-        <TestCaseFormModal
+        <TestCaseFormSheet
           open={modalOpen}
           testCase={editing}
           suites={suites}

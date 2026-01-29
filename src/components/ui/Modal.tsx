@@ -3,6 +3,9 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 
+import { XMarkIcon } from "@heroicons/react/24/outline";
+import { Button } from "./Button";
+
 type ModalProps = {
   open: boolean;
   title?: string;
@@ -46,12 +49,15 @@ export function Modal({
               <p className="mt-1 text-sm text-ink-muted">{description}</p>
             ) : null}
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="rounded-full border border-stroke px-3 py-1 text-xs font-semibold text-ink-muted hover:text-ink"
+            className="!p-2 text-ink-muted hover:text-ink"
+            aria-label="Close"
           >
-            Close
-          </button>
+            <XMarkIcon className="h-5 w-5" />
+          </Button>
         </div>
         <div className="mt-6 overflow-y-auto pr-1">{children}</div>
       </div>

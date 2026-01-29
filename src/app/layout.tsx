@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Sora } from "next/font/google";
+import { Geist } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-const displayFont = Sora({
-  variable: "--font-display",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${displayFont.variable} antialiased`}>
+      <body className={`${geistSans.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

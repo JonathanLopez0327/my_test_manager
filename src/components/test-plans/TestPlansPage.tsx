@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestPlansHeader } from "./TestPlansHeader";
-import { TestPlanFormModal } from "./TestPlanFormModal";
+import { TestPlanFormSheet } from "./TestPlanFormSheet";
 import { TestPlansTable } from "./TestPlansTable";
 import type {
   TestPlanPayload,
@@ -242,7 +242,7 @@ export function TestPlansPage() {
       </Card>
 
       {canManage ? (
-        <TestPlanFormModal
+        <TestPlanFormSheet
           open={modalOpen}
           plan={editing}
           projects={projects}

@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestSuitesHeader } from "./TestSuitesHeader";
-import { TestSuiteFormModal } from "./TestSuiteFormModal";
+import { TestSuiteFormSheet } from "./TestSuiteFormSheet";
 import { TestSuitesTable } from "./TestSuitesTable";
 import type {
   TestSuitePayload,
@@ -246,7 +246,7 @@ export function TestSuitesPage() {
       </Card>
 
       {canManage ? (
-        <TestSuiteFormModal
+        <TestSuiteFormSheet
           open={modalOpen}
           suite={editing}
           testPlans={testPlans}
