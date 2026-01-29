@@ -115,6 +115,8 @@ export function TestRunDetailsModal({
     url: "",
     mimeType: "",
   });
+  const [artifactFile, setArtifactFile] = useState<File | null>(null);
+  const [artifactMode, setArtifactMode] = useState<"url" | "file">("file");
 
   const canShowData = Boolean(open && run?.id);
 
@@ -127,13 +129,15 @@ export function TestRunDetailsModal({
     const runId = run?.id ?? "";
 
     Promise.all([
-      fetch(`/api/test-runs/${runId}/metrics`).then((res) => res.json()),
-      fetch(`/api/test-runs/${runId}/items?page=1&pageSize=50`).then((res) =>
-        res.json(),
-      ),
-      fetch(`/api/test-runs/${runId}/artifacts?page=1&pageSize=50`).then(
+      fetch(`/api/test-runs/${runId}/metrics`, { cache: "no-store" }).then(
         (res) => res.json(),
       ),
+      fetch(`/api/test-runs/${runId}/items?page=1&pageSize=50`, {
+        cache: "no-store",
+      }).then((res) => res.json()),
+      fetch(`/api/test-runs/${runId}/artifacts?page=1&pageSize=50`, {
+        cache: "no-store",
+      }).then((res) => res.json()),
     ])
       .then(([metricsResponse, itemsResponse, artifactsResponse]) => {
         if (!active) return;
@@ -225,13 +229,15 @@ export function TestRunDetailsModal({
     try {
       const [metricsResponse, itemsResponse, artifactsResponse] =
         await Promise.all([
-          fetch(`/api/test-runs/${run.id}/metrics`).then((res) => res.json()),
-          fetch(`/api/test-runs/${run.id}/items?page=1&pageSize=50`).then((res) =>
-            res.json(),
-          ),
-          fetch(`/api/test-runs/${run.id}/artifacts?page=1&pageSize=50`).then(
+          fetch(`/api/test-runs/${run.id}/metrics`, { cache: "no-store" }).then(
             (res) => res.json(),
           ),
+          fetch(`/api/test-runs/${run.id}/items?page=1&pageSize=50`, {
+            cache: "no-store",
+          }).then((res) => res.json()),
+          fetch(`/api/test-runs/${run.id}/artifacts?page=1&pageSize=50`, {
+            cache: "no-store",
+          }).then((res) => res.json()),
         ]);
       if (metricsResponse?.message) throw new Error(metricsResponse.message);
       if (itemsResponse?.message) throw new Error(itemsResponse.message);
@@ -313,30 +319,49 @@ export function TestRunDetailsModal({
 
   const handleCreateArtifact = async () => {
     if (!run?.id) return;
-    if (!artifactForm.url.trim()) {
-      setError("La URL del artefacto es requerida.");
-      return;
-    }
     setSavingArtifact(true);
     setError(null);
     try {
-      const response = await fetch(`/api/test-runs/${run.id}/artifacts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          artifacts: [
-            {
-              runItemId: artifactForm.runItemId || null,
-              type: artifactForm.type,
-              name: artifactForm.name || null,
-              url: artifactForm.url,
-              mimeType: artifactForm.mimeType || null,
-            },
-          ],
-        }),
-      });
+      let response: Response;
+      if (artifactMode === "file") {
+        if (!artifactFile) {
+          setError("Selecciona un archivo para subir.");
+          setSavingArtifact(false);
+          return;
+        }
+        const formData = new FormData();
+        formData.append("file", artifactFile);
+        formData.append("runItemId", artifactForm.runItemId || "");
+        formData.append("type", artifactForm.type);
+        formData.append("name", artifactForm.name || "");
+        response = await fetch(`/api/test-runs/${run.id}/artifacts/upload`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        if (!artifactForm.url.trim()) {
+          setError("La URL del artefacto es requerida.");
+          setSavingArtifact(false);
+          return;
+        }
+        response = await fetch(`/api/test-runs/${run.id}/artifacts`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            artifacts: [
+              {
+                runItemId: artifactForm.runItemId || null,
+                type: artifactForm.type,
+                name: artifactForm.name || null,
+                url: artifactForm.url,
+                mimeType: artifactForm.mimeType || null,
+              },
+            ],
+          }),
+        });
+      }
 
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
@@ -350,6 +375,8 @@ export function TestRunDetailsModal({
         url: "",
         mimeType: "",
       });
+      setArtifactFile(null);
+      setArtifactMode("file");
       await reloadData();
       onUpdated?.();
     } catch (saveError) {
@@ -643,6 +670,36 @@ export function TestRunDetailsModal({
                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                   Nuevo artefacto
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArtifactMode("file");
+                      setArtifactForm((prev) => ({ ...prev, url: "" }));
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      artifactMode === "file"
+                        ? "bg-brand-50 text-brand-700"
+                        : "border border-stroke text-ink-muted"
+                    }`}
+                  >
+                    Subir archivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArtifactMode("url");
+                      setArtifactFile(null);
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      artifactMode === "url"
+                        ? "bg-brand-50 text-brand-700"
+                        : "border border-stroke text-ink-muted"
+                    }`}
+                  >
+                    Usar URL
+                  </button>
+                </div>
                 <div className="mt-3 grid gap-3 text-sm text-ink md:grid-cols-2">
                   <label className="space-y-1">
                     <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
@@ -703,6 +760,7 @@ export function TestRunDetailsModal({
                     <input
                       type="text"
                       value={artifactForm.url}
+                      disabled={artifactMode === "file"}
                       onChange={(event) =>
                         setArtifactForm((prev) => ({
                           ...prev,
@@ -712,6 +770,25 @@ export function TestRunDetailsModal({
                       className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
                       placeholder="https://..."
                     />
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+                      Archivo
+                    </span>
+                    <input
+                      key={artifactFile ? artifactFile.name : "empty"}
+                      type="file"
+                      disabled={artifactMode === "url"}
+                      onChange={(event) =>
+                        setArtifactFile(event.target.files?.[0] ?? null)
+                      }
+                      className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
+                    />
+                    {artifactFile ? (
+                      <p className="text-xs text-ink-muted">
+                        {artifactFile.name} · {Math.round(artifactFile.size / 1024)} KB
+                      </p>
+                    ) : null}
                   </label>
                   <label className="space-y-1">
                     <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">

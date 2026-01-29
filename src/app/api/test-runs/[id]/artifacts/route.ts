@@ -17,6 +17,8 @@ type RouteParams = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [
@@ -34,7 +36,7 @@ function parseNumber(value: string | null, fallback: number) {
 }
 
 function parseArtifactType(value?: string | null) {
-  if (!value) return "other";
+  if (!value) return null;
   return ARTIFACT_TYPE_VALUES.includes(value as ArtifactType)
     ? (value as ArtifactType)
     : null;
@@ -162,12 +164,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     prisma.testRunArtifact.count({ where }),
   ]);
 
-  return NextResponse.json({
-    items,
-    total,
-    page,
-    pageSize,
-  });
+  return NextResponse.json(
+    {
+      items,
+      total,
+      page,
+      pageSize,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {

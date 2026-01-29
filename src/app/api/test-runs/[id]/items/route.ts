@@ -18,6 +18,8 @@ type RouteParams = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [

@@ -17,6 +17,8 @@ type RouteParams = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 async function requireRunAccess(
   userId: string,
   runId: string,

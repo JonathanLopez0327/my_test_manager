@@ -36,7 +36,7 @@ export function Modal({
         onClick={onClose}
         aria-label="Close modal"
       />
-      <div className="relative w-full max-w-2xl rounded-xl border border-stroke bg-white p-6 shadow-soft">
+      <div className="relative flex w-full max-w-2xl max-h-[calc(100vh-4rem)] flex-col rounded-xl border border-stroke bg-white p-6 shadow-soft">
         <div className="flex items-start justify-between gap-4">
           <div>
             {title ? (
@@ -53,7 +53,7 @@ export function Modal({
             Close
           </button>
         </div>
-        <div className="mt-6">{children}</div>
+        <div className="mt-6 overflow-y-auto pr-1">{children}</div>
       </div>
     </div>
   );
