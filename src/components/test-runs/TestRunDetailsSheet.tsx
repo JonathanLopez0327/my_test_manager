@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
+import { ArtifactPreview } from "../ui/ArtifactPreview";
+import { EyeIcon } from "@heroicons/react/24/outline";
 import type { TestRunMetricsRecord, TestRunRecord } from "./types";
 
 type TestRunDetailsSheetProps = {
@@ -117,6 +119,9 @@ export function TestRunDetailsSheet({
     });
     const [artifactFile, setArtifactFile] = useState<File | null>(null);
     const [artifactMode, setArtifactMode] = useState<"url" | "file">("file");
+    const [previewArtifact, setPreviewArtifact] = useState<RunArtifactRecord | null>(
+        null,
+    );
 
     const canShowData = Boolean(open && run?.id);
 
@@ -404,8 +409,8 @@ export function TestRunDetailsSheet({
                             type="button"
                             onClick={() => setTab("summary")}
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${tab === "summary"
-                                    ? "bg-brand-50 text-brand-700"
-                                    : "border border-stroke text-ink-muted"
+                                ? "bg-brand-50 text-brand-700"
+                                : "border border-stroke text-ink-muted"
                                 }`}
                         >
                             Resumen
@@ -414,8 +419,8 @@ export function TestRunDetailsSheet({
                             type="button"
                             onClick={() => setTab("items")}
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${tab === "items"
-                                    ? "bg-brand-50 text-brand-700"
-                                    : "border border-stroke text-ink-muted"
+                                ? "bg-brand-50 text-brand-700"
+                                : "border border-stroke text-ink-muted"
                                 }`}
                         >
                             Items
@@ -424,8 +429,8 @@ export function TestRunDetailsSheet({
                             type="button"
                             onClick={() => setTab("artifacts")}
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${tab === "artifacts"
-                                    ? "bg-brand-50 text-brand-700"
-                                    : "border border-stroke text-ink-muted"
+                                ? "bg-brand-50 text-brand-700"
+                                : "border border-stroke text-ink-muted"
                                 }`}
                         >
                             Artefactos
@@ -696,8 +701,8 @@ export function TestRunDetailsSheet({
                                             setArtifactForm((prev) => ({ ...prev, url: "" }));
                                         }}
                                         className={`rounded-full px-3 py-1 text-xs font-semibold ${artifactMode === "file"
-                                                ? "bg-brand-50 text-brand-700"
-                                                : "border border-stroke text-ink-muted"
+                                            ? "bg-brand-50 text-brand-700"
+                                            : "border border-stroke text-ink-muted"
                                             }`}
                                     >
                                         Subir archivo
@@ -709,8 +714,8 @@ export function TestRunDetailsSheet({
                                             setArtifactFile(null);
                                         }}
                                         className={`rounded-full px-3 py-1 text-xs font-semibold ${artifactMode === "url"
-                                                ? "bg-brand-50 text-brand-700"
-                                                : "border border-stroke text-ink-muted"
+                                            ? "bg-brand-50 text-brand-700"
+                                            : "border border-stroke text-ink-muted"
                                             }`}
                                     >
                                         Usar URL
@@ -848,16 +853,27 @@ export function TestRunDetailsSheet({
                                         className="flex flex-col justify-between rounded-lg border border-stroke bg-white p-4"
                                     >
                                         <div>
-                                            <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center justify-between gap-2">
                                                 <Badge>{artifact.type}</Badge>
-                                                <a
-                                                    href={artifact.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-xs text-brand-600 hover:underline"
-                                                >
-                                                    Abrir
-                                                </a>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewArtifact(artifact)}
+                                                        className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700"
+                                                        title="Ver artefacto"
+                                                    >
+                                                        <EyeIcon className="h-4 w-4" />
+                                                        Ver
+                                                    </button>
+                                                    <a
+                                                        href={artifact.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs text-ink-muted hover:underline"
+                                                    >
+                                                        Descargar
+                                                    </a>
+                                                </div>
                                             </div>
                                             <p className="mt-2 text-sm font-semibold text-ink">
                                                 {artifact.name || "Sin nombre"}
@@ -873,6 +889,12 @@ export function TestRunDetailsSheet({
                     </div>
                 ) : null}
             </div>
-        </Sheet>
+
+            <ArtifactPreview
+                open={Boolean(previewArtifact)}
+                onClose={() => setPreviewArtifact(null)}
+                artifact={previewArtifact}
+            />
+        </Sheet >
     );
 }

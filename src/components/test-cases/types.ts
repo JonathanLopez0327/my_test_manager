@@ -1,12 +1,17 @@
 export type TestCaseStatus = "draft" | "ready" | "deprecated";
 
+export type TestCaseStep = {
+  step: string;
+  expectedResult: string;
+};
+
 export type TestCaseRecord = {
   id: string;
   suiteId: string;
   title: string;
   description: string | null;
   preconditions: string | null;
-  steps: string[];
+  steps: TestCaseStep[] | string[];
   status: TestCaseStatus;
   isAutomated: boolean;
   automationType: string | null;
@@ -41,7 +46,7 @@ export type TestCasePayload = {
   title: string;
   description?: string | null;
   preconditions?: string | null;
-  steps?: string[] | null;
+  steps?: TestCaseStep[] | string[] | null;
   status: TestCaseStatus;
   priority?: number | null;
   isAutomated?: boolean;

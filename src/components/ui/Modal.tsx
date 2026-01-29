@@ -12,6 +12,7 @@ type ModalProps = {
   description?: string;
   onClose: () => void;
   children: ReactNode;
+  size?: "sm" | "md" | "lg" | "xl" | "2xl";
 };
 
 export function Modal({
@@ -20,6 +21,7 @@ export function Modal({
   description,
   onClose,
   children,
+  size = "2xl",
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -32,6 +34,14 @@ export function Modal({
 
   if (!open) return null;
 
+  const maxWidthClass = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-xl",
+    "2xl": "max-w-2xl",
+  }[size];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
       <button
@@ -39,7 +49,9 @@ export function Modal({
         onClick={onClose}
         aria-label="Close modal"
       />
-      <div className="relative flex w-full max-w-2xl max-h-[calc(100vh-4rem)] flex-col rounded-xl border border-stroke bg-white p-6 shadow-soft">
+      <div
+        className={`relative flex w-full ${maxWidthClass} max-h-[calc(100vh-4rem)] flex-col rounded-xl border border-stroke bg-white p-6 shadow-soft`}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             {title ? (

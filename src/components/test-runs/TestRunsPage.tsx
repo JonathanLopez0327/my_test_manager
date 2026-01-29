@@ -7,7 +7,9 @@ import { Pagination } from "../ui/Pagination";
 import { TestRunsHeader } from "./TestRunsHeader";
 import { TestRunFormSheet } from "./TestRunFormSheet";
 import { TestRunsTable } from "./TestRunsTable";
+
 import { TestRunDetailsSheet } from "./TestRunDetailsSheet";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type {
   TestRunPayload,
   TestRunRecord,
@@ -50,7 +52,14 @@ export function TestRunsPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    name: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, name: "", isConfirming: false });
   const [editing, setEditing] = useState<TestRunRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsRun, setDetailsRun] = useState<TestRunRecord | null>(null);
@@ -213,16 +222,24 @@ export function TestRunsPage() {
     setDetailsOpen(true);
   };
 
-  const handleDelete = async (run: TestRunRecord) => {
+  const handleDelete = (run: TestRunRecord) => {
     if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar el run "${run.name ?? run.id}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
+    setDeleteConfirmation({
+      open: true,
+      id: run.id,
+      name: run.name ?? run.id,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirmation;
+    if (!id) return;
+
+    setDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-runs/${run.id}`, {
+      const response = await fetch(`/api/test-runs/${id}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { message?: string };
@@ -230,14 +247,14 @@ export function TestRunsPage() {
         throw new Error(data.message || "No se pudo eliminar el run.");
       }
       await fetchRuns();
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
           : "No se pudo eliminar el run.",
       );
-    } finally {
-      setLoading(false);
+      setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -335,6 +352,22 @@ export function TestRunsPage() {
           setDetailsOpen(false);
           setDetailsRun(null);
         }}
+      />
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        title={`¿Eliminar run "${deleteConfirmation.name}"?`}
+        description="Esta acción eliminará la ejecución permanentemente. No se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() =>
+          setDeleteConfirmation({
+            open: false,
+            id: null,
+            name: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={deleteConfirmation.isConfirming}
       />
     </div>
   );

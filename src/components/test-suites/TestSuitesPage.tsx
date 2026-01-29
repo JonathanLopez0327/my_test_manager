@@ -7,6 +7,7 @@ import { Pagination } from "../ui/Pagination";
 import { TestSuitesHeader } from "./TestSuitesHeader";
 import { TestSuiteFormSheet } from "./TestSuiteFormSheet";
 import { TestSuitesTable } from "./TestSuitesTable";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type {
   TestSuitePayload,
   TestSuiteRecord,
@@ -32,7 +33,14 @@ export function TestSuitesPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    name: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, name: "", isConfirming: false });
   const [editing, setEditing] = useState<TestSuiteRecord | null>(null);
   const [testPlans, setTestPlans] = useState<TestPlanOption[]>([]);
   const [plansError, setPlansError] = useState<string | null>(null);
@@ -143,16 +151,24 @@ export function TestSuitesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (suite: TestSuiteRecord) => {
+  const handleDelete = (suite: TestSuiteRecord) => {
     if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar la suite "${suite.name}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
+    setDeleteConfirmation({
+      open: true,
+      id: suite.id,
+      name: suite.name,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirmation;
+    if (!id) return;
+
+    setDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-suites/${suite.id}`, {
+      const response = await fetch(`/api/test-suites/${id}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { message?: string };
@@ -160,14 +176,14 @@ export function TestSuitesPage() {
         throw new Error(data.message || "No se pudo eliminar la suite.");
       }
       await fetchSuites();
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
           : "No se pudo eliminar la suite.",
       );
-    } finally {
-      setLoading(false);
+      setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -251,9 +267,27 @@ export function TestSuitesPage() {
           suite={editing}
           testPlans={testPlans}
           onClose={() => setModalOpen(false)}
+
           onSave={handleSave}
         />
       ) : null}
+
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        title={`¿Eliminar suite "${deleteConfirmation.name}"?`}
+        description="Esta acción eliminará la suite permanentemente. No se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() =>
+          setDeleteConfirmation({
+            open: false,
+            id: null,
+            name: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={deleteConfirmation.isConfirming}
+      />
     </div>
   );
 }

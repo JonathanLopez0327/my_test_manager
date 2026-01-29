@@ -7,6 +7,7 @@ import { Pagination } from "../ui/Pagination";
 import { TestPlansHeader } from "./TestPlansHeader";
 import { TestPlanFormSheet } from "./TestPlanFormSheet";
 import { TestPlansTable } from "./TestPlansTable";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type {
   TestPlanPayload,
   TestPlanRecord,
@@ -32,6 +33,12 @@ export function TestPlansPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    name: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, name: "", isConfirming: false });
   const [editing, setEditing] = useState<TestPlanRecord | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -141,16 +148,24 @@ export function TestPlansPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (plan: TestPlanRecord) => {
+  const handleDelete = (plan: TestPlanRecord) => {
     if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar el plan "${plan.name}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
+    setDeleteConfirmation({
+      open: true,
+      id: plan.id,
+      name: plan.name,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirmation;
+    if (!id) return;
+
+    setDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-plans/${plan.id}`, {
+      const response = await fetch(`/api/test-plans/${id}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { message?: string };
@@ -158,14 +173,14 @@ export function TestPlansPage() {
         throw new Error(data.message || "No se pudo eliminar el plan.");
       }
       await fetchTestPlans();
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
           : "No se pudo eliminar el plan.",
       );
-    } finally {
-      setLoading(false);
+      setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -249,7 +264,25 @@ export function TestPlansPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
+
       ) : null}
+
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        title={`¿Eliminar plan "${deleteConfirmation.name}"?`}
+        description="Esta acción eliminará el plan permanentemente. No se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() =>
+          setDeleteConfirmation({
+            open: false,
+            id: null,
+            name: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={deleteConfirmation.isConfirming}
+      />
     </div>
   );
 }

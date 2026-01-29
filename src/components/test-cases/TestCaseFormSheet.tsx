@@ -31,7 +31,7 @@ type TestCaseFormState = {
     title: string;
     description: string;
     preconditions: string;
-    stepsText: string;
+    // stepsText: string; // Removed in favor of stepsList
     status: TestCaseStatus;
     priority: string;
     isAutomated: boolean;
@@ -44,7 +44,6 @@ const emptyForm: TestCaseFormState = {
     title: "",
     description: "",
     preconditions: "",
-    stepsText: "",
     status: "draft",
     priority: "3",
     isAutomated: false,
@@ -65,7 +64,10 @@ export function TestCaseFormSheet({
     onClose,
     onSave,
 }: TestCaseFormSheetProps) {
-    const [form, setForm] = useState<TestCaseFormState>(emptyForm);
+    const [form, setForm] = useState<TestCaseFormState & { stepsList: { id: string; step: string; expectedResult: string }[] }>({
+        ...emptyForm,
+        stepsList: [],
+    });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -76,14 +78,32 @@ export function TestCaseFormSheet({
 
     useEffect(() => {
         if (testCase) {
+            let initialSteps: { id: string; step: string; expectedResult: string }[] = [];
+
+            if (Array.isArray(testCase.steps)) {
+                if (testCase.steps.length > 0 && typeof testCase.steps[0] === 'string') {
+                    // Legacy string array
+                    initialSteps = (testCase.steps as string[]).map(s => ({
+                        id: crypto.randomUUID(),
+                        step: s,
+                        expectedResult: ""
+                    }));
+                } else {
+                    // Structured array
+                    initialSteps = (testCase.steps as any[]).map(s => ({
+                        id: crypto.randomUUID(),
+                        step: s.step || "",
+                        expectedResult: s.expectedResult || ""
+                    }));
+                }
+            }
+
             setForm({
                 suiteId: testCase.suiteId,
                 title: testCase.title,
                 description: testCase.description ?? "",
                 preconditions: testCase.preconditions ?? "",
-                stepsText: Array.isArray(testCase.steps)
-                    ? testCase.steps.join("\n")
-                    : "",
+                stepsList: initialSteps,
                 status: testCase.status,
                 priority: String(testCase.priority ?? 3),
                 isAutomated: testCase.isAutomated,
@@ -91,7 +111,7 @@ export function TestCaseFormSheet({
                 automationRef: testCase.automationRef ?? "",
             });
         } else {
-            setForm(emptyForm);
+            setForm({ ...emptyForm, stepsList: [] });
         }
         setError(null);
     }, [testCase, open]);
@@ -108,14 +128,35 @@ export function TestCaseFormSheet({
         }
     }, [form.isAutomated, form.automationType, form.automationRef]);
 
+    const addStep = () => {
+        setForm(prev => ({
+            ...prev,
+            stepsList: [...prev.stepsList, { id: crypto.randomUUID(), step: "", expectedResult: "" }]
+        }));
+    };
+
+    const removeStep = (id: string) => {
+        setForm(prev => ({
+            ...prev,
+            stepsList: prev.stepsList.filter(s => s.id !== id)
+        }));
+    };
+
+    const updateStep = (id: string, field: 'step' | 'expectedResult', value: string) => {
+        setForm(prev => ({
+            ...prev,
+            stepsList: prev.stepsList.map(s => s.id === id ? { ...s, [field]: value } : s)
+        }));
+    };
+
     const handleSubmit = async () => {
         setSubmitting(true);
         setError(null);
         try {
-            const steps = form.stepsText
-                .split("\n")
-                .map((step) => step.trim())
-                .filter(Boolean);
+            const steps = form.stepsList
+                .map(({ step, expectedResult }) => ({ step: step.trim(), expectedResult: expectedResult.trim() }))
+                .filter(s => s.step || s.expectedResult);
+
             const payload: TestCasePayload = {
                 suiteId: form.suiteId,
                 title: form.title.trim(),
@@ -214,17 +255,45 @@ export function TestCaseFormSheet({
                     />
                 </label>
 
-                <label className="text-sm font-semibold text-ink">
-                    Pasos (uno por línea)
-                    <textarea
-                        value={form.stepsText}
-                        onChange={(event) =>
-                            setForm((prev) => ({ ...prev, stepsText: event.target.value }))
-                        }
-                        placeholder={"1. Abrir la app\n2. Completar credenciales"}
-                        className="mt-2 min-h-[120px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-                    />
-                </label>
+                <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-ink">Pasos</label>
+                    <div className="flex flex-col gap-3">
+                        {form.stepsList?.map((item, index) => (
+                            <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-gray-50 p-3">
+                                <div className="flex items-start justify-between gap-2">
+                                    <span className="text-xs font-medium text-ink/60">Paso {index + 1}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeStep(item.id)}
+                                        className="text-xs text-danger-500 hover:text-danger-700"
+                                    >
+                                        Eliminar
+                                    </button>
+                                </div>
+                                <textarea
+                                    value={item.step}
+                                    onChange={(e) => updateStep(item.id, 'step', e.target.value)}
+                                    placeholder="Descripción del paso"
+                                    className="min-h-[60px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+                                />
+                                <textarea
+                                    value={item.expectedResult}
+                                    onChange={(e) => updateStep(item.id, 'expectedResult', e.target.value)}
+                                    placeholder="Resultado esperado"
+                                    className="min-h-[40px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+                                />
+                            </div>
+                        ))}
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={addStep}
+                        >
+                            + Agregar paso
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="text-sm font-semibold text-ink">

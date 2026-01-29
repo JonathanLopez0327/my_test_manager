@@ -10,6 +10,7 @@ import {
   isReadOnlyGlobal,
   isSuperAdmin,
 } from "@/lib/permissions";
+import { getPresignedUrl, getS3Config } from "@/lib/s3";
 
 type RouteParams = {
   params: Promise<{
@@ -164,9 +165,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     prisma.testRunArtifact.count({ where }),
   ]);
 
+  // Sign URLs
+  const { bucket, publicUrl } = getS3Config();
+  const bucketPrefix = `${publicUrl.replace(/\/$/, "")}/${bucket}/`;
+
+  console.log("Signing artifacts...", { bucketPrefix, count: items.length });
+
+  const signedItems = await Promise.all(
+    items.map(async (item) => {
+      if (item.url.startsWith(bucketPrefix)) {
+        try {
+          // Extract Key: remove prefix
+          const encodedKey = item.url.slice(bucketPrefix.length);
+          const key = decodeURI(encodedKey);
+          const signedUrl = await getPresignedUrl(key);
+          return { ...item, url: signedUrl };
+        } catch (err) {
+          console.error("Failed to sign URL for artifact", item.id, err);
+          return item;
+        }
+      }
+      return item;
+    }),
+  );
+
   return NextResponse.json(
     {
-      items,
+      items: signedItems,
       total,
       page,
       pageSize,

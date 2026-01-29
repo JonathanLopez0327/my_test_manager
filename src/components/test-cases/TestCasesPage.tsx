@@ -7,6 +7,7 @@ import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
 import { TestCaseFormSheet } from "./TestCaseFormSheet";
 import { TestCasesTable } from "./TestCasesTable";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type {
   TestCasePayload,
   TestCaseRecord,
@@ -34,6 +35,12 @@ export function TestCasesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    title: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, title: "", isConfirming: false });
   const [editing, setEditing] = useState<TestCaseRecord | null>(null);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
   const [suitesError, setSuitesError] = useState<string | null>(null);
@@ -145,16 +152,24 @@ export function TestCasesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (testCase: TestCaseRecord) => {
+  const handleDelete = (testCase: TestCaseRecord) => {
     if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar el caso "${testCase.title}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
+    setDeleteConfirmation({
+      open: true,
+      id: testCase.id,
+      title: testCase.title,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirmation;
+    if (!id) return;
+
+    setDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-cases/${testCase.id}`, {
+      const response = await fetch(`/api/test-cases/${id}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { message?: string };
@@ -162,14 +177,14 @@ export function TestCasesPage() {
         throw new Error(data.message || "No se pudo eliminar el caso.");
       }
       await fetchCases();
+      setDeleteConfirmation({ open: false, id: null, title: "", isConfirming: false });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
           : "No se pudo eliminar el caso.",
       );
-    } finally {
-      setLoading(false);
+      setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -255,7 +270,25 @@ export function TestCasesPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
+
       ) : null}
+
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        title={`¿Eliminar caso "${deleteConfirmation.title}"?`}
+        description="Esta acción eliminará el caso de prueba permanentemente. No se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() =>
+          setDeleteConfirmation({
+            open: false,
+            id: null,
+            title: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={deleteConfirmation.isConfirming}
+      />
     </div>
   );
 }

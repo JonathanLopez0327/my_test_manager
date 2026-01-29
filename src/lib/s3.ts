@@ -1,4 +1,5 @@
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const S3_ENDPOINT = process.env.S3_ENDPOINT;
 const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY;
@@ -42,4 +43,14 @@ export function buildS3ObjectUrl(bucket: string, key: string) {
   const config = getS3Config();
   const base = config.publicUrl.replace(/\/$/, "");
   return `${base}/${bucket}/${encodeURI(key)}`;
+}
+
+export async function getPresignedUrl(key: string, expiresIn = 3600) {
+  const client = getS3Client();
+  const config = getS3Config();
+  const command = new GetObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+  });
+  return getSignedUrl(client, command, { expiresIn });
 }

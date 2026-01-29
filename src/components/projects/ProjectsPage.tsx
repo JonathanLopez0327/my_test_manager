@@ -7,6 +7,7 @@ import { Pagination } from "../ui/Pagination";
 import { ProjectsHeader } from "./ProjectsHeader";
 import { ProjectFormSheet } from "./ProjectFormSheet";
 import { ProjectsTable } from "./ProjectsTable";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -21,6 +22,12 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    name: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, name: "", isConfirming: false });
   const [editing, setEditing] = useState<ProjectRecord | null>(null);
 
   const isReadOnlyGlobal = useMemo(
@@ -93,16 +100,24 @@ export function ProjectsPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (project: ProjectRecord) => {
+  const handleDelete = (project: ProjectRecord) => {
     if (!canManage) return;
-    const confirmed = window.confirm(
-      `¿Eliminar el proyecto "${project.name}"? Esta acción no se puede deshacer.`,
-    );
-    if (!confirmed) return;
-    setLoading(true);
+    setDeleteConfirmation({
+      open: true,
+      id: project.id,
+      name: project.name,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    const { id } = deleteConfirmation;
+    if (!id) return;
+
+    setDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/projects/${project.id}`, {
+      const response = await fetch(`/api/projects/${id}`, {
         method: "DELETE",
       });
       const data = (await response.json()) as { message?: string };
@@ -110,14 +125,14 @@ export function ProjectsPage() {
         throw new Error(data.message || "No se pudo eliminar el proyecto.");
       }
       await fetchProjects();
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
           : "No se pudo eliminar el proyecto.",
       );
-    } finally {
-      setLoading(false);
+      setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -192,7 +207,25 @@ export function ProjectsPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
+
       ) : null}
+
+      <ConfirmationDialog
+        open={deleteConfirmation.open}
+        title={`¿Eliminar proyecto "${deleteConfirmation.name}"?`}
+        description="Esta acción eliminará el proyecto permanentemente. No se puede deshacer."
+        confirmText="Eliminar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() =>
+          setDeleteConfirmation({
+            open: false,
+            id: null,
+            name: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={deleteConfirmation.isConfirming}
+      />
     </div>
   );
 }
