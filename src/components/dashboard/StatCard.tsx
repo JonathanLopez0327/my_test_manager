@@ -13,7 +13,7 @@ export function StatCard({ title, value, change, icon, accent }: StatCardProps) 
   return (
     <Card className="flex items-center justify-between gap-4 p-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
+        <p className="text-sm font-medium text-ink-soft">
           {title}
         </p>
         <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>

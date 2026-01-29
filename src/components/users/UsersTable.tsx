@@ -39,7 +39,7 @@ export function UsersTable({
       <div className="hidden md:block">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="text-left text-xs uppercase tracking-[0.2em] text-ink-soft">
+            <tr className="text-left text-sm font-medium text-ink-soft">
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Proyecto</th>
