@@ -7,6 +7,7 @@ import { Pagination } from "../ui/Pagination";
 import { TestRunsHeader } from "./TestRunsHeader";
 import { TestRunFormModal } from "./TestRunFormModal";
 import { TestRunsTable } from "./TestRunsTable";
+import { TestRunDetailsModal } from "./TestRunDetailsModal";
 import type {
   TestRunPayload,
   TestRunRecord,
@@ -51,6 +52,8 @@ export function TestRunsPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TestRunRecord | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsRun, setDetailsRun] = useState<TestRunRecord | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [plans, setPlans] = useState<TestPlanOption[]>([]);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
@@ -205,6 +208,11 @@ export function TestRunsPage() {
     setModalOpen(true);
   };
 
+  const handleView = (run: TestRunRecord) => {
+    setDetailsRun(run);
+    setDetailsOpen(true);
+  };
+
   const handleDelete = async (run: TestRunRecord) => {
     if (!canManage) return;
     const confirmed = window.confirm(
@@ -289,6 +297,7 @@ export function TestRunsPage() {
           <TestRunsTable
             items={items}
             loading={loading}
+            onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
@@ -316,6 +325,17 @@ export function TestRunsPage() {
           onSave={handleSave}
         />
       ) : null}
+
+      <TestRunDetailsModal
+        open={detailsOpen}
+        run={detailsRun}
+        canManage={canManage}
+        onUpdated={fetchRuns}
+        onClose={() => {
+          setDetailsOpen(false);
+          setDetailsRun(null);
+        }}
+      />
     </div>
   );
 }

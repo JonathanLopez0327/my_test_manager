@@ -1,12 +1,13 @@
 "use client";
 
-import { IconEdit, IconTrash } from "../icons";
+import { IconClipboard, IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
 import type { TestRunRecord, TestRunStatus, TestRunType } from "./types";
 
 type TestRunsTableProps = {
   items: TestRunRecord[];
   loading: boolean;
+  onView: (run: TestRunRecord) => void;
   onEdit: (run: TestRunRecord) => void;
   onDelete: (run: TestRunRecord) => void;
   canManage?: boolean;
@@ -51,6 +52,7 @@ function getRunTitle(run: TestRunRecord) {
 export function TestRunsTable({
   items,
   loading,
+  onView,
   onEdit,
   onDelete,
   canManage = true,
@@ -82,6 +84,7 @@ export function TestRunsTable({
               <th className="px-4 py-3">Proyecto</th>
               <th className="px-4 py-3">Plan / Suite</th>
               <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Métricas</th>
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Fechas</th>
               <th className="px-4 py-3 text-right">
@@ -123,6 +126,20 @@ export function TestRunsTable({
                     {statusLabels[run.status]}
                   </Badge>
                 </td>
+                <td className="px-4 py-4 text-xs text-ink-muted">
+                  {run.metrics ? (
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {run.metrics.passRate}%
+                      </p>
+                      <p>
+                        {run.metrics.passed}/{run.metrics.total} pasados
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-ink-soft">Sin métricas</span>
+                  )}
+                </td>
                 <td className="px-4 py-4 text-ink-muted">
                   {runTypeLabels[run.runType]}
                 </td>
@@ -131,24 +148,33 @@ export function TestRunsTable({
                   <p>Fin: {formatDate(run.finishedAt)}</p>
                 </td>
                 <td className="px-4 py-4">
-                  {canManage ? (
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => onEdit(run)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Editar run"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(run)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                        aria-label="Eliminar run"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : null}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => onView(run)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                      aria-label="Ver detalles del run"
+                    >
+                      <IconClipboard className="h-4 w-4" />
+                    </button>
+                    {canManage ? (
+                      <>
+                        <button
+                          onClick={() => onEdit(run)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                          aria-label="Editar run"
+                        >
+                          <IconEdit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(run)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                          aria-label="Eliminar run"
+                        >
+                          <IconTrash className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -183,6 +209,16 @@ export function TestRunsTable({
               {run.environment ?? "Sin ambiente"} ·{" "}
               {run.buildNumber ?? "Sin build"}
             </p>
+            <div className="mt-3 text-sm text-ink-muted">
+              {run.metrics ? (
+                <p>
+                  Métricas: {run.metrics.passRate}% · {run.metrics.passed}/
+                  {run.metrics.total} pasados
+                </p>
+              ) : (
+                <p className="text-ink-soft">Métricas: sin datos</p>
+              )}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
               <span>{runTypeLabels[run.runType]}</span>
               <span>{run.branch ?? "Sin branch"}</span>
@@ -194,24 +230,33 @@ export function TestRunsTable({
               <p>Inicio: {formatDate(run.startedAt)}</p>
               <p>Fin: {formatDate(run.finishedAt)}</p>
             </div>
-            {canManage ? (
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={() => onEdit(run)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Editar run"
-                >
-                  <IconEdit className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => onDelete(run)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                  aria-label="Eliminar run"
-                >
-                  <IconTrash className="h-5 w-5" />
-                </button>
-              </div>
-            ) : null}
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={() => onView(run)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                aria-label="Ver detalles del run"
+              >
+                <IconClipboard className="h-5 w-5" />
+              </button>
+              {canManage ? (
+                <>
+                  <button
+                    onClick={() => onEdit(run)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                    aria-label="Editar run"
+                  >
+                    <IconEdit className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(run)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                    aria-label="Eliminar run"
+                  >
+                    <IconTrash className="h-5 w-5" />
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>

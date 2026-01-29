@@ -46,6 +46,19 @@ export type TestRunRecord = {
     fullName: string | null;
     email: string;
   } | null;
+  metrics?: TestRunMetricsRecord | null;
+};
+
+export type TestRunMetricsRecord = {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  blocked: number;
+  notRun: number;
+  passRate: string;
+  durationMs: string | null;
+  createdAt: string;
 };
 
 export type TestRunsResponse = {
@@ -70,4 +83,5 @@ export type TestRunPayload = {
   ciRunUrl?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
+  createItems?: boolean;
 };

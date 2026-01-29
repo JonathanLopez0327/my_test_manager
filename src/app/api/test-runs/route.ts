@@ -10,6 +10,7 @@ import {
   isReadOnlyGlobal,
   isSuperAdmin,
 } from "@/lib/permissions";
+import { serializeRunMetrics, upsertRunMetrics } from "@/lib/test-runs";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -164,6 +165,7 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        metrics: true,
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
@@ -172,8 +174,13 @@ export async function GET(request: NextRequest) {
     prisma.testRun.count({ where }),
   ]);
 
+  const normalizedItems = items.map((run) => ({
+    ...run,
+    metrics: run.metrics ? serializeRunMetrics(run.metrics) : null,
+  }));
+
   return NextResponse.json({
-    items,
+    items: normalizedItems,
     total,
     page,
     pageSize,
@@ -202,6 +209,7 @@ export async function POST(request: NextRequest) {
       ciRunUrl?: string | null;
       startedAt?: string | null;
       finishedAt?: string | null;
+      createItems?: boolean;
     };
 
     const projectId = body.projectId?.trim();
@@ -322,24 +330,53 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const run = await prisma.testRun.create({
-      data: {
-        projectId,
-        testPlanId: resolvedPlanId,
-        suiteId,
-        runType,
-        status,
-        name: body.name?.trim() || null,
-        environment: body.environment?.trim() || null,
-        buildNumber: body.buildNumber?.trim() || null,
-        branch: body.branch?.trim() || null,
-        commitSha: body.commitSha?.trim() || null,
-        ciProvider: body.ciProvider?.trim() || null,
-        ciRunUrl: body.ciRunUrl?.trim() || null,
-        startedAt,
-        finishedAt,
-        triggeredById: session.user.id,
-      },
+    const shouldCreateItems = body.createItems !== false;
+
+    const run = await prisma.$transaction(async (tx) => {
+      const createdRun = await tx.testRun.create({
+        data: {
+          projectId,
+          testPlanId: resolvedPlanId,
+          suiteId,
+          runType,
+          status,
+          name: body.name?.trim() || null,
+          environment: body.environment?.trim() || null,
+          buildNumber: body.buildNumber?.trim() || null,
+          branch: body.branch?.trim() || null,
+          commitSha: body.commitSha?.trim() || null,
+          ciProvider: body.ciProvider?.trim() || null,
+          ciRunUrl: body.ciRunUrl?.trim() || null,
+          startedAt,
+          finishedAt,
+          triggeredById: session.user.id,
+        },
+      });
+
+      if (shouldCreateItems && (suiteId || resolvedPlanId)) {
+        const testCaseWhere = suiteId
+          ? { suiteId }
+          : { suite: { testPlanId: resolvedPlanId ?? undefined } };
+
+        const testCases = await tx.testCase.findMany({
+          where: testCaseWhere,
+          select: { id: true },
+        });
+
+        if (testCases.length > 0) {
+          await tx.testRunItem.createMany({
+            data: testCases.map((testCase) => ({
+              runId: createdRun.id,
+              testCaseId: testCase.id,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      await upsertRunMetrics(tx, createdRun.id);
+
+      return createdRun;
     });
 
     return NextResponse.json(run, { status: 201 });

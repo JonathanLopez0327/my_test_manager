@@ -12,9 +12,9 @@ import {
 } from "@/lib/permissions";
 
 type RouteParams = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
@@ -50,7 +50,7 @@ function normalizeSteps(value?: unknown) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = params;
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
@@ -188,7 +188,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(_: NextRequest, { params }: RouteParams) {
-  const { id } = params;
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
