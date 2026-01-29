@@ -8,15 +8,17 @@ type ManagerShellProps = {
 
 export function ManagerShell({ children }: ManagerShellProps) {
   return (
-    <div className="min-h-screen bg-surface-muted px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-none flex-col gap-6 lg:flex-row">
-        <div className="lg:shrink-0">
-          <Sidebar />
-        </div>
-        <div className="flex-1 space-y-6">
+    <div className="flex h-screen w-full flex-col bg-surface-muted lg:flex-row lg:overflow-hidden">
+      <div className="shrink-0 p-4 lg:h-full lg:pr-2">
+        <Sidebar />
+      </div>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="p-4 pb-0 lg:pl-2">
           <Topbar />
-          {children}
         </div>
+        <main className="flex-1 overflow-y-auto p-4 lg:pl-2">
+          {children}
+        </main>
       </div>
     </div>
   );
