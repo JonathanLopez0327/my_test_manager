@@ -29,14 +29,18 @@ export type UserPayload = {
   fullName?: string | null;
   password: string;
   isActive: boolean;
-  projectId: string;
-  projectRole: "admin" | "editor" | "viewer";
+  memberships: {
+    projectId: string;
+    role: MemberRole;
+  }[];
 };
 
 export type UserUpdatePayload = {
   fullName?: string | null;
   password?: string;
   isActive: boolean;
-  projectId: string;
-  projectRole: "admin" | "editor" | "viewer";
+  memberships: {
+    projectId: string;
+    role: MemberRole;
+  }[];
 };

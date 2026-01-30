@@ -7,13 +7,13 @@ import { prisma } from "@/lib/prisma";
 import { getGlobalRoles, isSuperAdmin } from "@/lib/permissions";
 
 type RouteParams = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = params;
+  const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
@@ -32,20 +32,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       fullName?: string | null;
       isActive?: boolean;
       password?: string;
-      projectId?: string;
-      projectRole?: "admin" | "editor" | "viewer";
+      memberships?: { projectId: string; role: "admin" | "editor" | "viewer" }[];
     };
 
-    const projectId = body.projectId?.trim();
-    const projectRole = body.projectRole ?? "viewer";
+    const memberships = body.memberships ?? [];
     const password = body.password?.trim();
-
-    if (!projectId) {
-      return NextResponse.json(
-        { message: "Proyecto es requerido." },
-        { status: 400 },
-      );
-    }
 
     const passwordHash =
       password && password.length >= 8 ? await hash(password, 10) : null;
@@ -60,22 +51,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         },
       });
 
-      await tx.projectMember.upsert({
-        where: {
-          projectId_userId: {
-            projectId,
-            userId: id,
-          },
-        },
-        update: {
-          role: projectRole,
-        },
-        create: {
-          projectId,
-          userId: id,
-          role: projectRole,
-        },
+      // Update memberships: delete all existing and create new ones
+      await tx.projectMember.deleteMany({
+        where: { userId: id },
       });
+
+      if (memberships.length > 0) {
+        await tx.projectMember.createMany({
+          data: memberships.map((m) => ({
+            userId: id,
+            projectId: m.projectId,
+            role: m.role,
+          })),
+        });
+      }
     });
 
     return NextResponse.json({ ok: true });

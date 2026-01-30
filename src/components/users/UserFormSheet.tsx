@@ -28,8 +28,7 @@ const emptyForm: UserPayload = {
     fullName: "",
     password: "",
     isActive: true,
-    projectId: "",
-    projectRole: "viewer",
+    memberships: [],
 };
 
 export function UserFormSheet({
@@ -51,23 +50,21 @@ export function UserFormSheet({
     useEffect(() => {
         if (!open) return;
         if (user) {
-            const membership = user.memberships[0];
             setForm({
                 email: user.email,
                 fullName: user.fullName ?? "",
                 password: "",
                 isActive: user.isActive,
-                projectId: membership?.projectId ?? projects[0]?.id ?? "",
-                projectRole: membership?.role ?? "viewer",
+                memberships: user.memberships.map((m) => ({
+                    projectId: m.projectId,
+                    role: m.role,
+                })),
             });
         } else {
-            setForm({
-                ...emptyForm,
-                projectId: projects[0]?.id ?? "",
-            });
+            setForm(emptyForm);
         }
         setError(null);
-    }, [open, projects, user]);
+    }, [open, user]);
 
     const handleSubmit = async () => {
         setSubmitting(true);
@@ -78,8 +75,7 @@ export function UserFormSheet({
                     fullName: form.fullName ?? null,
                     password: form.password || undefined,
                     isActive: form.isActive,
-                    projectId: form.projectId,
-                    projectRole: form.projectRole,
+                    memberships: form.memberships,
                 };
                 await onSave(payload, user.id);
             } else {
@@ -97,20 +93,61 @@ export function UserFormSheet({
         }
     };
 
-    const hasProjects = projects.length > 0;
+    const handleAddMembership = () => {
+        if (!projects.length) return;
+        const firstAvailable = projects.find(
+            (p) => !form.memberships.some((m) => m.projectId === p.id),
+        );
+        if (firstAvailable) {
+            setForm((prev) => ({
+                ...prev,
+                memberships: [
+                    ...prev.memberships,
+                    { projectId: firstAvailable.id, role: "viewer" },
+                ],
+            }));
+        }
+    };
+
+    const handleRemoveMembership = (index: number) => {
+        setForm((prev) => ({
+            ...prev,
+            memberships: prev.memberships.filter((_, i) => i !== index),
+        }));
+    };
+
+    const handleUpdateMembership = (
+        index: number,
+        field: "projectId" | "role",
+        value: string,
+    ) => {
+        setForm((prev) => {
+            const newMemberships = [...prev.memberships];
+            // @ts-ignore
+            newMemberships[index] = { ...newMemberships[index], [field]: value };
+            return { ...prev, memberships: newMemberships };
+        });
+    };
+
     const isValid = user
-        ? Boolean(form.projectId.trim()) && hasProjects
+        ? Boolean(form.memberships.length)
         : form.email.trim() &&
         form.password.trim() &&
-        form.projectId.trim() &&
-        form.password.length >= 8 &&
-        hasProjects;
+        form.memberships.length > 0 &&
+        form.password.length >= 8;
+
+    const availableProjects = (currentProjectId?: string) =>
+        projects.filter(
+            (p) =>
+                p.id === currentProjectId ||
+                !form.memberships.some((m) => m.projectId === p.id),
+        );
 
     return (
         <Sheet
             open={open}
             title={title}
-            description="Define el acceso del usuario y su proyecto principal."
+            description="Define el acceso del usuario a los proyectos."
             onClose={onClose}
         >
             <div className="grid gap-4">
@@ -155,44 +192,101 @@ export function UserFormSheet({
                         className="mt-2"
                     />
                 </label>
-                <label className="text-sm font-semibold text-ink">
-                    Proyecto
-                    <select
-                        value={form.projectId}
-                        onChange={(event) =>
-                            setForm((prev) => ({ ...prev, projectId: event.target.value }))
-                        }
-                        className="mt-2 h-10 w-full rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
-                        disabled={!hasProjects}
-                    >
-                        {projects.length ? (
-                            projects.map((project) => (
-                                <option key={project.id} value={project.id}>
-                                    {project.key} · {project.name}
-                                </option>
-                            ))
-                        ) : (
-                            <option value="">No hay proyectos disponibles</option>
+
+                <div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-ink">Proyectos</span>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleAddMembership}
+                            disabled={form.memberships.length >= projects.length}
+                        >
+                            + Agregar
+                        </Button>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                        {form.memberships.map((membership, index) => (
+                            <div
+                                key={index}
+                                className="group relative flex flex-col gap-3 rounded-xl border border-stroke bg-gray-50/50 p-3 transition hover:border-brand-200 hover:bg-brand-50/30 sm:flex-row sm:items-center"
+                            >
+                                <div className="flex-1 space-y-1">
+                                    <div className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
+                                        Proyecto
+                                    </div>
+                                    <select
+                                        value={membership.projectId}
+                                        onChange={(e) =>
+                                            handleUpdateMembership(index, "projectId", e.target.value)
+                                        }
+                                        className="h-9 w-full rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    >
+                                        {availableProjects(membership.projectId).map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.key} · {p.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex items-end gap-2 sm:w-1/3 sm:flex-col sm:items-stretch sm:gap-1">
+                                    <div className="hidden text-[10px] font-medium uppercase tracking-wider text-ink-muted sm:block">
+                                        Rol
+                                    </div>
+                                    <select
+                                        value={membership.role}
+                                        onChange={(e) =>
+                                            handleUpdateMembership(index, "role", e.target.value)
+                                        }
+                                        className="h-9 flex-1 rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                    >
+                                        <option value="viewer">Viewer</option>
+                                        <option value="editor">Editor</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                    <button
+                                        onClick={() => handleRemoveMembership(index)}
+                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-muted transition hover:bg-danger-50 hover:text-danger-500 sm:absolute sm:-right-2 sm:-top-2 sm:h-6 sm:w-6 sm:rounded-full sm:bg-white sm:border-stroke sm:shadow-sm"
+                                        aria-label="Quitar proyecto"
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="14"
+                                            height="14"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        >
+                                            <path d="M18 6 6 18" />
+                                            <path d="m6 6 12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                        {form.memberships.length === 0 && (
+                            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stroke py-8 text-center">
+                                <p className="text-sm text-ink-muted">
+                                    Este usuario no tiene proyectos asignados.
+                                </p>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleAddMembership}
+                                    className="mt-2 text-brand-600 hover:text-brand-700"
+                                    disabled={!projects.length}
+                                >
+                                    Asignar proyecto
+                                </Button>
+                            </div>
                         )}
-                    </select>
-                </label>
-                <label className="text-sm font-semibold text-ink">
-                    Rol de proyecto
-                    <select
-                        value={form.projectRole}
-                        onChange={(event) =>
-                            setForm((prev) => ({
-                                ...prev,
-                                projectRole: event.target.value as UserPayload["projectRole"],
-                            }))
-                        }
-                        className="mt-2 h-10 w-full rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
-                    >
-                        <option value="viewer">Viewer</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </label>
+                    </div>
+                </div>
+
                 <label className="flex items-center gap-3 text-sm font-semibold text-ink">
                     <input
                         type="checkbox"

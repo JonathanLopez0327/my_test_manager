@@ -52,97 +52,111 @@ export function UsersTable({
             </tr>
           </thead>
           <tbody>
-            {items.map((user) => {
-              const membership = user.memberships[0];
-              return (
-                <tr key={user.id} className="border-t border-stroke">
-                  <td className="px-4 py-4 font-semibold text-ink">
-                    {user.email}
-                  </td>
-                  <td className="px-4 py-4 text-ink">
-                    {user.fullName ?? "Sin nombre"}
-                  </td>
-                  <td className="px-4 py-4 text-ink-muted">
-                    {membership
-                      ? `${membership.projectKey} · ${membership.projectName}`
-                      : "Sin asignación"}
-                  </td>
-                  <td className="px-4 py-4 text-ink-muted">
-                    {membership?.role ?? "—"}
-                  </td>
-                  <td className="px-4 py-4 text-ink-muted">
-                    {user.globalRoles.length
-                      ? user.globalRoles.join(", ")
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-4">
-                    <Badge tone={user.isActive ? "success" : "neutral"}>
-                      {user.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-4">
-                    {canManage ? (
-                      <div className="flex items-center justify-end">
-                        <button
-                          onClick={() => onEdit?.(user)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                          aria-label="Editar usuario"
-                        >
-                          <IconEdit className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              );
-            })}
+            {items.map((user) => (
+              <tr key={user.id} className="border-t border-stroke">
+                <td className="px-4 py-4 font-semibold text-ink">
+                  {user.email}
+                </td>
+                <td className="px-4 py-4 text-ink">
+                  {user.fullName ?? "Sin nombre"}
+                </td>
+                <td className="px-4 py-4 text-ink-muted">
+                  {user.memberships.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {user.memberships.map((m) => (
+                        <div key={m.projectId}>
+                          {m.projectKey} · {m.projectName}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    "Sin asignación"
+                  )}
+                </td>
+                <td className="px-4 py-4 text-ink-muted">
+                  {user.memberships.length > 0 ? (
+                    <div className="flex flex-col gap-1">
+                      {user.memberships.map((m) => (
+                        <div key={m.projectId}>{m.role}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-4 py-4 text-ink-muted">
+                  {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
+                </td>
+                <td className="px-4 py-4">
+                  <Badge tone={user.isActive ? "success" : "neutral"}>
+                    {user.isActive ? "Activo" : "Inactivo"}
+                  </Badge>
+                </td>
+                <td className="px-4 py-4">
+                  {canManage ? (
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => onEdit?.(user)}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                        aria-label="Editar usuario"
+                      >
+                        <IconEdit className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       <div className="grid gap-4 md:hidden">
-        {items.map((user) => {
-          const membership = user.memberships[0];
-          return (
-            <div
-              key={user.id}
-              className="rounded-lg border border-stroke bg-white p-5"
-            >
-              <p className="text-sm font-semibold text-ink">{user.email}</p>
-              <p className="text-xs text-ink-soft">
-                {user.fullName ?? "Sin nombre"}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-                <span>
-                  {membership
-                    ? `${membership.projectKey} · ${membership.projectName}`
-                    : "Sin asignación"}
-                </span>
-                <span>·</span>
-                <span>{membership?.role ?? "—"}</span>
-              </div>
-              {user.globalRoles.length ? (
-                <p className="mt-2 text-xs text-ink-muted">
-                  Global: {user.globalRoles.join(", ")}
-                </p>
-              ) : null}
-              <div className="mt-3 flex items-center justify-between">
-                <Badge tone={user.isActive ? "success" : "neutral"}>
-                  {user.isActive ? "Activo" : "Inactivo"}
-                </Badge>
-                {canManage ? (
-                  <button
-                    onClick={() => onEdit?.(user)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                    aria-label="Editar usuario"
-                  >
-                    <IconEdit className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
+        {items.map((user) => (
+          <div
+            key={user.id}
+            className="rounded-lg border border-stroke bg-white p-5"
+          >
+            <p className="text-sm font-semibold text-ink">{user.email}</p>
+            <p className="text-xs text-ink-soft">
+              {user.fullName ?? "Sin nombre"}
+            </p>
+            <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
+              {user.memberships.length > 0 ? (
+                user.memberships.map((m) => (
+                  <div key={m.projectId} className="flex items-center gap-2">
+                    <span>
+                      {m.projectKey} · {m.projectName}
+                    </span>
+                    <span>·</span>
+                    <span className="capitalize">{m.role}</span>
+                  </div>
+                ))
+              ) : (
+                <span>Sin asignación</span>
+              )}
             </div>
-          );
-        })}
+            {user.globalRoles.length ? (
+              <p className="mt-2 text-xs text-ink-muted">
+                Global: {user.globalRoles.join(", ")}
+              </p>
+            ) : null}
+            <div className="mt-3 flex items-center justify-between">
+              <Badge tone={user.isActive ? "success" : "neutral"}>
+                {user.isActive ? "Activo" : "Inactivo"}
+              </Badge>
+              {canManage ? (
+                <button
+                  onClick={() => onEdit?.(user)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                  aria-label="Editar usuario"
+                >
+                  <IconEdit className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

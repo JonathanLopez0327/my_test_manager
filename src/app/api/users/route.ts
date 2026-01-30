@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
 
   const where: Prisma.UserWhereInput = query
     ? {
-        OR: [
-          { email: { contains: query, mode: "insensitive" } },
-          { fullName: { contains: query, mode: "insensitive" } },
-        ],
-      }
+      OR: [
+        { email: { contains: query, mode: "insensitive" } },
+        { fullName: { contains: query, mode: "insensitive" } },
+      ],
+    }
     : {};
 
   const [items, total] = await prisma.$transaction([
@@ -124,18 +124,16 @@ export async function POST(request: NextRequest) {
       fullName?: string | null;
       password?: string;
       isActive?: boolean;
-      projectId?: string;
-      projectRole?: "admin" | "editor" | "viewer";
+      memberships?: { projectId: string; role: "admin" | "editor" | "viewer" }[];
     };
 
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? "";
-    const projectId = body.projectId?.trim();
-    const projectRole = body.projectRole ?? "viewer";
+    const memberships = body.memberships ?? [];
 
-    if (!email || !password || !projectId) {
+    if (!email || !password) {
       return NextResponse.json(
-        { message: "Email, contraseña y proyecto son requeridos." },
+        { message: "Email y contraseña son requeridos." },
         { status: 400 },
       );
     }
@@ -159,13 +157,15 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.projectMember.create({
-        data: {
-          userId: user.id,
-          projectId,
-          role: projectRole,
-        },
-      });
+      if (memberships.length > 0) {
+        await tx.projectMember.createMany({
+          data: memberships.map((m) => ({
+            userId: user.id,
+            projectId: m.projectId,
+            role: m.role,
+          })),
+        });
+      }
 
       return user;
     });
