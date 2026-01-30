@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
   }
 
+
   const globalRoles = await getGlobalRoles(session.user.id);
   const isGlobalAdmin = isSuperAdmin(globalRoles);
   const isGlobalReadOnly = isReadOnlyGlobal(globalRoles);
@@ -201,6 +202,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
   }
 
+
   try {
     const body = (await request.json()) as {
       suiteId?: string;
@@ -208,6 +210,7 @@ export async function POST(request: NextRequest) {
       description?: string | null;
       preconditions?: string | null;
       steps?: unknown;
+      tags?: unknown;
       status?: TestCaseStatus;
       priority?: number | null;
       isAutomated?: boolean;
@@ -220,6 +223,9 @@ export async function POST(request: NextRequest) {
     const status = parseStatus(body.status ?? null) ?? "draft";
     const priority = parsePriority(body.priority);
     const steps = normalizeSteps(body.steps);
+    const tags = Array.isArray(body.tags)
+      ? body.tags.map((t) => String(t).trim()).filter((t) => t.length > 0)
+      : [];
     const isAutomated = Boolean(body.isAutomated);
     const automationType = body.automationType?.trim() || null;
     const automationRef = body.automationRef?.trim() || null;
@@ -274,6 +280,7 @@ export async function POST(request: NextRequest) {
         description: body.description?.trim() || null,
         preconditions: body.preconditions?.trim() || null,
         steps,
+        tags,
         status,
         priority,
         isAutomated,

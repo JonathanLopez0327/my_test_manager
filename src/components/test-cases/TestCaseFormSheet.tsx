@@ -37,6 +37,7 @@ type TestCaseFormState = {
     isAutomated: boolean;
     automationType: string;
     automationRef: string;
+    tags: string[];
 };
 
 const emptyForm: TestCaseFormState = {
@@ -49,6 +50,7 @@ const emptyForm: TestCaseFormState = {
     isAutomated: false,
     automationType: "",
     automationRef: "",
+    tags: [],
 };
 
 const statusOptions: Array<{ value: TestCaseStatus; label: string }> = [
@@ -68,6 +70,7 @@ export function TestCaseFormSheet({
         ...emptyForm,
         stepsList: [],
     });
+    const [currentTag, setCurrentTag] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -109,10 +112,13 @@ export function TestCaseFormSheet({
                 isAutomated: testCase.isAutomated,
                 automationType: testCase.automationType ?? "",
                 automationRef: testCase.automationRef ?? "",
+                tags: testCase.tags ?? [],
             });
         } else {
             setForm({ ...emptyForm, stepsList: [] });
         }
+
+        setCurrentTag("");
         setError(null);
     }, [testCase, open]);
 
@@ -149,6 +155,31 @@ export function TestCaseFormSheet({
         }));
     };
 
+    const handleAddTag = () => {
+        const value = currentTag.trim();
+        if (value && !form.tags.includes(value)) {
+            setForm((prev) => ({
+                ...prev,
+                tags: [...prev.tags, value],
+            }));
+            setCurrentTag("");
+        }
+    };
+
+    const handleTagKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            handleAddTag();
+        }
+    };
+
+    const removeTag = (tagToRemove: string) => {
+        setForm((prev) => ({
+            ...prev,
+            tags: prev.tags.filter((tag) => tag !== tagToRemove),
+        }));
+    };
+
     const handleSubmit = async () => {
         setSubmitting(true);
         setError(null);
@@ -163,6 +194,7 @@ export function TestCaseFormSheet({
                 description: form.description.trim() || null,
                 preconditions: form.preconditions.trim() || null,
                 steps,
+                tags: form.tags,
                 status: form.status,
                 priority: Number.isFinite(Number(form.priority))
                     ? Number(form.priority)
@@ -293,6 +325,35 @@ export function TestCaseFormSheet({
                             + Agregar paso
                         </Button>
                     </div>
+                </div>
+
+                <div className="grid gap-2">
+                    <label className="text-sm font-semibold text-ink">Etiquetas</label>
+                    <div className="flex flex-wrap gap-2">
+                        {form.tags.map((tag) => (
+                            <span
+                                key={tag}
+                                className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-700"
+                            >
+                                {tag}
+                                <button
+                                    type="button"
+                                    onClick={() => removeTag(tag)}
+                                    className="ml-1 text-stone-400 hover:text-danger-500"
+                                >
+                                    &times;
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                    <Input
+                        value={currentTag}
+                        onChange={(e) => setCurrentTag(e.target.value)}
+                        onBlur={handleAddTag}
+                        placeholder="Escribe una etiqueta y presiona Enter"
+                        onKeyDown={handleTagKeyDown}
+                        className="mt-1"
+                    />
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">

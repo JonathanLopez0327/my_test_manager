@@ -204,6 +204,7 @@ model TestCase {
   description       String?
   preconditions     String?
   steps             Json           @default("[]") @db.JsonB
+  tags              String[]       @default([])
   status            TestCaseStatus @default(draft)
   isAutomated       Boolean        @default(false) @map("is_automated")
   automationType    String?        @map("automation_type")

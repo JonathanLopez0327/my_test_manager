@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"; // Force rebuild
+
 import { prisma } from "@/lib/prisma";
 import { TestCaseStatus } from "@/generated/prisma/client";
 import { getServerSession } from "next-auth";
@@ -101,6 +102,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       description?: string | null;
       preconditions?: string | null;
       steps?: unknown;
+      tags?: unknown;
       status?: TestCaseStatus;
       priority?: number | null;
       isAutomated?: boolean;
@@ -113,6 +115,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const status = parseStatus(body.status ?? null) ?? "draft";
     const priority = parsePriority(body.priority);
     const steps = normalizeSteps(body.steps);
+    const tags = Array.isArray(body.tags)
+      ? body.tags.map((t) => String(t).trim()).filter((t) => t.length > 0)
+      : [];
     const isAutomated = Boolean(body.isAutomated);
     const automationType = body.automationType?.trim() || null;
     const automationRef = body.automationRef?.trim() || null;
@@ -185,6 +190,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         description: body.description?.trim() || null,
         preconditions: body.preconditions?.trim() || null,
         steps,
+        tags,
         status,
         priority,
         isAutomated,

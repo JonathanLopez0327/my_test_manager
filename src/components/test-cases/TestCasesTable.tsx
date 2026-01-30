@@ -69,6 +69,7 @@ export function TestCasesTable({
               <th className="px-4 py-3">Caso</th>
               <th className="px-4 py-3">Suite</th>
               <th className="px-4 py-3">Estado</th>
+              <th className="px-4 py-3">Etiquetas</th>
               <th className="px-4 py-3">Prioridad</th>
               <th className="px-4 py-3">Automatización</th>
               <th className="px-4 py-3 text-right">
@@ -99,6 +100,23 @@ export function TestCasesTable({
                   <Badge tone={statusTones[testCase.status]}>
                     {statusLabels[testCase.status]}
                   </Badge>
+                </td>
+                <td className="px-4 py-4 text-ink-muted">
+                  <div className="flex flex-wrap gap-1">
+                    {testCase.tags?.slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(testCase.tags?.length ?? 0) > 3 && (
+                      <span className="text-[10px] text-ink-muted">
+                        +{testCase.tags.length - 3}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-4 text-ink-muted">
                   {getPriorityLabel(testCase.priority)}
@@ -162,6 +180,15 @@ export function TestCasesTable({
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
               <span>{getStepsCount(testCase.steps)} pasos</span>
               <span>{getPriorityLabel(testCase.priority)}</span>
+              {(testCase.tags?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {testCase.tags.map(tag => (
+                    <span key={tag} className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <span>
                 {testCase.isAutomated
                   ? testCase.automationType ?? "Automatizado"

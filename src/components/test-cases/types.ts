@@ -12,6 +12,7 @@ export type TestCaseRecord = {
   description: string | null;
   preconditions: string | null;
   steps: TestCaseStep[] | string[];
+  tags: string[];
   status: TestCaseStatus;
   isAutomated: boolean;
   automationType: string | null;
@@ -47,6 +48,7 @@ export type TestCasePayload = {
   description?: string | null;
   preconditions?: string | null;
   steps?: TestCaseStep[] | string[] | null;
+  tags?: string[];
   status: TestCaseStatus;
   priority?: number | null;
   isAutomated?: boolean;
