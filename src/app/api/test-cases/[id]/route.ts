@@ -69,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
   try {
@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Caso no encontrado." },
+        { message: "Test case not found." },
         { status: 404 },
       );
     }
@@ -124,7 +124,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!suiteId || !title) {
       return NextResponse.json(
-        { message: "Suite y título son requeridos." },
+        { message: "Suite and title are required." },
         { status: 400 },
       );
     }
@@ -145,7 +145,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!targetSuite) {
       return NextResponse.json(
-        { message: "Suite no encontrada." },
+        { message: "Suite not found." },
         { status: 404 },
       );
     }
@@ -154,7 +154,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!isSuperAdmin(globalRoles)) {
       if (isReadOnlyGlobal(globalRoles)) {
         return NextResponse.json(
-          { message: "Solo lectura." },
+          { message: "Read only." },
           { status: 403 },
         );
       }
@@ -164,7 +164,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
       if (!hasProjectPermission(currentRole, "editor")) {
         return NextResponse.json(
-          { message: "No tienes permisos para editar este caso." },
+          { message: "You do not have permission to edit this test case." },
           { status: 403 },
         );
       }
@@ -175,7 +175,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         );
         if (!hasProjectPermission(targetRole, "editor")) {
           return NextResponse.json(
-            { message: "No tienes permisos en la suite destino." },
+            { message: "You do not have permission in the target suite." },
             { status: 403 },
           );
         }
@@ -202,7 +202,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(testCase);
   } catch (error) {
     return NextResponse.json(
-      { message: "No se pudo actualizar el caso." },
+      { message: "Could not update test case." },
       { status: 500 },
     );
   }
@@ -212,7 +212,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
   const { id } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
   try {
@@ -233,7 +233,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Caso no encontrado." },
+        { message: "Test case not found." },
         { status: 404 },
       );
     }
@@ -242,7 +242,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
     if (!isSuperAdmin(globalRoles)) {
       if (isReadOnlyGlobal(globalRoles)) {
         return NextResponse.json(
-          { message: "Solo lectura." },
+          { message: "Read only." },
           { status: 403 },
         );
       }
@@ -252,7 +252,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
       );
       if (!hasProjectPermission(role, "admin")) {
         return NextResponse.json(
-          { message: "No tienes permisos para eliminar este caso." },
+          { message: "You do not have permission to delete this test case." },
           { status: 403 },
         );
       }
@@ -262,7 +262,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(
-      { message: "No se pudo eliminar el caso." },
+      { message: "Could not delete test case." },
       { status: 500 },
     );
   }

@@ -20,8 +20,8 @@ export function ConfirmationDialog({
     open,
     title,
     description,
-    confirmText = "Confirmar",
-    cancelText = "Cancelar",
+    confirmText = "Confirm",
+    cancelText = "Cancel",
     variant = "danger",
     onConfirm,
     onCancel,
@@ -54,7 +54,7 @@ export function ConfirmationDialog({
                         onClick={onConfirm}
                         disabled={isConfirming}
                     >
-                        {isConfirming ? "Procesando..." : confirmText}
+                        {isConfirming ? "Processing..." : confirmText}
                     </Button>
                 </div>
             </div>

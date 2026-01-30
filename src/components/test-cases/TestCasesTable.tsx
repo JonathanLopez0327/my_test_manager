@@ -13,9 +13,9 @@ type TestCasesTableProps = {
 };
 
 const statusLabels: Record<TestCaseStatus, string> = {
-  draft: "Borrador",
-  ready: "Listo",
-  deprecated: "Deprecado",
+  draft: "Draft",
+  ready: "Ready",
+  deprecated: "Deprecated",
 };
 
 const statusTones: Record<
@@ -27,7 +27,7 @@ const statusTones: Record<
   deprecated: "warning",
 };
 
-function getStepsCount(steps: string[]) {
+function getStepsCount(steps: unknown) {
   return Array.isArray(steps) ? steps.length : 0;
 }
 
@@ -47,7 +47,7 @@ export function TestCasesTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
         <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando casos...
+        Loading cases...
       </div>
     );
   }
@@ -55,7 +55,7 @@ export function TestCasesTable({
   if (!items.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay casos de prueba para mostrar.
+        No test cases to show.
       </div>
     );
   }
@@ -66,14 +66,14 @@ export function TestCasesTable({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Caso</th>
+              <th className="px-4 py-3">Case</th>
               <th className="px-4 py-3">Suite</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Etiquetas</th>
-              <th className="px-4 py-3">Prioridad</th>
-              <th className="px-4 py-3">Automatización</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Tags</th>
+              <th className="px-4 py-3">Priority</th>
+              <th className="px-4 py-3">Automation</th>
               <th className="px-4 py-3 text-right">
-                {canManage ? "Acciones" : ""}
+                {canManage ? "Actions" : ""}
               </th>
             </tr>
           </thead>
@@ -83,10 +83,10 @@ export function TestCasesTable({
                 <td className="px-4 py-4">
                   <p className="font-semibold text-ink">{testCase.title}</p>
                   <p className="text-xs text-ink-muted">
-                    {testCase.description ?? "Sin descripción"}
+                    {testCase.description ?? "No description"}
                   </p>
                   <p className="mt-2 text-xs text-ink-soft">
-                    {getStepsCount(testCase.steps)} pasos
+                    {getStepsCount(testCase.steps)} steps
                   </p>
                 </td>
                 <td className="px-4 py-4 text-ink">
@@ -123,7 +123,7 @@ export function TestCasesTable({
                 </td>
                 <td className="px-4 py-4 text-ink-muted">
                   {testCase.isAutomated
-                    ? testCase.automationType ?? "Automatizado"
+                    ? testCase.automationType ?? "Automated"
                     : "Manual"}
                 </td>
                 <td className="px-4 py-4">
@@ -132,14 +132,14 @@ export function TestCasesTable({
                       <button
                         onClick={() => onEdit(testCase)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Editar caso"
+                        aria-label="Edit case"
                       >
                         <IconEdit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => onDelete(testCase)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                        aria-label="Eliminar caso"
+                        aria-label="Delete case"
                       >
                         <IconTrash className="h-4 w-4" />
                       </button>
@@ -175,10 +175,10 @@ export function TestCasesTable({
               {testCase.suite.testPlan.name} · {testCase.suite.name}
             </p>
             <p className="mt-3 text-sm text-ink-muted">
-              {testCase.description ?? "Sin descripción"}
+              {testCase.description ?? "No description"}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
-              <span>{getStepsCount(testCase.steps)} pasos</span>
+              <span>{getStepsCount(testCase.steps)} steps</span>
               <span>{getPriorityLabel(testCase.priority)}</span>
               {(testCase.tags?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1">
@@ -191,7 +191,7 @@ export function TestCasesTable({
               )}
               <span>
                 {testCase.isAutomated
-                  ? testCase.automationType ?? "Automatizado"
+                  ? testCase.automationType ?? "Automated"
                   : "Manual"}
               </span>
             </div>
@@ -200,14 +200,14 @@ export function TestCasesTable({
                 <button
                   onClick={() => onEdit(testCase)}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Editar caso"
+                  aria-label="Edit case"
                 >
                   <IconEdit className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => onDelete(testCase)}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                  aria-label="Eliminar caso"
+                  aria-label="Delete case"
                 >
                   <IconTrash className="h-5 w-5" />
                 </button>

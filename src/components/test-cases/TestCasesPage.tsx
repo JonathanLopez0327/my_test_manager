@@ -74,7 +74,7 @@ export function TestCasesPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los casos.");
+        throw new Error(data.message || "Could not load test cases.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -82,7 +82,7 @@ export function TestCasesPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los casos.",
+          : "Could not load test cases.",
       );
     } finally {
       setLoading(false);
@@ -102,7 +102,7 @@ export function TestCasesPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar las suites.");
+        throw new Error(data.message || "Could not load test suites.");
       }
       setSuites(
         data.items.map((suite) => ({
@@ -117,7 +117,7 @@ export function TestCasesPage() {
       setSuitesError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar las suites.",
+          : "Could not load test suites.",
       );
     }
   }, []);
@@ -174,7 +174,7 @@ export function TestCasesPage() {
       });
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar el caso.");
+        throw new Error(data.message || "Could not delete test case.");
       }
       await fetchCases();
       setDeleteConfirmation({ open: false, id: null, title: "", isConfirming: false });
@@ -182,7 +182,7 @@ export function TestCasesPage() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el caso.",
+          : "Could not delete test case.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -202,7 +202,7 @@ export function TestCasesPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar el caso.");
+      throw new Error(data.message || "Could not save test case.");
     }
     await fetchCases();
   };
@@ -222,11 +222,11 @@ export function TestCasesPage() {
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-ink">
-              Listado de casos de prueba
+              Test Cases List
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Actualizando..." : `Total: ${total}`}
+            {loading ? "Updating..." : `Total: ${total}`}
           </div>
         </div>
 
@@ -275,9 +275,9 @@ export function TestCasesPage() {
 
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar caso "${deleteConfirmation.title}"?`}
-        description="Esta acción eliminará el caso de prueba permanentemente. No se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete test case "${deleteConfirmation.title}"?`}
+        description="This action will permanently delete the test case. This cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
           setDeleteConfirmation({

@@ -25,7 +25,7 @@ export function TestCasesHeader({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Gestión de casos de prueba
+          Test Case Management
         </p>
         <h2 className="text-2xl font-semibold text-ink">Test Cases</h2>
       </div>
@@ -35,7 +35,7 @@ export function TestCasesHeader({
             <IconSearch className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Buscar por título, suite o plan..."
+            placeholder="Search by title, suite or plan..."
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             className="pl-11"
@@ -48,14 +48,14 @@ export function TestCasesHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            Nuevo caso
+            New Case
           </Button>
         ) : null}
       </div>

@@ -68,7 +68,7 @@ function normalizeSteps(value?: unknown) {
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
 
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     const role = await getProjectRole(session.user.id, projectId);
     if (!role) {
       return NextResponse.json(
-        { message: "No tienes acceso a este proyecto." },
+        { message: "You do not have access to this project." },
         { status: 403 },
       );
     }
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
+    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 
 
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
 
     if (!suiteId || !title) {
       return NextResponse.json(
-        { message: "Suite y título son requeridos." },
+        { message: "Suite and title are required." },
         { status: 400 },
       );
     }
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
 
     if (!suite) {
       return NextResponse.json(
-        { message: "Suite no encontrada." },
+        { message: "Suite not found." },
         { status: 404 },
       );
     }
@@ -260,14 +260,14 @@ export async function POST(request: NextRequest) {
     if (!isSuperAdmin(globalRoles)) {
       if (isReadOnlyGlobal(globalRoles)) {
         return NextResponse.json(
-          { message: "Solo lectura." },
+          { message: "Read only." },
           { status: 403 },
         );
       }
       const role = await getProjectRole(session.user.id, suite.testPlan.projectId);
       if (!hasProjectPermission(role, "editor")) {
         return NextResponse.json(
-          { message: "No tienes permisos para crear casos." },
+          { message: "You do not have permission to create test cases." },
           { status: 403 },
         );
       }
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(testCase, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { message: "No se pudo crear el caso." },
+      { message: "Could not create test case." },
       { status: 500 },
     );
   }

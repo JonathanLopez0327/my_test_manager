@@ -54,9 +54,9 @@ const emptyForm: TestCaseFormState = {
 };
 
 const statusOptions: Array<{ value: TestCaseStatus; label: string }> = [
-    { value: "draft", label: "Borrador" },
-    { value: "ready", label: "Listo" },
-    { value: "deprecated", label: "Deprecado" },
+    { value: "draft", label: "Draft" },
+    { value: "ready", label: "Ready" },
+    { value: "deprecated", label: "Deprecated" },
 ];
 
 export function TestCaseFormSheet({
@@ -75,7 +75,7 @@ export function TestCaseFormSheet({
     const [error, setError] = useState<string | null>(null);
 
     const title = useMemo(
-        () => (testCase ? "Editar caso de prueba" : "Nuevo caso de prueba"),
+        () => (testCase ? "Edit Test Case" : "New Test Case"),
         [testCase],
     );
 
@@ -213,7 +213,7 @@ export function TestCaseFormSheet({
             setError(
                 submitError instanceof Error
                     ? submitError.message
-                    : "No se pudo guardar el caso.",
+                    : "Could not save test case.",
             );
         } finally {
             setSubmitting(false);
@@ -226,12 +226,12 @@ export function TestCaseFormSheet({
         <Sheet
             open={open}
             title={title}
-            description="Define el detalle, estado y pasos del caso."
+            description="Define the details, status, and steps of the test case."
             onClose={onClose}
         >
             <div className="grid gap-4">
                 <label className="text-sm font-semibold text-ink">
-                    Suite de prueba
+                    Test Suite
                     <select
                         value={form.suiteId}
                         onChange={(event) =>
@@ -239,7 +239,7 @@ export function TestCaseFormSheet({
                         }
                         className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
                     >
-                        <option value="">Selecciona una suite</option>
+                        <option value="">Select a suite</option>
                         {suites.map((suite) => (
                             <option key={suite.id} value={suite.id}>
                                 {suite.projectKey} · {suite.testPlanName} · {suite.name}
@@ -249,31 +249,31 @@ export function TestCaseFormSheet({
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Título del caso
+                    Test Case Title
                     <Input
                         value={form.title}
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, title: event.target.value }))
                         }
-                        placeholder="Validar login con 2FA"
+                        placeholder="Validate login with 2FA"
                         className="mt-2"
                     />
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Descripción
+                    Description
                     <textarea
                         value={form.description}
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, description: event.target.value }))
                         }
-                        placeholder="Contexto del caso"
+                        placeholder="Context of the test case"
                         className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Precondiciones
+                    Preconditions
                     <textarea
                         value={form.preconditions}
                         onChange={(event) =>
@@ -282,36 +282,36 @@ export function TestCaseFormSheet({
                                 preconditions: event.target.value,
                             }))
                         }
-                        placeholder="Datos o estados necesarios antes de ejecutar"
+                        placeholder="Data or states required before execution"
                         className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
                 <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-ink">Pasos</label>
+                    <label className="text-sm font-semibold text-ink">Steps</label>
                     <div className="flex flex-col gap-3">
                         {form.stepsList?.map((item, index) => (
                             <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-gray-50 p-3">
                                 <div className="flex items-start justify-between gap-2">
-                                    <span className="text-xs font-medium text-ink/60">Paso {index + 1}</span>
+                                    <span className="text-xs font-medium text-ink/60">Step {index + 1}</span>
                                     <button
                                         type="button"
                                         onClick={() => removeStep(item.id)}
                                         className="text-xs text-danger-500 hover:text-danger-700"
                                     >
-                                        Eliminar
+                                        Delete
                                     </button>
                                 </div>
                                 <textarea
                                     value={item.step}
                                     onChange={(e) => updateStep(item.id, 'step', e.target.value)}
-                                    placeholder="Descripción del paso"
+                                    placeholder="Step description"
                                     className="min-h-[60px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
                                 />
                                 <textarea
                                     value={item.expectedResult}
                                     onChange={(e) => updateStep(item.id, 'expectedResult', e.target.value)}
-                                    placeholder="Resultado esperado"
+                                    placeholder="Expected result"
                                     className="min-h-[40px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
                                 />
                             </div>
@@ -322,13 +322,13 @@ export function TestCaseFormSheet({
                             className="w-full"
                             onClick={addStep}
                         >
-                            + Agregar paso
+                            + Add step
                         </Button>
                     </div>
                 </div>
 
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-ink">Etiquetas</label>
+                    <label className="text-sm font-semibold text-ink">Tags</label>
                     <div className="flex flex-wrap gap-2">
                         {form.tags.map((tag) => (
                             <span
@@ -350,7 +350,7 @@ export function TestCaseFormSheet({
                         value={currentTag}
                         onChange={(e) => setCurrentTag(e.target.value)}
                         onBlur={handleAddTag}
-                        placeholder="Escribe una etiqueta y presiona Enter"
+                        placeholder="Type a tag and press Enter"
                         onKeyDown={handleTagKeyDown}
                         className="mt-1"
                     />
@@ -358,7 +358,7 @@ export function TestCaseFormSheet({
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="text-sm font-semibold text-ink">
-                        Estado
+                        Status
                         <select
                             value={form.status}
                             onChange={(event) =>
@@ -378,7 +378,7 @@ export function TestCaseFormSheet({
                     </label>
 
                     <label className="text-sm font-semibold text-ink">
-                        Prioridad
+                        Priority
                         <Input
                             type="number"
                             min={1}
@@ -401,13 +401,13 @@ export function TestCaseFormSheet({
                         }
                         className="h-4 w-4 rounded border-stroke text-brand-600 focus:ring-brand-200"
                     />
-                    Caso automatizado
+                    Automated Case
                 </label>
 
                 {form.isAutomated ? (
                     <div className="grid gap-4 md:grid-cols-2">
                         <label className="text-sm font-semibold text-ink">
-                            Tipo de automatización
+                            Automation Type
                             <Input
                                 value={form.automationType}
                                 onChange={(event) =>
@@ -421,7 +421,7 @@ export function TestCaseFormSheet({
                             />
                         </label>
                         <label className="text-sm font-semibold text-ink">
-                            Referencia
+                            Reference
                             <Input
                                 value={form.automationRef}
                                 onChange={(event) =>
@@ -439,7 +439,7 @@ export function TestCaseFormSheet({
 
                 {!suites.length ? (
                     <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-                        Necesitas al menos una suite para crear casos.
+                        You need at least one suite to create cases.
                     </p>
                 ) : null}
 
@@ -451,10 +451,10 @@ export function TestCaseFormSheet({
 
                 <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                     <Button variant="ghost" onClick={onClose}>
-                        Cancelar
+                        Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-                        {submitting ? "Guardando..." : "Guardar caso"}
+                        {submitting ? "Saving..." : "Save Test Case"}
                     </Button>
                 </div>
             </div>
