@@ -37,8 +37,23 @@ function normalizeSteps(value?: unknown) {
   if (!value) return [];
   if (Array.isArray(value)) {
     return value
-      .map((item) => String(item).trim())
-      .filter((item) => item.length > 0);
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          const step = (item as any).step;
+          const expectedResult = (item as any).expectedResult;
+          if (typeof step === "string" || typeof expectedResult === "string") {
+            return {
+              step: String(step ?? "").trim(),
+              expectedResult: String(expectedResult ?? "").trim(),
+            };
+          }
+        }
+        return String(item).trim();
+      })
+      .filter((item) => {
+        if (typeof item === "string") return item.length > 0;
+        return item.step || item.expectedResult;
+      });
   }
   if (typeof value === "string") {
     return value
@@ -113,15 +128,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       suiteId === existing.suiteId
         ? existing.suite
         : await prisma.testSuite.findUnique({
-            where: { id: suiteId },
-            select: {
-              testPlan: {
-                select: {
-                  projectId: true,
-                },
+          where: { id: suiteId },
+          select: {
+            testPlan: {
+              select: {
+                projectId: true,
               },
             },
-          });
+          },
+        });
 
     if (!targetSuite) {
       return NextResponse.json(
