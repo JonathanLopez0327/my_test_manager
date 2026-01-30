@@ -10,14 +10,14 @@ const adapter = new PrismaPg({ connectionString: DATABASE_URL })
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = "qa.lead@product.io";
-  const password = "Qa123456!";
+  const email = process.env.SEED_QA_EMAIL ?? "";
+  const password = process.env.SEED_QA_PASSWORD ?? "";
   const passwordHash = await hash(password, 10);
 
   const superAdminEmail =
-    process.env.SEED_SUPER_ADMIN_EMAIL ?? "super.admin@product.io";
+    process.env.SEED_SUPER_ADMIN_EMAIL ?? "";
   const superAdminPassword =
-    process.env.SEED_SUPER_ADMIN_PASSWORD ?? "SuperAdmin123!";
+    process.env.SEED_SUPER_ADMIN_PASSWORD ?? "";
   const superAdminHash = await hash(superAdminPassword, 10);
 
   const user = await prisma.user.upsert({
