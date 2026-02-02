@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
 import { ArtifactPreview } from "../ui/ArtifactPreview";
@@ -46,11 +46,11 @@ type RunArtifactRecord = {
 };
 
 const itemStatusLabels: Record<RunItemRecord["status"], string> = {
-    passed: "Pasado",
-    failed: "Fallido",
-    skipped: "Omitido",
-    blocked: "Bloqueado",
-    not_run: "No ejecutado",
+    passed: "Passed",
+    failed: "Failed",
+    skipped: "Skipped",
+    blocked: "Blocked",
+    not_run: "Not Run",
 };
 
 const itemStatusTones: Record<
@@ -65,21 +65,21 @@ const itemStatusTones: Record<
 };
 
 function formatDate(value?: string | null) {
-    if (!value) return "Sin fecha";
+    if (!value) return "No date";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Sin fecha";
+    if (Number.isNaN(date.getTime())) return "No date";
     return date.toLocaleString();
 }
 
 function formatDuration(value?: number | null) {
-    if (!value || value <= 0) return "Sin duración";
+    if (!value || value <= 0) return "No duration";
     if (value < 1000) return `${value} ms`;
     const seconds = Math.round(value / 1000);
     return `${seconds}s`;
 }
 
 function getRunTitle(run: TestRunRecord | null) {
-    if (!run) return "Detalles del run";
+    if (!run) return "Run Details";
     if (run.name?.trim()) return run.name.trim();
     return `Run ${run.id.slice(0, 6)}`;
 }
@@ -123,7 +123,51 @@ export function TestRunDetailsSheet({
         null,
     );
 
+    // Pagination & Filtering
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalItems, setTotalItems] = useState(0);
+    const [search, setSearch] = useState("");
+    const [searchDebounced, setSearchDebounced] = useState("");
+    const [filterStatus, setFilterStatus] = useState<string>("");
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchDebounced(search);
+            setPage(1); // Reset page on search change
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    const handleFilterStatusChange = (status: string) => {
+        setFilterStatus(status);
+        setPage(1); // Reset page on filter change
+    };
+
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage);
+    };
+
     const canShowData = Boolean(open && run?.id);
+
+    const dirtyItemsRef = useRef<Set<string>>(new Set());
+
+    // Sync ref with state
+    useEffect(() => {
+        dirtyItemsRef.current = dirtyItems;
+    }, [dirtyItems]);
+
+    // Reset state when run changes
+    useEffect(() => {
+        if (!run?.id) return;
+        setPage(1);
+        setSearch("");
+        setSearchDebounced("");
+        setFilterStatus("");
+        setDirtyItems(new Set());
+        setItemEdits({});
+        dirtyItemsRef.current = new Set();
+    }, [run?.id, open]); // Include open to reset if closed/reopened
 
     useEffect(() => {
         if (!canShowData) return;
@@ -137,9 +181,14 @@ export function TestRunDetailsSheet({
             fetch(`/api/test-runs/${runId}/metrics`, { cache: "no-store" }).then(
                 (res) => res.json(),
             ),
-            fetch(`/api/test-runs/${runId}/items?page=1&pageSize=50`, {
-                cache: "no-store",
-            }).then((res) => res.json()),
+            fetch(
+                `/api/test-runs/${runId}/items?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(
+                    searchDebounced,
+                )}${filterStatus ? `&status=${filterStatus}` : ""}`,
+                {
+                    cache: "no-store",
+                },
+            ).then((res) => res.json()),
             fetch(`/api/test-runs/${runId}/artifacts?page=1&pageSize=50`, {
                 cache: "no-store",
             }).then((res) => res.json()),
@@ -159,27 +208,34 @@ export function TestRunDetailsSheet({
                 const loadedItems = itemsResponse?.items ?? [];
                 setMetrics(metricsResponse ?? null);
                 setItems(loadedItems);
+                setTotalItems(itemsResponse?.total ?? 0);
                 setArtifacts(artifactsResponse?.items ?? []);
-                setItemEdits(
-                    Object.fromEntries(
-                        loadedItems.map((item: RunItemRecord) => [
-                            item.id,
-                            {
+
+                // Merge edits, preserving dirty items
+                setItemEdits((prev) => {
+                    const next = { ...prev };
+                    const dirty = dirtyItemsRef.current;
+
+                    loadedItems.forEach((item: RunItemRecord) => {
+                        // Only overwrite if not dirty
+                        if (!dirty.has(item.id)) {
+                            next[item.id] = {
                                 status: item.status,
                                 durationMs: item.durationMs ? String(item.durationMs) : "",
                                 errorMessage: item.errorMessage ?? "",
-                            },
-                        ]),
-                    ),
-                );
-                setDirtyItems(new Set());
+                            };
+                        }
+                    });
+                    return next;
+                });
+                // Do NOT reset dirtyItems
             })
             .catch((fetchError) => {
                 if (!active) return;
                 setError(
                     fetchError instanceof Error
                         ? fetchError.message
-                        : "No se pudo cargar el detalle del run.",
+                        : "Could not load run details.",
                 );
             })
             .finally(() => {
@@ -190,7 +246,7 @@ export function TestRunDetailsSheet({
         return () => {
             active = false;
         };
-    }, [canShowData, run?.id]);
+    }, [canShowData, run?.id, page, pageSize, searchDebounced, filterStatus]);
 
     useEffect(() => {
         if (!open) setTab("summary");
@@ -200,11 +256,11 @@ export function TestRunDetailsSheet({
         if (!metrics) return null;
         return [
             { label: "Total", value: metrics.total },
-            { label: "Pasados", value: metrics.passed },
-            { label: "Fallidos", value: metrics.failed },
-            { label: "Bloqueados", value: metrics.blocked },
-            { label: "Omitidos", value: metrics.skipped },
-            { label: "No ejecutados", value: metrics.notRun },
+            { label: "Passed", value: metrics.passed },
+            { label: "Failed", value: metrics.failed },
+            { label: "Blocked", value: metrics.blocked },
+            { label: "Skipped", value: metrics.skipped },
+            { label: "Not Run", value: metrics.notRun },
         ];
     }, [metrics]);
 
@@ -237,9 +293,14 @@ export function TestRunDetailsSheet({
                     fetch(`/api/test-runs/${run.id}/metrics`, { cache: "no-store" }).then(
                         (res) => res.json(),
                     ),
-                    fetch(`/api/test-runs/${run.id}/items?page=1&pageSize=50`, {
-                        cache: "no-store",
-                    }).then((res) => res.json()),
+                    fetch(
+                        `/api/test-runs/${run.id}/items?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(
+                            searchDebounced,
+                        )}${filterStatus ? `&status=${filterStatus}` : ""}`,
+                        {
+                            cache: "no-store",
+                        },
+                    ).then((res) => res.json()),
                     fetch(`/api/test-runs/${run.id}/artifacts?page=1&pageSize=50`, {
                         cache: "no-store",
                     }).then((res) => res.json()),
@@ -251,6 +312,7 @@ export function TestRunDetailsSheet({
             const loadedItems = itemsResponse?.items ?? [];
             setMetrics(metricsResponse ?? null);
             setItems(loadedItems);
+            setTotalItems(itemsResponse?.total ?? 0);
             setArtifacts(artifactsResponse?.items ?? []);
             setItemEdits(
                 Object.fromEntries(
@@ -269,7 +331,7 @@ export function TestRunDetailsSheet({
             setError(
                 fetchError instanceof Error
                     ? fetchError.message
-                    : "No se pudo refrescar el detalle del run.",
+                    : "Could not refresh run details.",
             );
         } finally {
             setLoading(false);
@@ -306,7 +368,7 @@ export function TestRunDetailsSheet({
 
             const data = (await response.json()) as { message?: string };
             if (!response.ok) {
-                throw new Error(data.message || "No se pudieron guardar los items.");
+                throw new Error(data.message || "Could not save items.");
             }
 
             await reloadData();
@@ -315,7 +377,7 @@ export function TestRunDetailsSheet({
             setError(
                 saveError instanceof Error
                     ? saveError.message
-                    : "No se pudieron guardar los items.",
+                    : "Could not save items.",
             );
         } finally {
             setSavingItems(false);
@@ -330,7 +392,7 @@ export function TestRunDetailsSheet({
             let response: Response;
             if (artifactMode === "file") {
                 if (!artifactFile) {
-                    setError("Selecciona un archivo para subir.");
+                    setError("Select a file to upload.");
                     setSavingArtifact(false);
                     return;
                 }
@@ -345,7 +407,7 @@ export function TestRunDetailsSheet({
                 });
             } else {
                 if (!artifactForm.url.trim()) {
-                    setError("La URL del artefacto es requerida.");
+                    setError("Artifact URL is required.");
                     setSavingArtifact(false);
                     return;
                 }
@@ -370,7 +432,7 @@ export function TestRunDetailsSheet({
 
             const data = (await response.json()) as { message?: string };
             if (!response.ok) {
-                throw new Error(data.message || "No se pudo crear el artefacto.");
+                throw new Error(data.message || "Could not create artifact.");
             }
 
             setArtifactForm({
@@ -388,7 +450,7 @@ export function TestRunDetailsSheet({
             setError(
                 saveError instanceof Error
                     ? saveError.message
-                    : "No se pudo crear el artefacto.",
+                    : "Could not create artifact.",
             );
         } finally {
             setSavingArtifact(false);
@@ -400,7 +462,7 @@ export function TestRunDetailsSheet({
             open={open}
             onClose={onClose}
             title={getRunTitle(run)}
-            description="Resumen del run, resultados y artefactos asociados."
+            description="Run summary, results, and associated artifacts."
         >
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -413,7 +475,7 @@ export function TestRunDetailsSheet({
                                 : "border border-stroke text-ink-muted"
                                 }`}
                         >
-                            Resumen
+                            Summary
                         </button>
                         <button
                             type="button"
@@ -433,7 +495,7 @@ export function TestRunDetailsSheet({
                                 : "border border-stroke text-ink-muted"
                                 }`}
                         >
-                            Artefactos
+                            Artifacts
                         </button>
                     </div>
 
@@ -442,7 +504,7 @@ export function TestRunDetailsSheet({
                             type="button"
                             onClick={() => run?.id && window.open(`/api/test-runs/${run.id}/export?format=pdf`, "_blank")}
                             className="rounded-full border border-stroke px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-brand-50 hover:text-ink"
-                            title="Exportar como PDF"
+                            title="Export as PDF"
                         >
                             PDF
                         </button>
@@ -450,7 +512,7 @@ export function TestRunDetailsSheet({
                             type="button"
                             onClick={() => run?.id && window.open(`/api/test-runs/${run.id}/export?format=html`, "_blank")}
                             className="rounded-full border border-stroke px-3 py-1 text-xs font-semibold text-ink-muted hover:bg-brand-50 hover:text-ink"
-                            title="Exportar como HTML"
+                            title="Export as HTML"
                         >
                             HTML
                         </button>
@@ -459,7 +521,7 @@ export function TestRunDetailsSheet({
 
                 {loading ? (
                     <div className="rounded-lg border border-stroke bg-surface-muted/40 px-4 py-6 text-sm text-ink-muted">
-                        Cargando detalle del run...
+                        Loading run details...
                     </div>
                 ) : null}
 
@@ -474,7 +536,7 @@ export function TestRunDetailsSheet({
                         <div className="grid gap-3 rounded-lg border border-stroke bg-white p-4 text-sm text-ink-muted md:grid-cols-2">
                             <div>
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                    Proyecto
+                                    Project
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
                                     {run?.project.key} · {run?.project.name}
@@ -485,18 +547,18 @@ export function TestRunDetailsSheet({
                                     Plan / Suite
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
-                                    {run?.testPlan?.name ?? run?.suite?.testPlan.name ?? "Sin plan"}
+                                    {run?.testPlan?.name ?? run?.suite?.testPlan.name ?? "No plan"}
                                 </p>
                                 <p className="text-xs text-ink-muted">
-                                    {run?.suite?.name ?? "Sin suite"}
+                                    {run?.suite?.name ?? "No suite"}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                    Ambiente
+                                    Environment
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
-                                    {run?.environment ?? "Sin ambiente"}
+                                    {run?.environment ?? "No environment"}
                                 </p>
                             </div>
                             <div>
@@ -504,15 +566,15 @@ export function TestRunDetailsSheet({
                                     Build / Commit
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
-                                    {run?.buildNumber ?? "Sin build"}
+                                    {run?.buildNumber ?? "No build"}
                                 </p>
                                 <p className="text-xs text-ink-muted">
-                                    {run?.commitSha ? run.commitSha.slice(0, 10) : "Sin commit"}
+                                    {run?.commitSha ? run.commitSha.slice(0, 10) : "No commit"}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                    Inicio
+                                    Start
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
                                     {formatDate(run?.startedAt)}
@@ -520,7 +582,7 @@ export function TestRunDetailsSheet({
                             </div>
                             <div>
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                    Fin
+                                    End
                                 </p>
                                 <p className="mt-1 text-sm font-semibold text-ink">
                                     {formatDate(run?.finishedAt)}
@@ -532,12 +594,12 @@ export function TestRunDetailsSheet({
                             <div className="flex items-center justify-between gap-4">
                                 <div>
                                     <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                        Métricas
+                                        Metrics
                                     </p>
                                     <p className="mt-1 text-sm text-ink-muted">
                                         {metrics?.passRate
                                             ? `Pass rate: ${metrics.passRate}%`
-                                            : "Sin métricas"}
+                                            : "No metrics"}
                                     </p>
                                 </div>
                                 <Badge tone="success">
@@ -562,9 +624,9 @@ export function TestRunDetailsSheet({
 
                 {!loading && !error && tab === "items" ? (
                     <div className="space-y-3">
-                        {items.length === 0 ? (
+                        {items.length === 0 && !search && !filterStatus ? (
                             <div className="rounded-lg border border-dashed border-stroke px-4 py-6 text-sm text-ink-muted">
-                                No hay items para este run.
+                                There are no items for this run pending creation or synchronization.
                             </div>
                         ) : (
                             <div className="space-y-3">
@@ -572,8 +634,8 @@ export function TestRunDetailsSheet({
                                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-stroke bg-surface-muted/40 px-4 py-3 text-xs text-ink-muted">
                                         <span>
                                             {dirtyItems.size > 0
-                                                ? `${dirtyItems.size} cambios pendientes`
-                                                : "Sin cambios pendientes"}
+                                                ? `${dirtyItems.size} pending changes`
+                                                : "No pending changes"}
                                         </span>
                                         <button
                                             type="button"
@@ -581,106 +643,168 @@ export function TestRunDetailsSheet({
                                             disabled={savingItems || dirtyItems.size === 0}
                                             className="rounded-full bg-brand-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-brand-200"
                                         >
-                                            {savingItems ? "Guardando..." : "Guardar cambios"}
+                                            {savingItems ? "Saving..." : "Save changes"}
                                         </button>
                                     </div>
                                 ) : null}
-                                {items.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="rounded-lg border border-stroke bg-white p-4"
-                                    >
-                                        <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-semibold text-ink">
-                                                    {item.testCase.externalKey
-                                                        ? `${item.testCase.externalKey} · ${item.testCase.title}`
-                                                        : item.testCase.title}
-                                                </p>
-                                                <p className="text-xs text-ink-muted">
-                                                    Ejecutado por{" "}
-                                                    {item.executedBy?.fullName ??
-                                                        item.executedBy?.email ??
-                                                        "Sin ejecutor"}
-                                                </p>
-                                            </div>
-                                            {canManage ? (
-                                                <select
-                                                    value={itemEdits[item.id]?.status ?? item.status}
-                                                    onChange={(event) =>
-                                                        handleItemChange(
-                                                            item.id,
-                                                            "status",
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                    className="rounded-full border border-stroke px-3 py-1 text-xs font-semibold text-ink"
-                                                >
-                                                    {Object.entries(itemStatusLabels).map(
-                                                        ([value, label]) => (
-                                                            <option key={value} value={value}>
-                                                                {label}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            ) : (
-                                                <Badge tone={itemStatusTones[item.status]}>
-                                                    {itemStatusLabels[item.status]}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <div className="mt-3 text-xs text-ink-muted">
-                                            <div className="flex flex-wrap items-center gap-3">
-                                                <p>Duración: {formatDuration(item.durationMs)}</p>
-                                                <p>Fecha: {formatDate(item.executedAt)}</p>
-                                            </div>
-                                            {canManage ? (
-                                                <div className="mt-3 grid gap-3 text-xs text-ink-muted md:grid-cols-2">
-                                                    <label className="space-y-1">
-                                                        <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                                            Duración (ms)
-                                                        </span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            value={itemEdits[item.id]?.durationMs ?? ""}
-                                                            onChange={(event) =>
-                                                                handleItemChange(
-                                                                    item.id,
-                                                                    "durationMs",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
-                                                        />
-                                                    </label>
-                                                    <label className="space-y-1">
-                                                        <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                                            Error
-                                                        </span>
-                                                        <input
-                                                            type="text"
-                                                            value={itemEdits[item.id]?.errorMessage ?? ""}
-                                                            onChange={(event) =>
-                                                                handleItemChange(
-                                                                    item.id,
-                                                                    "errorMessage",
-                                                                    event.target.value,
-                                                                )
-                                                            }
-                                                            className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
-                                                        />
-                                                    </label>
+
+
+                                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-stroke bg-white p-3">
+                                    <div className="flex-1">
+                                        <input
+                                            type="text"
+                                            placeholder="Search test cases..."
+                                            value={search}
+                                            onChange={(e) => setSearch(e.target.value)}
+                                            className="w-full rounded-md border border-stroke px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-brand-500 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <select
+                                            value={filterStatus}
+                                            onChange={(e) => handleFilterStatusChange(e.target.value)}
+                                            className="w-full rounded-md border border-stroke px-3 py-1.5 text-sm text-ink focus:border-brand-500 focus:outline-none"
+                                        >
+                                            <option value="">All statuses</option>
+                                            {Object.entries(itemStatusLabels).map(([value, label]) => (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {items.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed border-stroke px-4 py-6 text-center text-sm text-ink-muted">
+                                        No items found matching current filters.
+                                    </div>
+                                ) : (
+                                    items.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className="rounded-lg border border-stroke bg-white p-4"
+                                        >
+                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-ink">
+                                                        {item.testCase.externalKey
+                                                            ? `${item.testCase.externalKey} · ${item.testCase.title}`
+                                                            : item.testCase.title}
+                                                    </p>
+                                                    <p className="text-xs text-ink-muted">
+                                                        Executed by{" "}
+                                                        {item.executedBy?.fullName ??
+                                                            item.executedBy?.email ??
+                                                            "No executor"}
+                                                    </p>
                                                 </div>
-                                            ) : item.errorMessage ? (
-                                                <p className="mt-2 text-danger-500">
-                                                    {item.errorMessage}
-                                                </p>
-                                            ) : null}
+                                                {canManage ? (
+                                                    <select
+                                                        value={itemEdits[item.id]?.status ?? item.status}
+                                                        onChange={(event) =>
+                                                            handleItemChange(
+                                                                item.id,
+                                                                "status",
+                                                                event.target.value,
+                                                            )
+                                                        }
+                                                        className="rounded-full border border-stroke px-3 py-1 text-xs font-semibold text-ink"
+                                                    >
+                                                        {Object.entries(itemStatusLabels).map(
+                                                            ([value, label]) => (
+                                                                <option key={value} value={value}>
+                                                                    {label}
+                                                                </option>
+                                                            ),
+                                                        )}
+                                                    </select>
+                                                ) : (
+                                                    <Badge tone={itemStatusTones[item.status]}>
+                                                        {itemStatusLabels[item.status]}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <div className="mt-3 text-xs text-ink-muted">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <p>Duration: {formatDuration(item.durationMs)}</p>
+                                                    <p>Date: {formatDate(item.executedAt)}</p>
+                                                </div>
+                                                {canManage ? (
+                                                    <div className="mt-3 grid gap-3 text-xs text-ink-muted md:grid-cols-2">
+                                                        <label className="space-y-1">
+                                                            <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+                                                                Duration (ms)
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={itemEdits[item.id]?.durationMs ?? ""}
+                                                                onChange={(event) =>
+                                                                    handleItemChange(
+                                                                        item.id,
+                                                                        "durationMs",
+                                                                        event.target.value,
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
+                                                            />
+                                                        </label>
+                                                        <label className="space-y-1">
+                                                            <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
+                                                                Error
+                                                            </span>
+                                                            <input
+                                                                type="text"
+                                                                value={itemEdits[item.id]?.errorMessage ?? ""}
+                                                                onChange={(event) =>
+                                                                    handleItemChange(
+                                                                        item.id,
+                                                                        "errorMessage",
+                                                                        event.target.value,
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                ) : item.errorMessage ? (
+                                                    <p className="mt-2 text-danger-500">
+                                                        {item.errorMessage}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+
+                                {/* Pagination Controls */}
+                                {totalItems > pageSize && (
+                                    <div className="flex items-center justify-between border-t border-stroke pt-4">
+                                        <div className="text-xs text-ink-muted">
+                                            Showing {(page - 1) * pageSize + 1} to{" "}
+                                            {Math.min(page * pageSize, totalItems)} of {totalItems}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => handlePageChange(page - 1)}
+                                                disabled={page === 1}
+                                                className="rounded-md border border-stroke px-3 py-1 text-xs font-medium text-ink hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Previous
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handlePageChange(page + 1)}
+                                                disabled={page * pageSize >= totalItems}
+                                                className="rounded-md border border-stroke px-3 py-1 text-xs font-medium text-ink hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                Next
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         )}
                     </div>
@@ -691,7 +815,7 @@ export function TestRunDetailsSheet({
                         {canManage ? (
                             <div className="rounded-lg border border-stroke bg-white p-4">
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                    Nuevo artefacto
+                                    New Artifact
                                 </p>
                                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                                     <button
@@ -705,7 +829,7 @@ export function TestRunDetailsSheet({
                                             : "border border-stroke text-ink-muted"
                                             }`}
                                     >
-                                        Subir archivo
+                                        Upload file
                                     </button>
                                     <button
                                         type="button"
@@ -718,13 +842,13 @@ export function TestRunDetailsSheet({
                                             : "border border-stroke text-ink-muted"
                                             }`}
                                     >
-                                        Usar URL
+                                        Use URL
                                     </button>
                                 </div>
                                 <div className="mt-3 grid gap-3 text-sm text-ink md:grid-cols-2">
                                     <label className="space-y-1">
                                         <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                            Item (opcional)
+                                            Item (optional)
                                         </span>
                                         <select
                                             value={artifactForm.runItemId}
@@ -736,7 +860,7 @@ export function TestRunDetailsSheet({
                                             }
                                             className="w-full rounded-lg border border-stroke px-3 py-2 text-sm text-ink"
                                         >
-                                            <option value="">Run completo</option>
+                                            <option value="">Full Run</option>
                                             {items.map((item) => (
                                                 <option key={item.id} value={item.id}>
                                                     {item.testCase.externalKey
@@ -748,7 +872,7 @@ export function TestRunDetailsSheet({
                                     </label>
                                     <label className="space-y-1">
                                         <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                            Tipo
+                                            Type
                                         </span>
                                         <select
                                             value={artifactForm.type}
@@ -794,7 +918,7 @@ export function TestRunDetailsSheet({
                                     </label>
                                     <label className="space-y-1 md:col-span-2">
                                         <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                            Archivo
+                                            File
                                         </span>
                                         <input
                                             key={artifactFile ? artifactFile.name : "empty"}
@@ -813,7 +937,7 @@ export function TestRunDetailsSheet({
                                     </label>
                                     <label className="space-y-1">
                                         <span className="text-xs uppercase tracking-[0.2em] text-ink-soft">
-                                            Nombre
+                                            Name
                                         </span>
                                         <input
                                             type="text"
@@ -835,7 +959,7 @@ export function TestRunDetailsSheet({
                                         disabled={savingArtifact}
                                         className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-brand-200"
                                     >
-                                        {savingArtifact ? "Subiendo..." : "Subir artefacto"}
+                                        {savingArtifact ? "Uploading..." : "Upload artifact"}
                                     </button>
                                 </div>
                             </div>
@@ -843,7 +967,7 @@ export function TestRunDetailsSheet({
 
                         {artifacts.length === 0 ? (
                             <div className="rounded-lg border border-dashed border-stroke px-4 py-6 text-sm text-ink-muted">
-                                No hay artefactos registrados.
+                                No artifacts found.
                             </div>
                         ) : (
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -860,10 +984,10 @@ export function TestRunDetailsSheet({
                                                         type="button"
                                                         onClick={() => setPreviewArtifact(artifact)}
                                                         className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700"
-                                                        title="Ver artefacto"
+                                                        title="View artifact"
                                                     >
                                                         <EyeIcon className="h-4 w-4" />
-                                                        Ver
+                                                        View
                                                     </button>
                                                     <a
                                                         href={artifact.url}
@@ -871,12 +995,12 @@ export function TestRunDetailsSheet({
                                                         rel="noopener noreferrer"
                                                         className="text-xs text-ink-muted hover:underline"
                                                     >
-                                                        Descargar
+                                                        Download
                                                     </a>
                                                 </div>
                                             </div>
                                             <p className="mt-2 text-sm font-semibold text-ink">
-                                                {artifact.name || "Sin nombre"}
+                                                {artifact.name || "No name"}
                                             </p>
                                             <p className="text-xs text-ink-muted">
                                                 {formatDate(artifact.createdAt)}

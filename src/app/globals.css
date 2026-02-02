@@ -18,6 +18,8 @@
   --success-500: #16a34a;
   --warning-500: #d97706;
   --danger-500: #dc2626;
+  --danger-600: #b91c1c;
+  --danger-700: #991b1b;
   --ink: #111827;
   --ink-muted: #6b7280;
   --ink-soft: #9ca3af;
@@ -41,6 +43,8 @@
   --color-success-500: var(--success-500);
   --color-warning-500: var(--warning-500);
   --color-danger-500: var(--danger-500);
+  --color-danger-600: var(--danger-600);
+  --color-danger-700: var(--danger-700);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-soft: var(--ink-soft);

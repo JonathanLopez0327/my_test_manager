@@ -118,6 +118,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
     MAX_PAGE_SIZE,
   );
+  const search = searchParams.get("search")?.trim();
   const status = parseResultStatus(searchParams.get("status")?.trim() ?? null);
   const testCaseId = searchParams.get("testCaseId")?.trim();
   const includeArtifacts = searchParams.get("includeArtifacts") === "true";
@@ -126,6 +127,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     runId: string;
     status?: TestResultStatus;
     testCaseId?: string;
+    testCase?: {
+      OR: Array<{
+        title: { contains: string; mode: "insensitive" };
+      } | {
+        externalKey: { contains: string; mode: "insensitive" };
+      }>;
+    };
   }>;
 
   if (status) {
@@ -133,6 +141,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
   if (testCaseId) {
     filters.push({ runId: id, testCaseId });
+  }
+  if (search) {
+     filters.push({
+      runId: id,
+      testCase: {
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { externalKey: { contains: search, mode: "insensitive" } },
+        ],
+      },
+    });
   }
 
   const where = filters.length > 1 ? { AND: filters } : filters[0];
