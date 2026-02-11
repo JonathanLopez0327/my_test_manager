@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  getGlobalRoles,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -18,22 +13,8 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  const canView = isSuperAdmin(globalRoles) || isReadOnlyGlobal(globalRoles);
-  if (!canView) {
-    return NextResponse.json(
-      { message: "No tienes permisos para ver usuarios." },
-      { status: 403 },
-    );
-  }
-
-  const { searchParams } = new URL(request.url);
+export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalRoles }) => {
+  const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
     parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
@@ -102,24 +83,11 @@ export async function GET(request: NextRequest) {
     page,
     pageSize,
   });
-}
+});
 
-export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  if (!isSuperAdmin(globalRoles)) {
-    return NextResponse.json(
-      { message: "No tienes permisos para crear usuarios." },
-      { status: 403 },
-    );
-  }
-
+export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       email?: string;
       fullName?: string | null;
       password?: string;
@@ -203,4 +171,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

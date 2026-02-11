@@ -1,21 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TestRunStatus, TestRunType } from "@/generated/prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  getProjectRole,
-  hasProjectPermission,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
-
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const STATUS_VALUES: TestRunStatus[] = [
   "queued",
@@ -46,12 +34,8 @@ function parseDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
+export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
   try {
     const existing = await prisma.testRun.findUnique({
@@ -66,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       projectId?: string;
       testPlanId?: string | null;
       suiteId?: string | null;
@@ -131,33 +115,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const globalRoles = await getGlobalRoles(session.user.id);
-    if (!isSuperAdmin(globalRoles)) {
-      if (isReadOnlyGlobal(globalRoles)) {
-        return NextResponse.json(
-          { message: "Solo lectura." },
-          { status: 403 },
-        );
-      }
-      const currentRole = await getProjectRole(
-        session.user.id,
-        existing.projectId,
-      );
-      if (!hasProjectPermission(currentRole, "editor")) {
-        return NextResponse.json(
-          { message: "No tienes permisos para editar este run." },
-          { status: 403 },
-        );
-      }
-      if (projectId !== existing.projectId) {
-        const targetRole = await getProjectRole(session.user.id, projectId);
-        if (!hasProjectPermission(targetRole, "editor")) {
-          return NextResponse.json(
-            { message: "No tienes permisos en el proyecto destino." },
-            { status: 403 },
-          );
-        }
-      }
+    // Check permission on current project
+    await requirePerm(PERMISSIONS.TEST_RUN_UPDATE, {
+      userId,
+      globalRoles,
+      projectId: existing.projectId,
+    });
+
+    // If moving to a different project, check permission there too
+    if (projectId !== existing.projectId) {
+      await requirePerm(PERMISSIONS.TEST_RUN_UPDATE, {
+        userId,
+        globalRoles,
+        projectId,
+      });
     }
 
     let resolvedPlanId = testPlanId;
@@ -235,19 +206,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(run);
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "No se pudo actualizar el run." },
       { status: 500 },
     );
   }
-}
+});
 
-export async function DELETE(_: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
   try {
     const existing = await prisma.testRun.findUnique({
@@ -262,29 +230,19 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const globalRoles = await getGlobalRoles(session.user.id);
-    if (!isSuperAdmin(globalRoles)) {
-      if (isReadOnlyGlobal(globalRoles)) {
-        return NextResponse.json(
-          { message: "Solo lectura." },
-          { status: 403 },
-        );
-      }
-      const role = await getProjectRole(session.user.id, existing.projectId);
-      if (!hasProjectPermission(role, "admin")) {
-        return NextResponse.json(
-          { message: "No tienes permisos para eliminar este run." },
-          { status: 403 },
-        );
-      }
-    }
+    await requirePerm(PERMISSIONS.TEST_RUN_DELETE, {
+      userId,
+      globalRoles,
+      projectId: existing.projectId,
+    });
 
     await prisma.testRun.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "No se pudo eliminar el run." },
       { status: 500 },
     );
   }
-}
+});

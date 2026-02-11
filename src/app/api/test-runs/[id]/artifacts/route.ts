@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { ArtifactType } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  getProjectRole,
-  hasProjectPermission,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { withAuth } from "@/lib/auth/with-auth";
+import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { getPresignedUrl, getS3Config } from "@/lib/s3";
-
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
 
 export const dynamic = "force-dynamic";
 
@@ -43,63 +31,12 @@ function parseArtifactType(value?: string | null) {
     : null;
 }
 
-async function requireRunAccess(
-  userId: string,
-  runId: string,
-  requiredRole: "viewer" | "editor" | "admin",
-) {
-  const run = await prisma.testRun.findUnique({
-    where: { id: runId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!run) {
-    return {
-      error: NextResponse.json(
-        { message: "Run no encontrado." },
-        { status: 404 },
-      ),
-    };
-  }
-
-  const globalRoles = await getGlobalRoles(userId);
-  if (isSuperAdmin(globalRoles)) {
-    return { run };
-  }
-
-  if (isReadOnlyGlobal(globalRoles)) {
-    if (requiredRole !== "viewer") {
-      return {
-        error: NextResponse.json({ message: "Solo lectura." }, { status: 403 }),
-      };
-    }
-    return { run };
-  }
-
-  const role = await getProjectRole(userId, run.projectId);
-  if (!hasProjectPermission(role, requiredRole)) {
-    return {
-      error: NextResponse.json(
-        { message: "No tienes permisos en este proyecto." },
-        { status: 403 },
-      ),
-    };
-  }
-
-  return { run };
-}
-
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const { id } = await params;
-  const access = await requireRunAccess(session.user.id, id, "viewer");
+export const GET = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_LIST);
   if (access.error) return access.error;
 
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
     parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
@@ -175,7 +112,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     items.map(async (item) => {
       if (item.url.startsWith(bucketPrefix)) {
         try {
-          // Extract Key: remove prefix
           const encodedKey = item.url.slice(bucketPrefix.length);
           const key = decodeURI(encodedKey);
           const signedUrl = await getPresignedUrl(key);
@@ -202,20 +138,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     },
   );
-}
+});
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const { id } = await params;
-  const access = await requireRunAccess(session.user.id, id, "editor");
+export const POST = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_UPLOAD);
   if (access.error) return access.error;
 
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       artifacts?: Array<{
         runItemId?: string | null;
         type?: ArtifactType;
@@ -319,4 +250,4 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 500 },
     );
   }
-}
+});

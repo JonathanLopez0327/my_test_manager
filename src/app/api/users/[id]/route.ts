@@ -1,34 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getGlobalRoles, isSuperAdmin } from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { withAuth } from "@/lib/auth/with-auth";
 
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  if (!isSuperAdmin(globalRoles)) {
-    return NextResponse.json(
-      { message: "No tienes permisos para modificar usuarios." },
-      { status: 403 },
-    );
-  }
+export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, routeCtx) => {
+  const { id } = await routeCtx.params;
 
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       fullName?: string | null;
       isActive?: boolean;
       password?: string;
@@ -83,4 +64,4 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       { status: 500 },
     );
   }
-}
+});

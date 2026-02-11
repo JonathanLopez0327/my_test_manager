@@ -1,24 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { createHash } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
 import { ArtifactType } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  getProjectRole,
-  hasProjectPermission,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { withAuth } from "@/lib/auth/with-auth";
+import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { buildS3ObjectUrl, getS3Client, getS3Config } from "@/lib/s3";
-
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
 
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [
   "screenshot",
@@ -40,57 +28,13 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-async function requireRunAccess(userId: string, runId: string) {
-  const run = await prisma.testRun.findUnique({
-    where: { id: runId },
-    select: { id: true, projectId: true },
-  });
-
-  if (!run) {
-    return {
-      error: NextResponse.json(
-        { message: "Run no encontrado." },
-        { status: 404 },
-      ),
-    };
-  }
-
-  const globalRoles = await getGlobalRoles(userId);
-  if (isSuperAdmin(globalRoles)) {
-    return { run };
-  }
-
-  if (isReadOnlyGlobal(globalRoles)) {
-    return {
-      error: NextResponse.json({ message: "Solo lectura." }, { status: 403 }),
-    };
-  }
-
-  const role = await getProjectRole(userId, run.projectId);
-  if (!hasProjectPermission(role, "editor")) {
-    return {
-      error: NextResponse.json(
-        { message: "No tienes permisos en este proyecto." },
-        { status: 403 },
-      ),
-    };
-  }
-
-  return { run };
-}
-
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const { id } = await params;
-  const access = await requireRunAccess(session.user.id, id);
+export const POST = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_UPLOAD);
   if (access.error) return access.error;
 
   try {
-    const formData = await request.formData();
+    const formData = await req.formData();
     const file = formData.get("file");
     const runItemId = String(formData.get("runItemId") ?? "").trim() || null;
     const type = parseArtifactType(
@@ -192,4 +136,4 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 500 },
     );
   }
-}
+});

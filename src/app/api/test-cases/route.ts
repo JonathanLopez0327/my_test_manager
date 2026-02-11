@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma, TestCaseStatus } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  getProjectRole,
-  hasProjectPermission,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { withAuth } from "@/lib/auth/with-auth";
+import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -65,18 +60,13 @@ function normalizeSteps(value?: unknown) {
   return [];
 }
 
-export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-  }
+export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
+  const hasGlobalListAccess = anyGlobalRoleHasPermission(
+    globalRoles,
+    PERMISSIONS.TEST_CASE_LIST,
+  );
 
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  const isGlobalAdmin = isSuperAdmin(globalRoles);
-  const isGlobalReadOnly = isReadOnlyGlobal(globalRoles);
-
-  const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
     parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
@@ -88,9 +78,13 @@ export async function GET(request: NextRequest) {
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
 
-  if (projectId && !isGlobalAdmin && !isGlobalReadOnly) {
-    const role = await getProjectRole(session.user.id, projectId);
-    if (!role) {
+  if (projectId && !hasGlobalListAccess) {
+    const allowed = await can(PERMISSIONS.TEST_CASE_LIST, {
+      userId,
+      globalRoles,
+      projectId,
+    });
+    if (!allowed) {
       return NextResponse.json(
         { message: "You do not have access to this project." },
         { status: 403 },
@@ -137,15 +131,13 @@ export async function GET(request: NextRequest) {
       ],
     });
   }
-  if (!isGlobalAdmin && !isGlobalReadOnly) {
+  if (!hasGlobalListAccess) {
     filters.push({
       suite: {
         testPlan: {
           project: {
             members: {
-              some: {
-                userId: session.user.id,
-              },
+              some: { userId },
             },
           },
         },
@@ -188,23 +180,12 @@ export async function GET(request: NextRequest) {
     prisma.testCase.count({ where }),
   ]);
 
-  return NextResponse.json({
-    items,
-    total,
-    page,
-    pageSize,
-  });
-}
+  return NextResponse.json({ items, total, page, pageSize });
+});
 
-export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-  }
-
-
+export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       suiteId?: string;
       title?: string;
       description?: string | null;
@@ -241,11 +222,7 @@ export async function POST(request: NextRequest) {
       where: { id: suiteId },
       select: {
         id: true,
-        testPlan: {
-          select: {
-            projectId: true,
-          },
-        },
+        testPlan: { select: { projectId: true } },
       },
     });
 
@@ -256,22 +233,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const globalRoles = await getGlobalRoles(session.user.id);
-    if (!isSuperAdmin(globalRoles)) {
-      if (isReadOnlyGlobal(globalRoles)) {
-        return NextResponse.json(
-          { message: "Read only." },
-          { status: 403 },
-        );
-      }
-      const role = await getProjectRole(session.user.id, suite.testPlan.projectId);
-      if (!hasProjectPermission(role, "editor")) {
-        return NextResponse.json(
-          { message: "You do not have permission to create test cases." },
-          { status: 403 },
-        );
-      }
-    }
+    await requirePerm(PERMISSIONS.TEST_CASE_CREATE, {
+      userId,
+      globalRoles,
+      projectId: suite.testPlan.projectId,
+    });
 
     const testCase = await prisma.testCase.create({
       data: {
@@ -286,15 +252,16 @@ export async function POST(request: NextRequest) {
         isAutomated,
         automationType: isAutomated ? automationType : null,
         automationRef: isAutomated ? automationRef : null,
-        createdById: session.user.id,
+        createdById: userId,
       },
     });
 
     return NextResponse.json(testCase, { status: 201 });
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "Could not create test case." },
       { status: 500 },
     );
   }
-}
+});

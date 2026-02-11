@@ -1,71 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
-import { authOptions } from "@/lib/auth";
-import {
-    getGlobalRoles,
-    getProjectRole,
-    hasProjectPermission,
-    isReadOnlyGlobal,
-    isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { withAuth } from "@/lib/auth/with-auth";
+import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { getS3Client, getS3Config } from "@/lib/s3";
 
-type RouteParams = {
-    params: Promise<{
-        id: string;
-        artifactId: string;
-    }>;
-};
-
-async function requireRunEditor(userId: string, runId: string) {
-    const run = await prisma.testRun.findUnique({
-        where: { id: runId },
-        select: { id: true, projectId: true },
-    });
-
-    if (!run) {
-        return {
-            error: NextResponse.json(
-                { message: "Run no encontrado." },
-                { status: 404 },
-            ),
-        };
-    }
-
-    const globalRoles = await getGlobalRoles(userId);
-    if (isSuperAdmin(globalRoles)) {
-        return { run };
-    }
-
-    if (isReadOnlyGlobal(globalRoles)) {
-        return {
-            error: NextResponse.json({ message: "Solo lectura." }, { status: 403 }),
-        };
-    }
-
-    const role = await getProjectRole(userId, run.projectId);
-    if (!hasProjectPermission(role, "editor")) {
-        return {
-            error: NextResponse.json(
-                { message: "No tienes permisos en este proyecto." },
-                { status: 403 },
-            ),
-        };
-    }
-
-    return { run };
-}
-
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-    }
-
-    const { id, artifactId } = await params;
-    const access = await requireRunEditor(session.user.id, id);
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+    const { id, artifactId } = await routeCtx.params;
+    const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_DELETE);
     if (access.error) return access.error;
 
     try {
@@ -117,4 +60,4 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             { status: 500 },
         );
     }
-}
+});

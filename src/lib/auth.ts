@@ -1,6 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
+import type { GlobalRole } from "@/generated/prisma/client";
 
 import { prisma } from "./prisma";
 
@@ -65,7 +66,7 @@ export const authOptions: NextAuthOptions = {
     session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
-        session.user.globalRoles = (token.globalRoles as string[]) ?? [];
+        session.user.globalRoles = (token.globalRoles ?? []) as GlobalRole[];
       }
       return session;
     },

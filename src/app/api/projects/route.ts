@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
-import { authOptions } from "@/lib/auth";
-import {
-  canCreateProject,
-  getGlobalRoles,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { withAuth } from "@/lib/auth/with-auth";
+import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -18,23 +14,19 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  const isGlobalAdmin = isSuperAdmin(globalRoles);
-  const isGlobalReadOnly = isReadOnlyGlobal(globalRoles);
-
-  const { searchParams } = new URL(request.url);
+export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
+  const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
     parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
     MAX_PAGE_SIZE,
   );
   const query = searchParams.get("query")?.trim();
+
+  const hasGlobalListAccess = anyGlobalRoleHasPermission(
+    globalRoles,
+    PERMISSIONS.PROJECT_LIST,
+  );
 
   const filters: Prisma.ProjectWhereInput[] = [];
   if (query) {
@@ -46,11 +38,11 @@ export async function GET(request: NextRequest) {
       ],
     });
   }
-  if (!isGlobalAdmin && !isGlobalReadOnly) {
+  if (!hasGlobalListAccess) {
     filters.push({
       members: {
         some: {
-          userId: session.user.id,
+          userId,
         },
       },
     });
@@ -76,19 +68,13 @@ export async function GET(request: NextRequest) {
     page,
     pageSize,
   });
-}
+});
 
-export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { message: "No autorizado." },
-      { status: 401 },
-    );
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  const allowed = await canCreateProject(session.user.id, globalRoles);
+export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
+  const allowed = await can(PERMISSIONS.PROJECT_CREATE, {
+    userId,
+    globalRoles,
+  });
   if (!allowed) {
     return NextResponse.json(
       { message: "No tienes permisos para crear proyectos." },
@@ -97,7 +83,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       key?: string;
       name?: string;
       description?: string | null;
@@ -121,14 +107,14 @@ export async function POST(request: NextRequest) {
           name,
           description: body.description?.trim() || null,
           isActive: body.isActive ?? true,
-          createdById: session.user.id,
+          createdById: userId,
         },
       });
 
       await tx.projectMember.create({
         data: {
           projectId: created.id,
-          userId: session.user.id,
+          userId,
           role: "admin",
         },
       });
@@ -152,4 +138,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

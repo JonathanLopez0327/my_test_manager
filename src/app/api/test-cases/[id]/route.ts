@@ -1,22 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"; // Force rebuild
-
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TestCaseStatus } from "@/generated/prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  getProjectRole,
-  hasProjectPermission,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
-
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
 
@@ -65,12 +52,8 @@ function normalizeSteps(value?: unknown) {
   return [];
 }
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-  }
+export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
   try {
     const existing = await prisma.testCase.findUnique({
@@ -79,11 +62,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         suiteId: true,
         suite: {
           select: {
-            testPlan: {
-              select: {
-                projectId: true,
-              },
-            },
+            testPlan: { select: { projectId: true } },
           },
         },
       },
@@ -96,7 +75,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       suiteId?: string;
       title?: string;
       description?: string | null;
@@ -135,11 +114,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         : await prisma.testSuite.findUnique({
           where: { id: suiteId },
           select: {
-            testPlan: {
-              select: {
-                projectId: true,
-              },
-            },
+            testPlan: { select: { projectId: true } },
           },
         });
 
@@ -150,36 +125,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const globalRoles = await getGlobalRoles(session.user.id);
-    if (!isSuperAdmin(globalRoles)) {
-      if (isReadOnlyGlobal(globalRoles)) {
-        return NextResponse.json(
-          { message: "Read only." },
-          { status: 403 },
-        );
-      }
-      const currentRole = await getProjectRole(
-        session.user.id,
-        existing.suite.testPlan.projectId,
-      );
-      if (!hasProjectPermission(currentRole, "editor")) {
-        return NextResponse.json(
-          { message: "You do not have permission to edit this test case." },
-          { status: 403 },
-        );
-      }
-      if (suiteId !== existing.suiteId) {
-        const targetRole = await getProjectRole(
-          session.user.id,
-          targetSuite.testPlan.projectId,
-        );
-        if (!hasProjectPermission(targetRole, "editor")) {
-          return NextResponse.json(
-            { message: "You do not have permission in the target suite." },
-            { status: 403 },
-          );
-        }
-      }
+    // Check permission on current project
+    await requirePerm(PERMISSIONS.TEST_CASE_UPDATE, {
+      userId,
+      globalRoles,
+      projectId: existing.suite.testPlan.projectId,
+    });
+
+    // If moving to a different suite/project, check permission there too
+    if (suiteId !== existing.suiteId) {
+      await requirePerm(PERMISSIONS.TEST_CASE_UPDATE, {
+        userId,
+        globalRoles,
+        projectId: targetSuite.testPlan.projectId,
+      });
     }
 
     const testCase = await prisma.testCase.update({
@@ -201,19 +160,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(testCase);
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "Could not update test case." },
       { status: 500 },
     );
   }
-}
+});
 
-export async function DELETE(_: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-  }
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
   try {
     const existing = await prisma.testCase.findUnique({
@@ -221,11 +177,7 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
       select: {
         suite: {
           select: {
-            testPlan: {
-              select: {
-                projectId: true,
-              },
-            },
+            testPlan: { select: { projectId: true } },
           },
         },
       },
@@ -238,32 +190,19 @@ export async function DELETE(_: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const globalRoles = await getGlobalRoles(session.user.id);
-    if (!isSuperAdmin(globalRoles)) {
-      if (isReadOnlyGlobal(globalRoles)) {
-        return NextResponse.json(
-          { message: "Read only." },
-          { status: 403 },
-        );
-      }
-      const role = await getProjectRole(
-        session.user.id,
-        existing.suite.testPlan.projectId,
-      );
-      if (!hasProjectPermission(role, "admin")) {
-        return NextResponse.json(
-          { message: "You do not have permission to delete this test case." },
-          { status: 403 },
-        );
-      }
-    }
+    await requirePerm(PERMISSIONS.TEST_CASE_DELETE, {
+      userId,
+      globalRoles,
+      projectId: existing.suite.testPlan.projectId,
+    });
 
     await prisma.testCase.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "Could not delete test case." },
       { status: 500 },
     );
   }
-}
+});

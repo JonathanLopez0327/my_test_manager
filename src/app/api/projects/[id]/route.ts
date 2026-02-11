@@ -1,47 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import {
-  getGlobalRoles,
-  isProjectAdmin,
-  isReadOnlyGlobal,
-  isSuperAdmin,
-} from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { withAuth } from "@/lib/auth/with-auth";
 
-type RouteParams = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
-
-  const globalRoles = await getGlobalRoles(session.user.id);
-  if (!isSuperAdmin(globalRoles)) {
-    if (isReadOnlyGlobal(globalRoles)) {
-      return NextResponse.json(
-        { message: "Solo lectura." },
-        { status: 403 },
-      );
-    }
-    const isAdmin = await isProjectAdmin(session.user.id, id);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { message: "No tienes permisos para editar este proyecto." },
-        { status: 403 },
-      );
-    }
-  }
+  await requirePerm(PERMISSIONS.PROJECT_UPDATE, {
+    userId,
+    globalRoles,
+    projectId: id,
+  });
 
   try {
-    const body = (await request.json()) as {
+    const body = (await req.json()) as {
       key?: string;
       name?: string;
       description?: string | null;
@@ -70,6 +44,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(project);
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
@@ -84,39 +59,25 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       { status: 500 },
     );
   }
-}
+});
 
-export async function DELETE(_: NextRequest, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ message: "No autorizado." }, { status: 401 });
-  }
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+  const { id } = await routeCtx.params;
 
-  const globalRoles = await getGlobalRoles(session.user.id);
-  if (!isSuperAdmin(globalRoles)) {
-    if (isReadOnlyGlobal(globalRoles)) {
-      return NextResponse.json(
-        { message: "Solo lectura." },
-        { status: 403 },
-      );
-    }
-    const isAdmin = await isProjectAdmin(session.user.id, id);
-    if (!isAdmin) {
-      return NextResponse.json(
-        { message: "No tienes permisos para eliminar este proyecto." },
-        { status: 403 },
-      );
-    }
-  }
+  await requirePerm(PERMISSIONS.PROJECT_DELETE, {
+    userId,
+    globalRoles,
+    projectId: id,
+  });
 
   try {
     await prisma.project.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
       { message: "No se pudo eliminar el proyecto." },
       { status: 500 },
     );
   }
-}
+});
