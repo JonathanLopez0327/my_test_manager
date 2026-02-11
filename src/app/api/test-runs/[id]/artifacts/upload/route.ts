@@ -112,17 +112,35 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    let generatedName = name;
+
     if (runItemId) {
       const belongs = await prisma.testRunItem.findFirst({
         where: { id: runItemId, runId: id },
-        select: { id: true },
+        select: {
+          id: true,
+          testCase: {
+            select: {
+              title: true,
+              externalKey: true,
+            },
+          },
+        },
       });
+
       if (!belongs) {
         return NextResponse.json(
           { message: "El item no pertenece al run." },
           { status: 400 },
         );
       }
+
+      const caseName = belongs.testCase.externalKey
+        ? `${belongs.testCase.externalKey} ${belongs.testCase.title}`
+        : belongs.testCase.title;
+      generatedName = `${caseName} - ${type} - ${file.name}`;
+    } else {
+      generatedName = `Run - ${type} - ${file.name}`;
     }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
@@ -148,7 +166,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         runId: id,
         runItemId,
         type,
-        name,
+        name: generatedName,
         url,
         mimeType: file.type || null,
         sizeBytes: BigInt(file.size),

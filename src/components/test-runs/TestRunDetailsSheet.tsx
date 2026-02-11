@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
 import { ArtifactPreview } from "../ui/ArtifactPreview";
-import { EyeIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, TrashIcon } from "@heroicons/react/24/outline";
 import type { TestRunMetricsRecord, TestRunRecord } from "./types";
 
 type TestRunDetailsSheetProps = {
@@ -454,6 +454,32 @@ export function TestRunDetailsSheet({
             );
         } finally {
             setSavingArtifact(false);
+        }
+    };
+
+    const handleDeleteArtifact = async (artifactId: string) => {
+        if (!run?.id) return;
+        if (!window.confirm("Are you sure you want to delete this artifact?")) return;
+
+        setLoading(true); // Or use a specific loading state
+        try {
+            const response = await fetch(`/api/test-runs/${run.id}/artifacts/${artifactId}`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || "Failed to delete artifact.");
+            }
+
+            await reloadData();
+            onUpdated?.();
+        } catch (error) {
+            setError(
+                error instanceof Error ? error.message : "Failed to delete artifact."
+            );
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -997,6 +1023,14 @@ export function TestRunDetailsSheet({
                                                     >
                                                         Download
                                                     </a>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteArtifact(artifact.id)}
+                                                        className="text-xs text-danger-500 hover:text-danger-600 hover:underline"
+                                                        title="Delete artifact"
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
                                                 </div>
                                             </div>
                                             <p className="mt-2 text-sm font-semibold text-ink">
