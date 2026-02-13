@@ -63,16 +63,16 @@ export function TestCasesTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Case</th>
-              <th className="px-4 py-3">Suite</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Tags</th>
-              <th className="px-4 py-3">Priority</th>
-              <th className="px-4 py-3">Automation</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Case</th>
+              <th className="px-3 py-2">Suite</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Tags</th>
+              <th className="px-3 py-2">Priority</th>
+              <th className="px-3 py-2">Automation</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Actions" : ""}
               </th>
             </tr>
@@ -80,7 +80,7 @@ export function TestCasesTable({
           <tbody>
             {items.map((testCase) => (
               <tr key={testCase.id} className="border-t border-stroke">
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <p className="font-semibold text-ink">{testCase.title}</p>
                   <p className="text-xs text-ink-muted">
                     {testCase.description ?? "No description"}
@@ -89,19 +89,19 @@ export function TestCasesTable({
                     {getStepsCount(testCase.steps)} steps
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink">
+                <td className="px-3 py-2.5 text-ink">
                   <p className="font-semibold">{testCase.suite.name}</p>
                   <p className="text-xs text-ink-muted">
                     {testCase.suite.testPlan.project.key} ·{" "}
                     {testCase.suite.testPlan.name}
                   </p>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={statusTones[testCase.status]}>
                     {statusLabels[testCase.status]}
                   </Badge>
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   <div className="flex flex-wrap gap-1">
                     {testCase.tags?.slice(0, 3).map((tag) => (
                       <span
@@ -118,15 +118,15 @@ export function TestCasesTable({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {getPriorityLabel(testCase.priority)}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {testCase.isAutomated
                     ? testCase.automationType ?? "Automated"
                     : "Manual"}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <button

@@ -23,11 +23,25 @@ const navItems = [
   { label: "Overview", icon: IconGrid, href: "/manager" },
   { label: "Organizaciones", icon: IconOrganization, href: "/manager/organizations" },
   { label: "Projects", icon: IconFolder, href: "/manager/projects" },
-  { label: "Users", icon: IconUsers, href: "/manager/users" },
-  { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
-  { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites" },
-  { label: "Test Runs", icon: IconChart, href: "/manager/test-runs" },
-  { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases" },
+];
+
+const groupedNavItems = [
+  {
+    title: "Planning",
+    items: [
+      { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
+      { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites" },
+      { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases" },
+    ],
+  },
+  {
+    title: "Execution",
+    items: [{ label: "Test Runs", icon: IconChart, href: "/manager/test-runs" }],
+  },
+  {
+    title: "Management",
+    items: [{ label: "Users", icon: IconUsers, href: "/manager/users" }],
+  },
 ];
 
 export function Sidebar() {
@@ -43,7 +57,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`flex h-full w-full flex-col gap-6 rounded-xl border border-stroke bg-white p-6 transition-all duration-300 lg:w-auto ${
+      className={`flex h-full w-full flex-col gap-4 rounded-xl border border-stroke bg-white p-5 transition-all duration-300 lg:w-auto ${
         collapsed ? "lg:px-4" : "lg:px-6"
       } ${collapsed ? "lg:w-24" : "lg:w-[300px]"}`}
     >
@@ -73,11 +87,11 @@ export function Sidebar() {
       />
       <hr className="border-stroke" />
 
-      <nav className="flex flex-col gap-2">
+      <nav className="flex flex-col gap-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href ? pathname === item.href : false;
-          const baseClass = `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+          const baseClass = `flex items-center gap-3 rounded-xl px-4 py-1 text-[13px] font-semibold transition ${
             isActive
               ? "bg-brand-50 text-brand-700 shadow-soft-sm"
               : item.href
@@ -104,8 +118,44 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <div className="space-y-1">
+        {groupedNavItems.map((group) => (
+          <div
+            key={group.title}
+            className="py-0.5"
+          >
+            <p
+              className={`px-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-ink-soft/60 ${
+                collapsed ? "lg:hidden" : ""
+              }`}
+            >
+              {group.title}
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-1 text-[13px] font-semibold transition ${
+                      isActive
+                        ? "bg-brand-50 text-brand-700"
+                        : "text-ink-muted hover:bg-brand-50/80 hover:text-ink"
+                    } ${collapsed ? "lg:justify-center lg:px-2" : ""}`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <div
+      {/* <div
         className={`mt-auto rounded-xl border border-stroke bg-surface-muted p-5 text-ink ${
           collapsed ? "lg:p-3" : ""
         }`}
@@ -119,10 +169,10 @@ export function Sidebar() {
         <button className="mt-4 w-full rounded-lg border border-stroke bg-white py-2 text-xs font-semibold text-ink">
           {collapsed ? "CI" : "Connect CI"}
         </button>
-      </div>
+      </div> */}
 
       <button
-        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-ink-muted hover:bg-brand-50/70 ${
+        className={`flex items-center gap-3 rounded-xl px-4 py-1 text-[13px] font-semibold text-ink-muted hover:bg-brand-50/70 ${
           collapsed ? "lg:justify-center" : ""
         }`}
       >

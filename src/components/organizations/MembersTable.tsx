@@ -55,14 +55,14 @@ export function MembersTable({
     <>
       {/* Desktop table */}
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Rol</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Nombre</th>
+              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Rol</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -70,21 +70,21 @@ export function MembersTable({
           <tbody>
             {items.map((member) => (
               <tr key={member.userId} className="border-t border-stroke">
-                <td className="px-4 py-4 font-semibold text-ink">
+                <td className="px-3 py-2.5 font-semibold text-ink">
                   {member.user.fullName ?? "Sin nombre"}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">{member.user.email}</td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5 text-ink-muted">{member.user.email}</td>
+                <td className="px-3 py-2.5">
                   <Badge tone={ROLE_TONES[member.role]}>
                     {ROLE_LABELS[member.role] ?? member.role}
                   </Badge>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={member.user.isActive ? "success" : "neutral"}>
                     {member.user.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage && (
                     <div className="flex items-center justify-end gap-1">
                       <button

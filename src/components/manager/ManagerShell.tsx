@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "../dashboard/Sidebar";
 import { Topbar } from "../dashboard/Topbar";
+import { ViewContext } from "../dashboard/ViewContext";
 
 type ManagerShellProps = {
   children: ReactNode;
@@ -17,6 +18,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
           <Topbar />
         </div>
         <main className="flex-1 overflow-y-auto p-4 lg:pl-2">
+          <ViewContext />
           {children}
         </main>
       </div>

@@ -42,14 +42,14 @@ export function TestSuitesTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Suite</th>
-              <th className="px-4 py-3">Plan</th>
-              <th className="px-4 py-3">Padre</th>
-              <th className="px-4 py-3">Orden</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Suite</th>
+              <th className="px-3 py-2">Plan</th>
+              <th className="px-3 py-2">Padre</th>
+              <th className="px-3 py-2">Orden</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -57,25 +57,25 @@ export function TestSuitesTable({
           <tbody>
             {items.map((suite) => (
               <tr key={suite.id} className="border-t border-stroke">
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <p className="font-semibold text-ink">{suite.name}</p>
                   <p className="text-xs text-ink-muted">
                     {suite.description ?? "Sin descripción"}
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink">
+                <td className="px-3 py-2.5 text-ink">
                   <p className="font-semibold">{suite.testPlan.name}</p>
                   <p className="text-xs text-ink-muted">
                     {suite.testPlan.project.key} · {suite.testPlan.project.name}
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {getParentLabel(suite)}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {suite.displayOrder}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <button
