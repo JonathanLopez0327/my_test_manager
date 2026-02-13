@@ -171,14 +171,14 @@ export function Sidebar() {
         </button>
       </div> */}
 
-      <button
+      {/* <button
         className={`flex items-center gap-3 rounded-xl px-4 py-1 text-[13px] font-semibold text-ink-muted hover:bg-brand-50/70 ${
           collapsed ? "lg:justify-center" : ""
         }`}
       >
         <IconSettings className="h-5 w-5" />
         <span className={collapsed ? "lg:hidden" : ""}>Settings</span>
-      </button>
+      </button> */}
 
       <OrganizationCreateSheet
         open={createOrgOpen}
