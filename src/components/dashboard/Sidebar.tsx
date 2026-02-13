@@ -16,29 +16,31 @@ import {
 import { OrgSwitcher } from "./OrgSwitcher";
 import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
 import type { OrganizationRecord } from "../organizations/types";
+import { usePermissions } from "@/lib/auth/use-can";
+import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
 
 const navItems = [
-  { label: "Overview", icon: IconGrid, href: "/manager" },
-  { label: "Organizaciones", icon: IconOrganization, href: "/manager/organizations" },
-  { label: "Projects", icon: IconFolder, href: "/manager/projects" },
+  { label: "Overview", icon: IconGrid, href: "/manager", permission: PERMISSIONS.PROJECT_LIST },
+  { label: "Organizaciones", icon: IconOrganization, href: "/manager/organizations", permission: PERMISSIONS.ORG_LIST },
+  { label: "Projects", icon: IconFolder, href: "/manager/projects", permission: PERMISSIONS.PROJECT_LIST },
 ];
 
 const groupedNavItems = [
   {
     title: "Planning",
     items: [
-      { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
-      { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites" },
-      { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases" },
+      { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans", permission: PERMISSIONS.TEST_PLAN_LIST },
+      { label: "Test Suites", icon: IconClipboard, href: "/manager/test-suites", permission: PERMISSIONS.TEST_SUITE_LIST },
+      { label: "Test Cases", icon: IconClipboard, href: "/manager/test-cases", permission: PERMISSIONS.TEST_CASE_LIST },
     ],
   },
   {
     title: "Execution",
-    items: [{ label: "Test Runs", icon: IconChart, href: "/manager/test-runs" }],
+    items: [{ label: "Test Runs", icon: IconChart, href: "/manager/test-runs", permission: PERMISSIONS.TEST_RUN_LIST }],
   },
   {
     title: "Management",
-    items: [{ label: "Users", icon: IconUsers, href: "/manager/users" }],
+    items: [{ label: "Users", icon: IconUsers, href: "/manager/users", permission: PERMISSIONS.USER_LIST }],
   },
 ];
 
@@ -47,6 +49,17 @@ export function Sidebar() {
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
   const { update } = useSession();
   const pathname = usePathname();
+  const { can, globalRoles } = usePermissions();
+
+  const isSuperAdmin = (globalRoles as string[]).includes("super_admin");
+
+  const visibleNavItems = navItems.filter((item) => can(item.permission));
+  const visibleGroupedNavItems = groupedNavItems
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => can(item.permission)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const handleOrgCreated = async (org: OrganizationRecord) => {
     await update({ activeOrganizationId: org.id });
@@ -78,17 +91,21 @@ export function Sidebar() {
         </button>
       </div>
 
-      <hr className="border-stroke/70" />
-      <div className="px-3">
-        <OrgSwitcher
-          collapsed={collapsed}
-          onCreateOrg={() => setCreateOrgOpen(true)}
-        />
-      </div>
-      <hr className="border-stroke/70" />
+      {!isSuperAdmin && (
+        <>
+          <hr className="border-stroke/70" />
+          <div className="px-3">
+            <OrgSwitcher
+              collapsed={collapsed}
+              onCreateOrg={() => setCreateOrgOpen(true)}
+            />
+          </div>
+          <hr className="border-stroke/70" />
+        </>
+      )}
 
       <nav className="flex flex-col gap-1 px-2">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href ? pathname === item.href : false;
           const baseClass = `flex items-center gap-3 rounded-xl px-4 py-1 text-[13px] font-semibold transition ${
@@ -119,7 +136,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="space-y-1 px-2">
-        {groupedNavItems.map((group) => (
+        {visibleGroupedNavItems.map((group) => (
           <div
             key={group.title}
             className="py-0.5"

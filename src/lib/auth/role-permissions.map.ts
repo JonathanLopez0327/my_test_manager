@@ -10,8 +10,18 @@ import {
 // Global-role permission maps
 // ─────────────────────────────────────────────────────────────
 
-/** super_admin gets every permission */
-const SUPER_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set(ALL_PERMISSIONS);
+/** super_admin only gets user management, roles, and organization management */
+const SUPER_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+    PERMISSIONS.USER_LIST,
+    PERMISSIONS.USER_CREATE,
+    PERMISSIONS.USER_UPDATE,
+    PERMISSIONS.ORG_LIST,
+    PERMISSIONS.ORG_CREATE,
+    PERMISSIONS.ORG_UPDATE,
+    PERMISSIONS.ORG_DELETE,
+    PERMISSIONS.ORG_MEMBER_LIST,
+    PERMISSIONS.ORG_MEMBER_MANAGE,
+]);
 
 /** support & auditor only get read-only permissions */
 const READONLY_GLOBAL_PERMISSIONS: ReadonlySet<Permission> = new Set(READ_ONLY_PERMISSIONS);

@@ -4,7 +4,6 @@ import { Prisma, TestPlanStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
-import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -33,12 +32,7 @@ function parseDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
-  const hasGlobalListAccess = anyGlobalRoleHasPermission(
-    globalRoles,
-    PERMISSIONS.TEST_PLAN_LIST,
-  );
-
+export const GET = withAuth(PERMISSIONS.TEST_PLAN_LIST, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -48,7 +42,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   const query = searchParams.get("query")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
 
-  if (projectId && !hasGlobalListAccess) {
+  if (projectId) {
     const allowed = await can(PERMISSIONS.TEST_PLAN_LIST, {
       userId,
       globalRoles,
@@ -84,16 +78,15 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       ],
     });
   }
-  if (!hasGlobalListAccess) {
-    if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
-      filters.push({
-        project: {
-          members: {
-            some: { userId },
-          },
+  // Org owner/admin can see all plans in their org; others need explicit membership
+  if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
+    filters.push({
+      project: {
+        members: {
+          some: { userId },
         },
-      });
-    }
+      },
+    });
   }
 
   const where: Prisma.TestPlanWhereInput = filters.length

@@ -13,7 +13,7 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, route
       fullName?: string | null;
       isActive?: boolean;
       password?: string;
-      memberships?: { projectId: string; role: "admin" | "editor" | "viewer" }[];
+      memberships?: { organizationId: string; role: "owner" | "admin" | "member" | "billing" }[];
     };
 
     const memberships = body.memberships ?? [];
@@ -33,15 +33,15 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, route
       });
 
       // Update memberships: delete all existing and create new ones
-      await tx.projectMember.deleteMany({
+      await tx.organizationMember.deleteMany({
         where: { userId: id },
       });
 
       if (memberships.length > 0) {
-        await tx.projectMember.createMany({
+        await tx.organizationMember.createMany({
           data: memberships.map((m) => ({
             userId: id,
-            projectId: m.projectId,
+            organizationId: m.organizationId,
             role: m.role,
           })),
         });
@@ -55,7 +55,7 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, route
       error.code === "P2003"
     ) {
       return NextResponse.json(
-        { message: "Proyecto inválido." },
+        { message: "Organización inválida." },
         { status: 400 },
       );
     }

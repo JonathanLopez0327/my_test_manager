@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { OrgRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { Card } from "../ui/Card";
@@ -12,6 +12,7 @@ import { OrganizationDetailsCard } from "./OrganizationDetailsCard";
 import { OrganizationEditSheet } from "./OrganizationEditSheet";
 import { MembersTable } from "./MembersTable";
 import { MemberFormSheet } from "./MemberFormSheet";
+import { SuperAdminOrganizationsView } from "./SuperAdminOrganizationsView";
 import type {
   MemberRecord,
   MembersResponse,
@@ -29,6 +30,21 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
 }
 
 export function OrganizationsPage() {
+  const { globalRoles } = usePermissions();
+  const isSuperAdmin = (globalRoles as GlobalRole[]).includes("super_admin");
+
+  if (isSuperAdmin) {
+    return <SuperAdminOrganizationsView />;
+  }
+
+  return <ActiveOrgView />;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Active org detail view (regular users)
+// ─────────────────────────────────────────────────────────────
+
+function ActiveOrgView() {
   const { can, activeOrganizationId } = usePermissions();
 
   const [org, setOrg] = useState<OrganizationDetail | null>(null);
@@ -86,7 +102,6 @@ export function OrganizationsPage() {
     Promise.all([fetchOrg(), fetchMembers()]).finally(() => setLoading(false));
   }, [activeOrganizationId, fetchOrg, fetchMembers]);
 
-  // ── Org update ─────────────────────────────────────────
   const handleSaveOrg = async (payload: OrganizationUpdatePayload) => {
     if (!activeOrganizationId) return;
     const res = await fetch(`/api/organizations/${activeOrganizationId}`, {
@@ -101,7 +116,6 @@ export function OrganizationsPage() {
     await fetchOrg();
   };
 
-  // ── Member CRUD ────────────────────────────────────────
   const handleAddMember = () => {
     setEditingMember(null);
     setMemberFormOpen(true);
@@ -177,7 +191,6 @@ export function OrganizationsPage() {
     }
   };
 
-  // ── Guard ──────────────────────────────────────────────
   if (!activeOrganizationId) {
     return (
       <Card className="p-6">
@@ -239,7 +252,6 @@ export function OrganizationsPage() {
         </>
       ) : null}
 
-      {/* Edit org sheet */}
       <OrganizationEditSheet
         open={editOrgOpen}
         org={org}
@@ -247,7 +259,6 @@ export function OrganizationsPage() {
         onSave={handleSaveOrg}
       />
 
-      {/* Member form sheet */}
       {activeOrganizationId && (
         <MemberFormSheet
           open={memberFormOpen}
@@ -258,7 +269,6 @@ export function OrganizationsPage() {
         />
       )}
 
-      {/* Delete member confirmation */}
       <ConfirmationDialog
         open={deleteConfirmation.open}
         title={`¿Eliminar a "${deleteConfirmation.member?.user.fullName ?? deleteConfirmation.member?.user.email ?? ""}"?`}

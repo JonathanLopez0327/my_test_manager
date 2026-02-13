@@ -4,7 +4,6 @@ import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
-import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -14,7 +13,7 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
+export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -22,11 +21,6 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     MAX_PAGE_SIZE,
   );
   const query = searchParams.get("query")?.trim();
-
-  const hasGlobalListAccess = anyGlobalRoleHasPermission(
-    globalRoles,
-    PERMISSIONS.PROJECT_LIST,
-  );
 
   const filters: Prisma.ProjectWhereInput[] = [];
 
@@ -44,18 +38,15 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       ],
     });
   }
-  if (!hasGlobalListAccess) {
-    // Org owner/admin can see all projects in their org (already filtered above)
-    // Org member/billing need explicit project membership
-    if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
-      filters.push({
-        members: {
-          some: {
-            userId,
-          },
+  // Org owner/admin can see all projects in their org; others need explicit membership
+  if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
+    filters.push({
+      members: {
+        some: {
+          userId,
         },
-      });
-    }
+      },
+    });
   }
 
   const where: Prisma.ProjectWhereInput = filters.length

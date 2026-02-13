@@ -4,7 +4,6 @@ import { Prisma, TestCaseStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
-import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -60,12 +59,7 @@ function normalizeSteps(value?: unknown) {
   return [];
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
-  const hasGlobalListAccess = anyGlobalRoleHasPermission(
-    globalRoles,
-    PERMISSIONS.TEST_CASE_LIST,
-  );
-
+export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -78,7 +72,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
 
-  if (projectId && !hasGlobalListAccess) {
+  if (projectId) {
     const allowed = await can(PERMISSIONS.TEST_CASE_LIST, {
       userId,
       globalRoles,
@@ -139,20 +133,19 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       ],
     });
   }
-  if (!hasGlobalListAccess) {
-    if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
-      filters.push({
-        suite: {
-          testPlan: {
-            project: {
-              members: {
-                some: { userId },
-              },
+  // Org owner/admin can see all cases in their org; others need explicit membership
+  if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
+    filters.push({
+      suite: {
+        testPlan: {
+          project: {
+            members: {
+              some: { userId },
             },
           },
         },
-      });
-    }
+      },
+    });
   }
 
   const where: Prisma.TestCaseWhereInput = filters.length

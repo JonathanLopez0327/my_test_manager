@@ -1,10 +1,13 @@
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ManagerShell } from "@/components/manager/ManagerShell";
 import { IconAlert, IconCheck, IconFolder, IconSpark } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole, Prisma } from "@/generated/prisma/client";
+import { canSync } from "@/lib/auth/can-sync";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 
 function formatCount(value: number) {
   return value.toLocaleString("en-US");
@@ -12,6 +15,13 @@ function formatCount(value: number) {
 
 export default async function ManagerPage() {
   const session = await getServerSession(authOptions);
+
+  const globalRoles = (session?.user?.globalRoles ?? []) as GlobalRole[];
+  const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
+  if (!canSync(PERMISSIONS.PROJECT_LIST, globalRoles, organizationRole)) {
+    redirect("/manager/organizations");
+  }
+
   const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
 
   // Scope all queries to the active org when present

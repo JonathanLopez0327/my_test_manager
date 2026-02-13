@@ -1,10 +1,10 @@
-import type { GlobalRole, MemberRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 
 export type UserMembership = {
-  projectId: string;
-  projectKey: string;
-  projectName: string;
-  role: MemberRole;
+  organizationId: string;
+  organizationSlug: string;
+  organizationName: string;
+  role: OrgRole;
 };
 
 export type UserRecord = {
@@ -30,8 +30,8 @@ export type UserPayload = {
   password: string;
   isActive: boolean;
   memberships: {
-    projectId: string;
-    role: MemberRole;
+    organizationId: string;
+    role: OrgRole;
   }[];
 };
 
@@ -40,7 +40,7 @@ export type UserUpdatePayload = {
   password?: string;
   isActive: boolean;
   memberships: {
-    projectId: string;
-    role: MemberRole;
+    organizationId: string;
+    role: OrgRole;
   }[];
 };

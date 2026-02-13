@@ -42,7 +42,7 @@ export function UsersTable({
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Nombre</th>
-              <th className="px-3 py-2">Proyecto</th>
+              <th className="px-3 py-2">Organización</th>
               <th className="px-3 py-2">Rol</th>
               <th className="px-3 py-2">Global</th>
               <th className="px-3 py-2">Estado</th>
@@ -63,7 +63,7 @@ export function UsersTable({
                 <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
                     <div className="inline-flex items-center gap-2">
-                      <span>{user.memberships[0].projectName}</span>
+                      <span>{user.memberships[0].organizationName}</span>
                       {user.memberships.length > 1 ? (
                         <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-ink-soft">
                           +{user.memberships.length - 1}
@@ -78,7 +78,7 @@ export function UsersTable({
                   {user.memberships.length > 0 ? (
                     <div className="flex flex-col gap-1">
                       {user.memberships.map((m) => (
-                        <div key={m.projectId}>{m.role}</div>
+                        <div key={m.organizationId}>{m.role}</div>
                       ))}
                     </div>
                   ) : (
@@ -125,9 +125,9 @@ export function UsersTable({
             <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
               {user.memberships.length > 0 ? (
                 user.memberships.map((m) => (
-                  <div key={m.projectId} className="flex items-center gap-2">
+                  <div key={m.organizationId} className="flex items-center gap-2">
                     <span>
-                      {m.projectKey} · {m.projectName}
+                      {m.organizationSlug} · {m.organizationName}
                     </span>
                     <span>·</span>
                     <span className="capitalize">{m.role}</span>
