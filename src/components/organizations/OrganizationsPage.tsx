@@ -19,6 +19,15 @@ import type {
   OrganizationUpdatePayload,
 } from "./types";
 
+async function safeJson(res: Response): Promise<{ message?: string } & Record<string, unknown>> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: `Error inesperado (HTTP ${res.status})` };
+  }
+}
+
 export function OrganizationsPage() {
   const { can, activeOrganizationId } = usePermissions();
 
@@ -85,8 +94,8 @@ export function OrganizationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await res.json()) as { message?: string };
     if (!res.ok) {
+      const data = await safeJson(res);
       throw new Error(data.message || "No se pudo actualizar la organización.");
     }
     await fetchOrg();
@@ -122,8 +131,8 @@ export function OrganizationsPage() {
           body: JSON.stringify({ role }),
         },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo actualizar el miembro.");
       }
     } else {
@@ -135,8 +144,8 @@ export function OrganizationsPage() {
           body: JSON.stringify({ userId, role }),
         },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo agregar el miembro.");
       }
     }
@@ -154,8 +163,8 @@ export function OrganizationsPage() {
         `/api/organizations/${activeOrganizationId}/members/${member.userId}`,
         { method: "DELETE" },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo eliminar el miembro.");
       }
       await Promise.all([fetchOrg(), fetchMembers()]);

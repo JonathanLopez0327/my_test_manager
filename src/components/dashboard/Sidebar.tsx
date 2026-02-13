@@ -11,8 +11,6 @@ import {
   IconGrid,
   IconLayers,
   IconOrganization,
-  IconPlus,
-  IconSettings,
   IconUsers,
 } from "../icons";
 import { OrgSwitcher } from "./OrgSwitcher";
@@ -57,11 +55,11 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`flex h-full w-full flex-col gap-4 rounded-xl border border-stroke bg-white p-5 transition-all duration-300 lg:w-auto ${
-        collapsed ? "lg:px-4" : "lg:px-6"
-      } ${collapsed ? "lg:w-24" : "lg:w-[300px]"}`}
+      className={`flex h-screen w-full flex-col gap-3 border-r border-stroke bg-surface transition-all duration-300 lg:w-auto ${
+        collapsed ? "lg:w-20" : "lg:w-[280px]"
+      }`}
     >
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 px-4 pt-3">
         <div className={`flex items-center gap-3 ${collapsed ? "lg:justify-center" : ""}`}>
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-600 text-white">
             TM
@@ -80,20 +78,22 @@ export function Sidebar() {
         </button>
       </div>
 
-      <hr className="border-stroke" />
-      <OrgSwitcher
-        collapsed={collapsed}
-        onCreateOrg={() => setCreateOrgOpen(true)}
-      />
-      <hr className="border-stroke" />
+      <hr className="border-stroke/70" />
+      <div className="px-3">
+        <OrgSwitcher
+          collapsed={collapsed}
+          onCreateOrg={() => setCreateOrgOpen(true)}
+        />
+      </div>
+      <hr className="border-stroke/70" />
 
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-1 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href ? pathname === item.href : false;
           const baseClass = `flex items-center gap-3 rounded-xl px-4 py-1 text-[13px] font-semibold transition ${
             isActive
-              ? "bg-brand-50 text-brand-700 shadow-soft-sm"
+              ? "bg-brand-50 text-brand-700"
               : item.href
                 ? "text-ink-muted hover:bg-brand-50/80 hover:text-ink"
                 : "text-ink-soft"
@@ -118,7 +118,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="space-y-1">
+      <div className="space-y-1 px-2">
         {groupedNavItems.map((group) => (
           <div
             key={group.title}
