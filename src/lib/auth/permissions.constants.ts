@@ -53,6 +53,14 @@ export const PERMISSIONS = {
   USER_LIST: "user:list",
   USER_CREATE: "user:create",
   USER_UPDATE: "user:update",
+
+  // ── Organizations ───────────────────────────────────────────
+  ORG_LIST: "org:list",
+  ORG_CREATE: "org:create",
+  ORG_UPDATE: "org:update",
+  ORG_DELETE: "org:delete",
+  ORG_MEMBER_LIST: "org-member:list",
+  ORG_MEMBER_MANAGE: "org-member:manage",
 } as const;
 
 /** Union type of all permission strings */

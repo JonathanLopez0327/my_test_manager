@@ -1,13 +1,32 @@
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ManagerShell } from "@/components/manager/ManagerShell";
 import { IconAlert, IconCheck, IconFolder, IconSpark } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 
 function formatCount(value: number) {
   return value.toLocaleString("en-US");
 }
 
 export default async function ManagerPage() {
+  const session = await getServerSession(authOptions);
+  const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
+
+  // Scope all queries to the active org when present
+  const projectWhere: Prisma.ProjectWhereInput = activeOrganizationId
+    ? { isActive: true, organizationId: activeOrganizationId }
+    : { isActive: true };
+
+  const runItemOrgFilter: Prisma.TestRunItemWhereInput = activeOrganizationId
+    ? { run: { project: { organizationId: activeOrganizationId } } }
+    : {};
+
+  const testCaseOrgFilter: Prisma.TestCaseWhereInput = activeOrganizationId
+    ? { suite: { testPlan: { project: { organizationId: activeOrganizationId } } } }
+    : {};
+
   const [
     activeProjects,
     executedCases,
@@ -15,15 +34,15 @@ export default async function ManagerPage() {
     totalCases,
     automatedCases,
   ] = await prisma.$transaction([
-    prisma.project.count({ where: { isActive: true } }),
+    prisma.project.count({ where: projectWhere }),
     prisma.testRunItem.count({
-      where: { status: { not: "not_run" } },
+      where: { status: { not: "not_run" }, ...runItemOrgFilter },
     }),
     prisma.testRunItem.count({
-      where: { status: "failed" },
+      where: { status: "failed", ...runItemOrgFilter },
     }),
-    prisma.testCase.count(),
-    prisma.testCase.count({ where: { isAutomated: true } }),
+    prisma.testCase.count({ where: testCaseOrgFilter }),
+    prisma.testCase.count({ where: { isAutomated: true, ...testCaseOrgFilter } }),
   ]);
 
   const automationRate =

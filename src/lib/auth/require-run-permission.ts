@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import type { GlobalRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import type { Permission } from "./permissions.constants";
 import { can } from "./policy-engine";
 
@@ -13,6 +13,8 @@ export async function requireRunPermission(
     globalRoles: GlobalRole[],
     runId: string,
     permission: Permission,
+    organizationId?: string,
+    organizationRole?: OrgRole,
 ): Promise<
     | { run: { id: string; projectId: string }; error?: never }
     | { run?: never; error: NextResponse }
@@ -34,6 +36,8 @@ export async function requireRunPermission(
     const allowed = await can(permission, {
         userId,
         globalRoles,
+        organizationId,
+        organizationRole,
         projectId: run.projectId,
     });
 

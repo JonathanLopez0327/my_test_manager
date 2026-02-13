@@ -34,7 +34,7 @@ function parseDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
 
   try {
@@ -119,6 +119,8 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     await requirePerm(PERMISSIONS.TEST_RUN_UPDATE, {
       userId,
       globalRoles,
+      organizationId: activeOrganizationId,
+      organizationRole,
       projectId: existing.projectId,
     });
 
@@ -127,6 +129,8 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
       await requirePerm(PERMISSIONS.TEST_RUN_UPDATE, {
         userId,
         globalRoles,
+        organizationId: activeOrganizationId,
+        organizationRole,
         projectId,
       });
     }
@@ -214,7 +218,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
   }
 });
 
-export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
 
   try {
@@ -233,6 +237,8 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
     await requirePerm(PERMISSIONS.TEST_RUN_DELETE, {
       userId,
       globalRoles,
+      organizationId: activeOrganizationId,
+      organizationRole,
       projectId: existing.projectId,
     });
 

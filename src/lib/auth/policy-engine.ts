@@ -1,8 +1,9 @@
-import type { GlobalRole, MemberRole } from "@/generated/prisma/client";
+import type { GlobalRole, MemberRole, OrgRole } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { Permission } from "./permissions.constants";
 import {
     anyGlobalRoleHasPermission,
+    orgRoleHasPermission,
     projectRoleHasPermission,
 } from "./role-permissions.map";
 
@@ -15,6 +16,10 @@ export type PolicyContext = {
     userId: string;
     /** Global roles from the JWT / session */
     globalRoles: GlobalRole[];
+    /** Active organization ID from the session */
+    organizationId?: string;
+    /** Organization role from the session */
+    organizationRole?: OrgRole;
     /** Project ID — required for project-scoped permissions */
     projectId?: string;
     /** Resource owner ID — for ownership-based rules */
@@ -46,8 +51,10 @@ export class AuthorizationError extends Error {
  *
  * Evaluation order:
  * 1. Global roles — if any grants the permission → allowed
- * 2. Project roles — if `projectId` is provided, check membership
- * 3. Ownership rules — if `resourceOwnerId` matches `userId` and
+ * 2. Org roles — if `organizationRole` is owner/admin, grant implicit
+ *    project admin access for all projects in the org
+ * 3. Project roles — if `projectId` is provided, check membership
+ * 4. Ownership rules — if `resourceOwnerId` matches `userId` and
  *    the user has at least viewer access → allowed for update
  *
  * @returns `true` if allowed, `false` otherwise.
@@ -61,7 +68,12 @@ export async function can(
         return true;
     }
 
-    // 2. Project-scoped check
+    // 2. Org role check — owner/admin get implicit project admin access
+    if (ctx.organizationRole && orgRoleHasPermission(ctx.organizationRole, permission)) {
+        return true;
+    }
+
+    // 3. Project-scoped check
     if (ctx.projectId) {
         const projectRole = await getProjectRole(ctx.userId, ctx.projectId);
         if (projectRole && projectRoleHasPermission(projectRole, permission)) {
@@ -69,7 +81,7 @@ export async function can(
         }
     }
 
-    // 3. Ownership rule (creator can update their own resources)
+    // 4. Ownership rule (creator can update their own resources)
     if (
         ctx.resourceOwnerId &&
         ctx.resourceOwnerId === ctx.userId &&
@@ -109,7 +121,7 @@ export async function require(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Synchronous check using only global roles.
+ * Synchronous check using global roles and org role.
  * Suitable for UI show/hide decisions where we don't have project context
  * or need instant evaluation without async.
  *
@@ -119,8 +131,15 @@ export async function require(
 export function canSync(
     permission: Permission,
     globalRoles: GlobalRole[],
+    organizationRole?: OrgRole,
 ): boolean {
-    return anyGlobalRoleHasPermission(globalRoles, permission);
+    if (anyGlobalRoleHasPermission(globalRoles, permission)) {
+        return true;
+    }
+    if (organizationRole && orgRoleHasPermission(organizationRole, permission)) {
+        return true;
+    }
+    return false;
 }
 
 // ─────────────────────────────────────────────────────────────

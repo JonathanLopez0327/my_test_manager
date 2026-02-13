@@ -69,6 +69,13 @@ enum GlobalRole {
   auditor
 }
 
+enum OrgRole {
+  owner
+  admin
+  member
+  billing
+}
+
 model User {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String    @unique
@@ -79,16 +86,18 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  sessions           UserSession[]
-  createdProjects    Project[]        @relation("ProjectCreatedBy")
-  projectMemberships ProjectMember[]
-  createdTestPlans   TestPlan[]       @relation("TestPlanCreatedBy")
-  ownedTestCases     TestCase[]       @relation("TestCaseAutomationOwner")
-  createdTestCases   TestCase[]       @relation("TestCaseCreatedBy")
-  triggeredTestRuns  TestRun[]        @relation("TestRunTriggeredBy")
-  executedRunItems   TestRunItem[]    @relation("TestRunItemExecutedBy")
-  auditLogEntries    AuditLog[]       @relation("AuditLogActor")
-  globalRoles        UserGlobalRole[]
+  sessions                UserSession[]
+  createdProjects         Project[]              @relation("ProjectCreatedBy")
+  projectMemberships      ProjectMember[]
+  createdTestPlans        TestPlan[]             @relation("TestPlanCreatedBy")
+  ownedTestCases          TestCase[]             @relation("TestCaseAutomationOwner")
+  createdTestCases        TestCase[]             @relation("TestCaseCreatedBy")
+  triggeredTestRuns       TestRun[]              @relation("TestRunTriggeredBy")
+  executedRunItems        TestRunItem[]          @relation("TestRunItemExecutedBy")
+  auditLogEntries         AuditLog[]             @relation("AuditLogActor")
+  globalRoles             UserGlobalRole[]
+  organizationMemberships OrganizationMember[]
+  createdOrganizations    Organization[]         @relation("OrgCreatedBy")
 
   @@map("users")
 }
@@ -119,20 +128,24 @@ model UserGlobalRole {
 }
 
 model Project {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key         String   @unique
-  name        String
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdById String?  @map("created_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  key            String
+  name           String
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdById    String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  createdBy User?           @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  members   ProjectMember[]
-  testPlans TestPlan[]
-  testRuns  TestRun[]
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?           @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members      ProjectMember[]
+  testPlans    TestPlan[]
+  testRuns     TestRun[]
 
+  @@unique([organizationId, key])
+  @@index([organizationId])
   @@index([isActive], map: "idx_projects_active")
   @@map("projects")
 }
@@ -327,17 +340,52 @@ model TestRunMetrics {
 }
 
 model AuditLog {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId String?  @map("actor_user_id") @db.Uuid
-  entityType  String   @map("entity_type")
-  entityId    String   @map("entity_id") @db.Uuid
-  action      String
-  details     Json     @default("{}") @db.JsonB
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  organizationId String?  @map("organization_id") @db.Uuid
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  action         String
+  details        Json     @default("{}") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  actorUser User? @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUser    User?         @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId], map: "idx_audit_entity")
   @@index([actorUserId], map: "idx_audit_actor")
+  @@index([organizationId])
   @@map("audit_log")
+}
+
+model Organization {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String   @unique
+  name        String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User?              @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members   OrganizationMember[]
+  projects  Project[]
+  auditLogs AuditLog[]
+
+  @@index([isActive])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           OrgRole  @default(member)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
 }

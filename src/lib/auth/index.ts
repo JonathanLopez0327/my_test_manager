@@ -10,8 +10,10 @@ export type { Permission } from "./permissions.constants";
 export {
     GLOBAL_ROLE_PERMISSIONS,
     PROJECT_ROLE_PERMISSIONS,
+    ORG_ROLE_PERMISSIONS,
     globalRoleHasPermission,
     projectRoleHasPermission,
+    orgRoleHasPermission,
     anyGlobalRoleHasPermission,
 } from "./role-permissions.map";
 

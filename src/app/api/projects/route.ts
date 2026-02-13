@@ -14,7 +14,7 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
+export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -29,6 +29,12 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
   );
 
   const filters: Prisma.ProjectWhereInput[] = [];
+
+  // Scope to active organization
+  if (activeOrganizationId) {
+    filters.push({ organizationId: activeOrganizationId });
+  }
+
   if (query) {
     filters.push({
       OR: [
@@ -39,13 +45,17 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     });
   }
   if (!hasGlobalListAccess) {
-    filters.push({
-      members: {
-        some: {
-          userId,
+    // Org owner/admin can see all projects in their org (already filtered above)
+    // Org member/billing need explicit project membership
+    if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
+      filters.push({
+        members: {
+          some: {
+            userId,
+          },
         },
-      },
-    });
+      });
+    }
   }
 
   const where: Prisma.ProjectWhereInput = filters.length
@@ -70,15 +80,24 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
   });
 });
 
-export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
+export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const allowed = await can(PERMISSIONS.PROJECT_CREATE, {
     userId,
     globalRoles,
+    organizationId: activeOrganizationId,
+    organizationRole,
   });
   if (!allowed) {
     return NextResponse.json(
       { message: "No tienes permisos para crear proyectos." },
       { status: 403 },
+    );
+  }
+
+  if (!activeOrganizationId) {
+    return NextResponse.json(
+      { message: "Debes tener una organización activa para crear proyectos." },
+      { status: 400 },
     );
   }
 
@@ -103,6 +122,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
     const project = await prisma.$transaction(async (tx) => {
       const created = await tx.project.create({
         data: {
+          organizationId: activeOrganizationId,
           key,
           name,
           description: body.description?.trim() || null,

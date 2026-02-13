@@ -6,9 +6,9 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { getS3Client, getS3Config } from "@/lib/s3";
 
-export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
     const { id, artifactId } = await routeCtx.params;
-    const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_DELETE);
+    const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_DELETE, activeOrganizationId, organizationRole);
     if (access.error) return access.error;
 
     try {
