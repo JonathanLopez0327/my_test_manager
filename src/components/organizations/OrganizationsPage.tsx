@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { OrgRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { Card } from "../ui/Card";
@@ -12,6 +12,7 @@ import { OrganizationDetailsCard } from "./OrganizationDetailsCard";
 import { OrganizationEditSheet } from "./OrganizationEditSheet";
 import { MembersTable } from "./MembersTable";
 import { MemberFormSheet } from "./MemberFormSheet";
+import { SuperAdminOrganizationsView } from "./SuperAdminOrganizationsView";
 import type {
   MemberRecord,
   MembersResponse,
@@ -19,7 +20,31 @@ import type {
   OrganizationUpdatePayload,
 } from "./types";
 
+async function safeJson(res: Response): Promise<{ message?: string } & Record<string, unknown>> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: `Error inesperado (HTTP ${res.status})` };
+  }
+}
+
 export function OrganizationsPage() {
+  const { globalRoles } = usePermissions();
+  const isSuperAdmin = (globalRoles as GlobalRole[]).includes("super_admin");
+
+  if (isSuperAdmin) {
+    return <SuperAdminOrganizationsView />;
+  }
+
+  return <ActiveOrgView />;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Active org detail view (regular users)
+// ─────────────────────────────────────────────────────────────
+
+function ActiveOrgView() {
   const { can, activeOrganizationId } = usePermissions();
 
   const [org, setOrg] = useState<OrganizationDetail | null>(null);
@@ -77,7 +102,6 @@ export function OrganizationsPage() {
     Promise.all([fetchOrg(), fetchMembers()]).finally(() => setLoading(false));
   }, [activeOrganizationId, fetchOrg, fetchMembers]);
 
-  // ── Org update ─────────────────────────────────────────
   const handleSaveOrg = async (payload: OrganizationUpdatePayload) => {
     if (!activeOrganizationId) return;
     const res = await fetch(`/api/organizations/${activeOrganizationId}`, {
@@ -85,14 +109,13 @@ export function OrganizationsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await res.json()) as { message?: string };
     if (!res.ok) {
+      const data = await safeJson(res);
       throw new Error(data.message || "No se pudo actualizar la organización.");
     }
     await fetchOrg();
   };
 
-  // ── Member CRUD ────────────────────────────────────────
   const handleAddMember = () => {
     setEditingMember(null);
     setMemberFormOpen(true);
@@ -122,8 +145,8 @@ export function OrganizationsPage() {
           body: JSON.stringify({ role }),
         },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo actualizar el miembro.");
       }
     } else {
@@ -135,8 +158,8 @@ export function OrganizationsPage() {
           body: JSON.stringify({ userId, role }),
         },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo agregar el miembro.");
       }
     }
@@ -154,8 +177,8 @@ export function OrganizationsPage() {
         `/api/organizations/${activeOrganizationId}/members/${member.userId}`,
         { method: "DELETE" },
       );
-      const data = (await res.json()) as { message?: string };
       if (!res.ok) {
+        const data = await safeJson(res);
         throw new Error(data.message || "No se pudo eliminar el miembro.");
       }
       await Promise.all([fetchOrg(), fetchMembers()]);
@@ -168,7 +191,6 @@ export function OrganizationsPage() {
     }
   };
 
-  // ── Guard ──────────────────────────────────────────────
   if (!activeOrganizationId) {
     return (
       <Card className="p-6">
@@ -230,7 +252,6 @@ export function OrganizationsPage() {
         </>
       ) : null}
 
-      {/* Edit org sheet */}
       <OrganizationEditSheet
         open={editOrgOpen}
         org={org}
@@ -238,7 +259,6 @@ export function OrganizationsPage() {
         onSave={handleSaveOrg}
       />
 
-      {/* Member form sheet */}
       {activeOrganizationId && (
         <MemberFormSheet
           open={memberFormOpen}
@@ -249,7 +269,6 @@ export function OrganizationsPage() {
         />
       )}
 
-      {/* Delete member confirmation */}
       <ConfirmationDialog
         open={deleteConfirmation.open}
         title={`¿Eliminar a "${deleteConfirmation.member?.user.fullName ?? deleteConfirmation.member?.user.email ?? ""}"?`}

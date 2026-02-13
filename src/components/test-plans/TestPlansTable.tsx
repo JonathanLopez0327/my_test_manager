@@ -74,14 +74,14 @@ export function TestPlansTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Plan</th>
-              <th className="px-4 py-3">Proyecto</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Fechas</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Plan</th>
+              <th className="px-3 py-2">Proyecto</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Fechas</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -89,25 +89,25 @@ export function TestPlansTable({
           <tbody>
             {items.map((plan) => (
               <tr key={plan.id} className="border-t border-stroke">
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <p className="font-semibold text-ink">{plan.name}</p>
                   <p className="text-xs text-ink-muted">
                     {plan.description ?? "Sin descripción"}
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink">
+                <td className="px-3 py-2.5 text-ink">
                   <p className="font-semibold">{plan.project.key}</p>
                   <p className="text-xs text-ink-muted">{plan.project.name}</p>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={statusTones[plan.status]}>
                     {statusLabels[plan.status]}
                   </Badge>
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {getRangeText(plan)}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <button

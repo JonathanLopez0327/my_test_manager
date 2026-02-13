@@ -37,12 +37,10 @@ export type OrganizationUpdatePayload = {
 };
 
 export type MemberRecord = {
-  id: string;
   organizationId: string;
   userId: string;
   role: OrgRole;
   createdAt: string;
-  updatedAt: string;
   user: {
     id: string;
     email: string;

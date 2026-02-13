@@ -77,17 +77,17 @@ export function TestRunsTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Run</th>
-              <th className="px-4 py-3">Proyecto</th>
-              <th className="px-4 py-3">Plan / Suite</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Métricas</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Fechas</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Run</th>
+              <th className="px-3 py-2">Proyecto</th>
+              <th className="px-3 py-2">Plan / Suite</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2">Métricas</th>
+              <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">Fechas</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -95,7 +95,7 @@ export function TestRunsTable({
           <tbody>
             {items.map((run) => (
               <tr key={run.id} className="border-t border-stroke">
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <p className="font-semibold text-ink">{getRunTitle(run)}</p>
                   <p className="text-xs text-ink-muted">
                     {run.environment ?? "Sin ambiente"} ·{" "}
@@ -105,7 +105,7 @@ export function TestRunsTable({
                     {run.branch ?? "Sin branch"}
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink">
+                <td className="px-3 py-2.5 text-ink">
                   <p className="font-semibold">
                     {run.project.key} · {run.project.name}
                   </p>
@@ -113,7 +113,7 @@ export function TestRunsTable({
                     {run.commitSha ? run.commitSha.slice(0, 10) : "Sin commit"}
                   </p>
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   <p className="font-semibold text-ink">
                     {run.testPlan?.name ?? run.suite?.testPlan.name ?? "Sin plan"}
                   </p>
@@ -121,12 +121,12 @@ export function TestRunsTable({
                     {run.suite?.name ?? "Sin suite"}
                   </p>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={statusTones[run.status]}>
                     {statusLabels[run.status]}
                   </Badge>
                 </td>
-                <td className="px-4 py-4 text-xs text-ink-muted">
+                <td className="px-3 py-2.5 text-xs text-ink-muted">
                   {run.metrics ? (
                     <div>
                       <p className="text-sm font-semibold text-ink">
@@ -140,14 +140,14 @@ export function TestRunsTable({
                     <span className="text-ink-soft">Sin métricas</span>
                   )}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {runTypeLabels[run.runType]}
                 </td>
-                <td className="px-4 py-4 text-xs text-ink-muted">
+                <td className="px-3 py-2.5 text-xs text-ink-muted">
                   <p>Inicio: {formatDate(run.startedAt)}</p>
                   <p>Fin: {formatDate(run.finishedAt)}</p>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => onView(run)}

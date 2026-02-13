@@ -67,13 +67,13 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
         globalRoles: {
           select: { role: true },
         },
-        projectMemberships: {
+        organizationMemberships: {
           select: {
             role: true,
-            project: {
+            organization: {
               select: {
                 id: true,
-                key: true,
+                slug: true,
                 name: true,
               },
             },
@@ -93,10 +93,10 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
       isActive: user.isActive,
       createdAt: user.createdAt,
       globalRoles: user.globalRoles.map((role) => role.role),
-      memberships: user.projectMemberships.map((membership) => ({
-        projectId: membership.project.id,
-        projectKey: membership.project.key,
-        projectName: membership.project.name,
+      memberships: user.organizationMemberships.map((membership) => ({
+        organizationId: membership.organization.id,
+        organizationSlug: membership.organization.slug,
+        organizationName: membership.organization.name,
         role: membership.role,
       })),
     })),
@@ -113,7 +113,7 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
       fullName?: string | null;
       password?: string;
       isActive?: boolean;
-      memberships?: { projectId: string; role: "admin" | "editor" | "viewer" }[];
+      memberships?: { organizationId: string; role: "owner" | "admin" | "member" | "billing" }[];
     };
 
     const email = body.email?.trim().toLowerCase();
@@ -147,23 +147,12 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
       });
 
       if (memberships.length > 0) {
-        await tx.projectMember.createMany({
+        await tx.organizationMember.createMany({
           data: memberships.map((m) => ({
             userId: user.id,
-            projectId: m.projectId,
+            organizationId: m.organizationId,
             role: m.role,
           })),
-        });
-      }
-
-      // Add user to active organization as member
-      if (activeOrganizationId) {
-        await tx.organizationMember.create({
-          data: {
-            organizationId: activeOrganizationId,
-            userId: user.id,
-            role: "member",
-          },
         });
       }
 
@@ -194,7 +183,7 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
       error.code === "P2003"
     ) {
       return NextResponse.json(
-        { message: "Proyecto inválido." },
+        { message: "Organización inválida." },
         { status: 400 },
       );
     }

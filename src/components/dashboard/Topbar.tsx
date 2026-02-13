@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { IconBell, IconChevronDown, IconSearch } from "../icons";
+import { IconChevronDown } from "../icons";
 import { Avatar } from "../ui/Avatar";
-import type { OrganizationRecord, OrganizationsResponse } from "../organizations/types";
+import type { OrganizationsResponse } from "../organizations/types";
 
 export function Topbar() {
   const { data: session } = useSession();
@@ -31,9 +31,9 @@ export function Topbar() {
   }, [fetchOrgName]);
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-white px-3 py-2 sm:px-4">
+    <header className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-stroke/80 bg-white px-4 py-2">
       <div>
-        <h1 className="text-lg font-semibold text-ink">Test Manager</h1>
+        <h1 className="text-base font-semibold text-ink">Test Manager</h1>
         {orgName && (
           <p className="text-xs text-ink-muted">{orgName}</p>
         )}

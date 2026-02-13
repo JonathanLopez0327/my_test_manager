@@ -65,33 +65,40 @@ export const authOptions: NextAuthOptions = {
         token.globalRoles = roles.map((item) => item.role);
       }
 
-      // Load active organization on first sign-in
-      if (token.id && !token.activeOrganizationId) {
-        const membership = await prisma.organizationMember.findFirst({
-          where: { userId: token.id as string },
-          orderBy: { createdAt: "asc" },
-          select: { organizationId: true, role: true },
-        });
-        if (membership) {
-          token.activeOrganizationId = membership.organizationId;
-          token.organizationRole = membership.role;
-        }
-      }
+      const globalRoles = (token.globalRoles ?? []) as GlobalRole[];
+      const isSuperAdmin = globalRoles.includes("super_admin");
 
-      // Handle org switching via session update
-      if (trigger === "update" && session?.activeOrganizationId) {
-        const membership = await prisma.organizationMember.findUnique({
-          where: {
-            organizationId_userId: {
-              organizationId: session.activeOrganizationId,
-              userId: token.id as string,
+      // super_admin does not belong to any organization;
+      // skip org membership lookup and org switching entirely.
+      if (!isSuperAdmin) {
+        // Load active organization on first sign-in
+        if (token.id && !token.activeOrganizationId) {
+          const membership = await prisma.organizationMember.findFirst({
+            where: { userId: token.id as string },
+            orderBy: { createdAt: "asc" },
+            select: { organizationId: true, role: true },
+          });
+          if (membership) {
+            token.activeOrganizationId = membership.organizationId;
+            token.organizationRole = membership.role;
+          }
+        }
+
+        // Handle org switching via session update
+        if (trigger === "update" && session?.activeOrganizationId) {
+          const membership = await prisma.organizationMember.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: session.activeOrganizationId,
+                userId: token.id as string,
+              },
             },
-          },
-          select: { organizationId: true, role: true },
-        });
-        if (membership) {
-          token.activeOrganizationId = membership.organizationId;
-          token.organizationRole = membership.role;
+            select: { organizationId: true, role: true },
+          });
+          if (membership) {
+            token.activeOrganizationId = membership.organizationId;
+            token.organizationRole = membership.role;
+          }
         }
       }
 

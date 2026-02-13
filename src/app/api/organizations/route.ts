@@ -26,7 +26,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
   return NextResponse.json({ items });
 });
 
-export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId }) => {
+export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globalRoles }) => {
   try {
     const body = (await req.json()) as {
       slug?: string;
@@ -50,6 +50,8 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId }) => 
       );
     }
 
+    const isSuperAdmin = globalRoles.includes("super_admin");
+
     const org = await prisma.$transaction(async (tx) => {
       const created = await tx.organization.create({
         data: {
@@ -59,14 +61,16 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId }) => 
         },
       });
 
-      // Creator becomes owner
-      await tx.organizationMember.create({
-        data: {
-          organizationId: created.id,
-          userId,
-          role: "owner",
-        },
-      });
+      // super_admin creates orgs without becoming a member
+      if (!isSuperAdmin) {
+        await tx.organizationMember.create({
+          data: {
+            organizationId: created.id,
+            userId,
+            role: "owner",
+          },
+        });
+      }
 
       return created;
     });

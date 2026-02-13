@@ -14,14 +14,14 @@ import type {
   UserUpdatePayload,
 } from "./types";
 
-type ProjectOption = {
+type OrganizationOption = {
   id: string;
-  key: string;
+  slug: string;
   name: string;
 };
 
-type ProjectsResponse = {
-  items: ProjectOption[];
+type OrganizationsResponse = {
+  items: OrganizationOption[];
 };
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -37,7 +37,7 @@ export function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<UserRecord | null>(null);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [organizations, setOrganizations] = useState<OrganizationOption[]>([]);
 
   const canCreate = useMemo(
     () => session?.user?.globalRoles?.includes("super_admin") ?? false,
@@ -78,22 +78,20 @@ export function UsersPage() {
     }
   }, [page, pageSize, query]);
 
-  const fetchProjects = useCallback(async () => {
+  const fetchOrganizations = useCallback(async () => {
     if (!canCreate) return;
     try {
-      const params = new URLSearchParams({
-        page: "1",
-        pageSize: "50",
-      });
-      const response = await fetch(`/api/projects?${params.toString()}`);
-      const data = (await response.json()) as ProjectsResponse & {
+      const response = await fetch("/api/organizations");
+      const data = (await response.json()) as OrganizationsResponse & {
         message?: string;
       };
       if (response.ok && data.items) {
-        setProjects(data.items);
+        setOrganizations(
+          data.items.map((o) => ({ id: o.id, slug: o.slug, name: o.name })),
+        );
       }
     } catch {
-      setProjects([]);
+      setOrganizations([]);
     }
   }, [canCreate]);
 
@@ -102,8 +100,8 @@ export function UsersPage() {
   }, [fetchUsers]);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    fetchOrganizations();
+  }, [fetchOrganizations]);
 
   useEffect(() => {
     setPage(1);
@@ -204,7 +202,7 @@ export function UsersPage() {
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
-          projects={projects}
+          organizations={organizations}
           user={editing}
         />
       ) : null}

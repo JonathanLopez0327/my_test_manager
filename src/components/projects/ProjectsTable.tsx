@@ -40,14 +40,14 @@ export function ProjectsTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Key</th>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Descripción</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Key</th>
+              <th className="px-3 py-2">Nombre</th>
+              <th className="px-3 py-2">Descripción</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -58,19 +58,19 @@ export function ProjectsTable({
                 key={project.id}
                 className="border-t border-stroke"
               >
-                <td className="px-4 py-4 font-semibold text-ink">
+                <td className="px-3 py-2.5 font-semibold text-ink">
                   {project.key}
                 </td>
-                <td className="px-4 py-4 text-ink">{project.name}</td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink">{project.name}</td>
+                <td className="px-3 py-2.5 text-ink-muted">
                   {project.description ?? "Sin descripción"}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={project.isActive ? "success" : "neutral"}>
                     {project.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <button

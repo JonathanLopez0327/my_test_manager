@@ -6,9 +6,9 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import type { UserPayload, UserRecord, UserUpdatePayload } from "./types";
 
-type ProjectOption = {
+type OrganizationOption = {
     id: string;
-    key: string;
+    slug: string;
     name: string;
 };
 
@@ -20,7 +20,7 @@ type UserFormSheetProps = {
         userId?: string,
     ) => Promise<void>;
     user?: UserRecord | null;
-    projects: ProjectOption[];
+    organizations: OrganizationOption[];
 };
 
 const emptyForm: UserPayload = {
@@ -36,7 +36,7 @@ export function UserFormSheet({
     onClose,
     onSave,
     user,
-    projects,
+    organizations,
 }: UserFormSheetProps) {
     const [form, setForm] = useState<UserPayload>(emptyForm);
     const [submitting, setSubmitting] = useState(false);
@@ -56,7 +56,7 @@ export function UserFormSheet({
                 password: "",
                 isActive: user.isActive,
                 memberships: user.memberships.map((m) => ({
-                    projectId: m.projectId,
+                    organizationId: m.organizationId,
                     role: m.role,
                 })),
             });
@@ -94,16 +94,16 @@ export function UserFormSheet({
     };
 
     const handleAddMembership = () => {
-        if (!projects.length) return;
-        const firstAvailable = projects.find(
-            (p) => !form.memberships.some((m) => m.projectId === p.id),
+        if (!organizations.length) return;
+        const firstAvailable = organizations.find(
+            (o) => !form.memberships.some((m) => m.organizationId === o.id),
         );
         if (firstAvailable) {
             setForm((prev) => ({
                 ...prev,
                 memberships: [
                     ...prev.memberships,
-                    { projectId: firstAvailable.id, role: "viewer" },
+                    { organizationId: firstAvailable.id, role: "member" },
                 ],
             }));
         }
@@ -118,7 +118,7 @@ export function UserFormSheet({
 
     const handleUpdateMembership = (
         index: number,
-        field: "projectId" | "role",
+        field: "organizationId" | "role",
         value: string,
     ) => {
         setForm((prev) => {
@@ -136,18 +136,18 @@ export function UserFormSheet({
         form.memberships.length > 0 &&
         form.password.length >= 8;
 
-    const availableProjects = (currentProjectId?: string) =>
-        projects.filter(
-            (p) =>
-                p.id === currentProjectId ||
-                !form.memberships.some((m) => m.projectId === p.id),
+    const availableOrganizations = (currentOrgId?: string) =>
+        organizations.filter(
+            (o) =>
+                o.id === currentOrgId ||
+                !form.memberships.some((m) => m.organizationId === o.id),
         );
 
     return (
         <Sheet
             open={open}
             title={title}
-            description="Define el acceso del usuario a los proyectos."
+            description="Define el acceso del usuario a las organizaciones."
             onClose={onClose}
         >
             <div className="grid gap-4">
@@ -195,12 +195,12 @@ export function UserFormSheet({
 
                 <div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-ink">Proyectos</span>
+                        <span className="text-sm font-semibold text-ink">Organizaciones</span>
                         <Button
                             variant="secondary"
                             size="sm"
                             onClick={handleAddMembership}
-                            disabled={form.memberships.length >= projects.length}
+                            disabled={form.memberships.length >= organizations.length}
                         >
                             + Agregar
                         </Button>
@@ -213,18 +213,18 @@ export function UserFormSheet({
                             >
                                 <div className="flex-1 space-y-1">
                                     <div className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                                        Proyecto
+                                        Organización
                                     </div>
                                     <select
-                                        value={membership.projectId}
+                                        value={membership.organizationId}
                                         onChange={(e) =>
-                                            handleUpdateMembership(index, "projectId", e.target.value)
+                                            handleUpdateMembership(index, "organizationId", e.target.value)
                                         }
                                         className="h-9 w-full rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                                     >
-                                        {availableProjects(membership.projectId).map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.key} · {p.name}
+                                        {availableOrganizations(membership.organizationId).map((o) => (
+                                            <option key={o.id} value={o.id}>
+                                                {o.slug} · {o.name}
                                             </option>
                                         ))}
                                     </select>
@@ -241,14 +241,15 @@ export function UserFormSheet({
                                         }
                                         className="h-9 flex-1 rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                                     >
-                                        <option value="viewer">Viewer</option>
-                                        <option value="editor">Editor</option>
+                                        <option value="member">Member</option>
                                         <option value="admin">Admin</option>
+                                        <option value="owner">Owner</option>
+                                        <option value="billing">Billing</option>
                                     </select>
                                     <button
                                         onClick={() => handleRemoveMembership(index)}
                                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-muted transition hover:bg-danger-50 hover:text-danger-500 sm:absolute sm:-right-2 sm:-top-2 sm:h-6 sm:w-6 sm:rounded-full sm:bg-white sm:border-stroke sm:shadow-sm"
-                                        aria-label="Quitar proyecto"
+                                        aria-label="Quitar organización"
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
@@ -271,16 +272,16 @@ export function UserFormSheet({
                         {form.memberships.length === 0 && (
                             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stroke py-8 text-center">
                                 <p className="text-sm text-ink-muted">
-                                    Este usuario no tiene proyectos asignados.
+                                    Este usuario no tiene organizaciones asignadas.
                                 </p>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     onClick={handleAddMembership}
                                     className="mt-2 text-brand-600 hover:text-brand-700"
-                                    disabled={!projects.length}
+                                    disabled={!organizations.length}
                                 >
-                                    Asignar proyecto
+                                    Asignar organización
                                 </Button>
                             </div>
                         )}

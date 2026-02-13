@@ -55,7 +55,6 @@ export async function canCreateProject(
   userId: string,
   globalRoles: GlobalRole[],
 ) {
-  if (isSuperAdmin(globalRoles)) return true;
   if (isReadOnlyGlobal(globalRoles)) return false;
   const membership = await prisma.projectMember.findFirst({
     where: {

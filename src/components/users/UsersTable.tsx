@@ -37,16 +37,16 @@ export function UsersTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr className="text-left text-sm font-medium text-ink-soft">
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Proyecto</th>
-              <th className="px-4 py-3">Rol</th>
-              <th className="px-4 py-3">Global</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">
+            <tr className="text-left text-[13px] font-medium text-ink-soft">
+              <th className="px-3 py-2">Email</th>
+              <th className="px-3 py-2">Nombre</th>
+              <th className="px-3 py-2">Organización</th>
+              <th className="px-3 py-2">Rol</th>
+              <th className="px-3 py-2">Global</th>
+              <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
             </tr>
@@ -54,45 +54,46 @@ export function UsersTable({
           <tbody>
             {items.map((user) => (
               <tr key={user.id} className="border-t border-stroke">
-                <td className="px-4 py-4 font-semibold text-ink">
+                <td className="px-3 py-2.5 font-semibold text-ink">
                   {user.email}
                 </td>
-                <td className="px-4 py-4 text-ink">
+                <td className="px-3 py-2.5 text-ink">
                   {user.fullName ?? "Sin nombre"}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
-                    <div className="flex flex-col gap-1">
-                      {user.memberships.map((m) => (
-                        <div key={m.projectId}>
-                          {m.projectKey} · {m.projectName}
-                        </div>
-                      ))}
+                    <div className="inline-flex items-center gap-2">
+                      <span>{user.memberships[0].organizationName}</span>
+                      {user.memberships.length > 1 ? (
+                        <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-ink-soft">
+                          +{user.memberships.length - 1}
+                        </span>
+                      ) : null}
                     </div>
                   ) : (
                     "Sin asignación"
                   )}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
                     <div className="flex flex-col gap-1">
                       {user.memberships.map((m) => (
-                        <div key={m.projectId}>{m.role}</div>
+                        <div key={m.organizationId}>{m.role}</div>
                       ))}
                     </div>
                   ) : (
                     "—"
                   )}
                 </td>
-                <td className="px-4 py-4 text-ink-muted">
+                <td className="px-3 py-2.5 text-ink-muted">
                   {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   <Badge tone={user.isActive ? "success" : "neutral"}>
                     {user.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end">
                       <button
@@ -124,9 +125,9 @@ export function UsersTable({
             <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
               {user.memberships.length > 0 ? (
                 user.memberships.map((m) => (
-                  <div key={m.projectId} className="flex items-center gap-2">
+                  <div key={m.organizationId} className="flex items-center gap-2">
                     <span>
-                      {m.projectKey} · {m.projectName}
+                      {m.organizationSlug} · {m.organizationName}
                     </span>
                     <span>·</span>
                     <span className="capitalize">{m.role}</span>
