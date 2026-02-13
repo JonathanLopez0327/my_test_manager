@@ -60,7 +60,7 @@ function normalizeSteps(value?: unknown) {
   return [];
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
+export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const hasGlobalListAccess = anyGlobalRoleHasPermission(
     globalRoles,
     PERMISSIONS.TEST_CASE_LIST,
@@ -82,6 +82,8 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     const allowed = await can(PERMISSIONS.TEST_CASE_LIST, {
       userId,
       globalRoles,
+      organizationId: activeOrganizationId,
+      organizationRole,
       projectId,
     });
     if (!allowed) {
@@ -93,6 +95,12 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
   }
 
   const filters: Prisma.TestCaseWhereInput[] = [];
+
+  // Scope to active organization
+  if (activeOrganizationId) {
+    filters.push({ suite: { testPlan: { project: { organizationId: activeOrganizationId } } } });
+  }
+
   if (suiteId) {
     filters.push({ suiteId });
   }
@@ -132,17 +140,19 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     });
   }
   if (!hasGlobalListAccess) {
-    filters.push({
-      suite: {
-        testPlan: {
-          project: {
-            members: {
-              some: { userId },
+    if (!organizationRole || (organizationRole !== "owner" && organizationRole !== "admin")) {
+      filters.push({
+        suite: {
+          testPlan: {
+            project: {
+              members: {
+                some: { userId },
+              },
             },
           },
         },
-      },
-    });
+      });
+    }
   }
 
   const where: Prisma.TestCaseWhereInput = filters.length
@@ -183,7 +193,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
   return NextResponse.json({ items, total, page, pageSize });
 });
 
-export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
+export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   try {
     const body = (await req.json()) as {
       suiteId?: string;
@@ -236,6 +246,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles }) => {
     await requirePerm(PERMISSIONS.TEST_CASE_CREATE, {
       userId,
       globalRoles,
+      organizationId: activeOrganizationId,
+      organizationRole,
       projectId: suite.testPlan.projectId,
     });
 

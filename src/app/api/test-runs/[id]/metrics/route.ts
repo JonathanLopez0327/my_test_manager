@@ -7,9 +7,9 @@ import { serializeRunMetrics, upsertRunMetrics } from "@/lib/test-runs";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
-  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_METRICS_VIEW);
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_METRICS_VIEW, activeOrganizationId, organizationRole);
   if (access.error) return access.error;
 
   const { searchParams } = new URL(req.url);
@@ -32,9 +32,9 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
   return NextResponse.json(serializeRunMetrics(metrics));
 });
 
-export const POST = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+export const POST = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
-  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_METRICS_UPDATE);
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_METRICS_UPDATE, activeOrganizationId, organizationRole);
   if (access.error) return access.error;
 
   try {

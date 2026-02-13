@@ -1,19 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { IconBell, IconChevronDown, IconSearch } from "../icons";
 import { Avatar } from "../ui/Avatar";
+import type { OrganizationRecord, OrganizationsResponse } from "../organizations/types";
 
 export function Topbar() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [orgName, setOrgName] = useState<string | null>(null);
   const displayName = session?.user?.name ?? "Usuario";
+  const activeOrgId = session?.user?.activeOrganizationId;
+
+  const fetchOrgName = useCallback(async () => {
+    if (!activeOrgId) return;
+    try {
+      const res = await fetch("/api/organizations");
+      if (!res.ok) return;
+      const data = (await res.json()) as OrganizationsResponse;
+      const active = data.items.find((o) => o.id === activeOrgId);
+      setOrgName(active?.name ?? null);
+    } catch {
+      // silent
+    }
+  }, [activeOrgId]);
+
+  useEffect(() => {
+    fetchOrgName();
+  }, [fetchOrgName]);
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stroke bg-white px-3 py-2 sm:px-4">
       <div>
         <h1 className="text-lg font-semibold text-ink">Test Manager</h1>
+        {orgName && (
+          <p className="text-xs text-ink-muted">{orgName}</p>
+        )}
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end md:gap-3 lg:flex-1">
         {/* <div className="relative flex w-full min-w-[200px] flex-1 items-center gap-2 sm:max-w-sm">

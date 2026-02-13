@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import type { GlobalRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import { authOptions } from "@/lib/auth";
 import type { Permission } from "./permissions.constants";
 import { AuthorizationError, require as requirePermission } from "./policy-engine";
@@ -14,12 +14,16 @@ export type AuthContext = {
         user: {
             id: string;
             globalRoles: GlobalRole[];
+            activeOrganizationId?: string;
+            organizationRole?: OrgRole;
             name?: string | null;
             email?: string | null;
         };
     };
     userId: string;
     globalRoles: GlobalRole[];
+    activeOrganizationId?: string;
+    organizationRole?: OrgRole;
 };
 
 type RouteContext = {
@@ -70,10 +74,17 @@ export function withAuth(
 
             const userId = session.user.id;
             const globalRoles = (session.user.globalRoles ?? []) as GlobalRole[];
+            const activeOrganizationId = session.user.activeOrganizationId as string | undefined;
+            const organizationRole = session.user.organizationRole as OrgRole | undefined;
 
             // If a specific permission is required, check it
             if (permission) {
-                await requirePermission(permission, { userId, globalRoles });
+                await requirePermission(permission, {
+                    userId,
+                    globalRoles,
+                    organizationId: activeOrganizationId,
+                    organizationRole,
+                });
             }
 
             const authCtx: AuthContext = {
@@ -81,12 +92,16 @@ export function withAuth(
                     user: {
                         id: userId,
                         globalRoles,
+                        activeOrganizationId,
+                        organizationRole,
                         name: session.user.name,
                         email: session.user.email,
                     },
                 },
                 userId,
                 globalRoles,
+                activeOrganizationId,
+                organizationRole,
             };
 
             return handler(req, authCtx, routeCtx);

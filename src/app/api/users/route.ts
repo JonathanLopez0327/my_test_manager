@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
+import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -13,7 +14,7 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalRoles }) => {
+export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalRoles, activeOrganizationId }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -22,13 +23,33 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
   );
   const query = searchParams.get("query")?.trim();
 
-  const where: Prisma.UserWhereInput = query
-    ? {
+  const isSuperAdmin = anyGlobalRoleHasPermission(
+    globalRoles,
+    PERMISSIONS.USER_CREATE,
+  );
+
+  const filters: Prisma.UserWhereInput[] = [];
+
+  if (query) {
+    filters.push({
       OR: [
         { email: { contains: query, mode: "insensitive" } },
         { fullName: { contains: query, mode: "insensitive" } },
       ],
-    }
+    });
+  }
+
+  // Scope user listing to org members (unless super_admin)
+  if (activeOrganizationId && !isSuperAdmin) {
+    filters.push({
+      organizationMemberships: {
+        some: { organizationId: activeOrganizationId },
+      },
+    });
+  }
+
+  const where: Prisma.UserWhereInput = filters.length
+    ? { AND: filters }
     : {};
 
   const [items, total] = await prisma.$transaction([
@@ -85,7 +106,7 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
   });
 });
 
-export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
+export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrganizationId }) => {
   try {
     const body = (await req.json()) as {
       email?: string;
@@ -132,6 +153,17 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
             projectId: m.projectId,
             role: m.role,
           })),
+        });
+      }
+
+      // Add user to active organization as member
+      if (activeOrganizationId) {
+        await tx.organizationMember.create({
+          data: {
+            organizationId: activeOrganizationId,
+            userId: user.id,
+            role: "member",
+          },
         });
       }
 

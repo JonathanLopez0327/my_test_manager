@@ -2,14 +2,14 @@
 
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
-import type { GlobalRole } from "@/generated/prisma/client";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import type { Permission } from "./permissions.constants";
-import { canSync } from "./policy-engine";
+import { canSync } from "./can-sync";
 
 /**
  * React hook that evaluates whether the current user has a permission.
  *
- * Uses the synchronous `canSync()` which checks global roles only
+ * Uses the synchronous `canSync()` which checks global roles and org role
  * (no DB call). For project-scoped decisions in the UI, prefer
  * fetching the user's project role via API and checking locally.
  *
@@ -22,10 +22,11 @@ import { canSync } from "./policy-engine";
 export function useCan(permission: Permission): boolean {
     const { data: session } = useSession();
     const globalRoles = session?.user?.globalRoles as GlobalRole[] | undefined;
+    const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
 
     return useMemo(
-        () => canSync(permission, globalRoles ?? []),
-        [permission, globalRoles],
+        () => canSync(permission, globalRoles ?? [], organizationRole),
+        [permission, globalRoles, organizationRole],
     );
 }
 
@@ -42,11 +43,13 @@ export function useCan(permission: Permission): boolean {
 export function usePermissions() {
     const { data: session } = useSession();
     const globalRoles = (session?.user?.globalRoles as GlobalRole[] | undefined) ?? [];
+    const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
+    const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
 
     const can = useMemo(
-        () => (permission: Permission) => canSync(permission, globalRoles),
-        [globalRoles],
+        () => (permission: Permission) => canSync(permission, globalRoles, organizationRole),
+        [globalRoles, organizationRole],
     );
 
-    return { can, globalRoles };
+    return { can, globalRoles, activeOrganizationId, organizationRole };
 }

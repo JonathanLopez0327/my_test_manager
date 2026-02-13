@@ -5,12 +5,28 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 
-export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
+
+  // Verify project belongs to active org
+  if (activeOrganizationId) {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (project && project.organizationId !== activeOrganizationId) {
+      return NextResponse.json(
+        { message: "El proyecto no pertenece a la organización activa." },
+        { status: 403 },
+      );
+    }
+  }
 
   await requirePerm(PERMISSIONS.PROJECT_UPDATE, {
     userId,
     globalRoles,
+    organizationId: activeOrganizationId,
+    organizationRole,
     projectId: id,
   });
 
@@ -61,12 +77,28 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
   }
 });
 
-export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, routeCtx) => {
+export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
+
+  // Verify project belongs to active org
+  if (activeOrganizationId) {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (project && project.organizationId !== activeOrganizationId) {
+      return NextResponse.json(
+        { message: "El proyecto no pertenece a la organización activa." },
+        { status: 403 },
+      );
+    }
+  }
 
   await requirePerm(PERMISSIONS.PROJECT_DELETE, {
     userId,
     globalRoles,
+    organizationId: activeOrganizationId,
+    organizationRole,
     projectId: id,
   });
 

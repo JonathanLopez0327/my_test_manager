@@ -3,19 +3,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   IconChart,
   IconClipboard,
   IconFolder,
   IconGrid,
   IconLayers,
+  IconOrganization,
   IconPlus,
   IconSettings,
   IconUsers,
 } from "../icons";
+import { OrgSwitcher } from "./OrgSwitcher";
+import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
+import type { OrganizationRecord } from "../organizations/types";
 
 const navItems = [
   { label: "Overview", icon: IconGrid, href: "/manager" },
+  { label: "Organizaciones", icon: IconOrganization, href: "/manager/organizations" },
   { label: "Projects", icon: IconFolder, href: "/manager/projects" },
   { label: "Users", icon: IconUsers, href: "/manager/users" },
   { label: "Test Plans", icon: IconLayers, href: "/manager/test-plans" },
@@ -26,7 +32,15 @@ const navItems = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [createOrgOpen, setCreateOrgOpen] = useState(false);
+  const { update } = useSession();
   const pathname = usePathname();
+
+  const handleOrgCreated = async (org: OrganizationRecord) => {
+    await update({ activeOrganizationId: org.id });
+    window.location.reload();
+  };
+
   return (
     <aside
       className={`flex h-full w-full flex-col gap-6 rounded-xl border border-stroke bg-white p-6 transition-all duration-300 lg:w-auto ${
@@ -51,6 +65,13 @@ export function Sidebar() {
           <IconGrid className={`h-5 w-5 transition ${collapsed ? "rotate-90" : ""}`} />
         </button>
       </div>
+
+      <hr className="border-stroke" />
+      <OrgSwitcher
+        collapsed={collapsed}
+        onCreateOrg={() => setCreateOrgOpen(true)}
+      />
+      <hr className="border-stroke" />
 
       <nav className="flex flex-col gap-2">
         {navItems.map((item) => {
@@ -108,6 +129,12 @@ export function Sidebar() {
         <IconSettings className="h-5 w-5" />
         <span className={collapsed ? "lg:hidden" : ""}>Settings</span>
       </button>
+
+      <OrganizationCreateSheet
+        open={createOrgOpen}
+        onClose={() => setCreateOrgOpen(false)}
+        onCreated={handleOrgCreated}
+      />
     </aside>
   );
 }

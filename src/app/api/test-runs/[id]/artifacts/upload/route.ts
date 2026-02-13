@@ -28,9 +28,9 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export const POST = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
+export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
-  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_UPLOAD);
+  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_UPLOAD, activeOrganizationId, organizationRole);
   if (access.error) return access.error;
 
   try {

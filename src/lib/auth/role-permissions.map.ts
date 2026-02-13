@@ -1,4 +1,4 @@
-import type { GlobalRole, MemberRole } from "@/generated/prisma/client";
+import type { GlobalRole, MemberRole, OrgRole } from "@/generated/prisma/client";
 import {
     ALL_PERMISSIONS,
     READ_ONLY_PERMISSIONS,
@@ -20,6 +20,73 @@ export const GLOBAL_ROLE_PERMISSIONS: Record<GlobalRole, ReadonlySet<Permission>
     super_admin: SUPER_ADMIN_PERMISSIONS,
     support: READONLY_GLOBAL_PERMISSIONS,
     auditor: READONLY_GLOBAL_PERMISSIONS,
+};
+
+// ─────────────────────────────────────────────────────────────
+// Organization-role permission maps
+// ─────────────────────────────────────────────────────────────
+
+/** owner gets all permissions except USER_CREATE (stays global) */
+const ORG_OWNER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(
+    ALL_PERMISSIONS.filter((p) => p !== PERMISSIONS.USER_CREATE),
+);
+
+/** admin gets project admin permissions + PROJECT_CREATE + org member management */
+const ORG_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+    // All project-scoped permissions (admin level)
+    PERMISSIONS.PROJECT_LIST,
+    PERMISSIONS.PROJECT_CREATE,
+    PERMISSIONS.PROJECT_UPDATE,
+    PERMISSIONS.PROJECT_DELETE,
+    PERMISSIONS.TEST_PLAN_LIST,
+    PERMISSIONS.TEST_PLAN_CREATE,
+    PERMISSIONS.TEST_PLAN_UPDATE,
+    PERMISSIONS.TEST_PLAN_DELETE,
+    PERMISSIONS.TEST_SUITE_LIST,
+    PERMISSIONS.TEST_SUITE_CREATE,
+    PERMISSIONS.TEST_SUITE_UPDATE,
+    PERMISSIONS.TEST_SUITE_DELETE,
+    PERMISSIONS.TEST_CASE_LIST,
+    PERMISSIONS.TEST_CASE_CREATE,
+    PERMISSIONS.TEST_CASE_UPDATE,
+    PERMISSIONS.TEST_CASE_DELETE,
+    PERMISSIONS.TEST_RUN_LIST,
+    PERMISSIONS.TEST_RUN_CREATE,
+    PERMISSIONS.TEST_RUN_UPDATE,
+    PERMISSIONS.TEST_RUN_DELETE,
+    PERMISSIONS.TEST_RUN_ITEM_LIST,
+    PERMISSIONS.TEST_RUN_ITEM_UPDATE,
+    PERMISSIONS.TEST_RUN_METRICS_VIEW,
+    PERMISSIONS.TEST_RUN_METRICS_UPDATE,
+    PERMISSIONS.ARTIFACT_LIST,
+    PERMISSIONS.ARTIFACT_UPLOAD,
+    PERMISSIONS.ARTIFACT_DELETE,
+    PERMISSIONS.USER_LIST,
+    // Org management
+    PERMISSIONS.ORG_LIST,
+    PERMISSIONS.ORG_UPDATE,
+    PERMISSIONS.ORG_MEMBER_LIST,
+    PERMISSIONS.ORG_MEMBER_MANAGE,
+]);
+
+/** member gets PROJECT_LIST and ORG_LIST only (relies on project roles) */
+const ORG_MEMBER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+    PERMISSIONS.PROJECT_LIST,
+    PERMISSIONS.ORG_LIST,
+    PERMISSIONS.ORG_MEMBER_LIST,
+]);
+
+/** billing gets PROJECT_LIST and ORG_LIST only */
+const ORG_BILLING_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+    PERMISSIONS.PROJECT_LIST,
+    PERMISSIONS.ORG_LIST,
+]);
+
+export const ORG_ROLE_PERMISSIONS: Record<OrgRole, ReadonlySet<Permission>> = {
+    owner: ORG_OWNER_PERMISSIONS,
+    admin: ORG_ADMIN_PERMISSIONS,
+    member: ORG_MEMBER_PERMISSIONS,
+    billing: ORG_BILLING_PERMISSIONS,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -82,6 +149,13 @@ export const PROJECT_ROLE_PERMISSIONS: Record<MemberRole, ReadonlySet<Permission
  */
 export function globalRoleHasPermission(role: GlobalRole, permission: Permission): boolean {
     return GLOBAL_ROLE_PERMISSIONS[role]?.has(permission) ?? false;
+}
+
+/**
+ * Check if an org role grants a specific permission.
+ */
+export function orgRoleHasPermission(role: OrgRole, permission: Permission): boolean {
+    return ORG_ROLE_PERMISSIONS[role]?.has(permission) ?? false;
 }
 
 /**
