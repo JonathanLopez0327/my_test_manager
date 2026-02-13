@@ -116,31 +116,9 @@ export async function require(
     }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Core: canSync() — for client-side (no DB, global roles only)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Synchronous check using global roles and org role.
- * Suitable for UI show/hide decisions where we don't have project context
- * or need instant evaluation without async.
- *
- * NOTE: This does NOT check project roles. For project-scoped UI decisions,
- * the component should pass project membership data directly.
- */
-export function canSync(
-    permission: Permission,
-    globalRoles: GlobalRole[],
-    organizationRole?: OrgRole,
-): boolean {
-    if (anyGlobalRoleHasPermission(globalRoles, permission)) {
-        return true;
-    }
-    if (organizationRole && orgRoleHasPermission(organizationRole, permission)) {
-        return true;
-    }
-    return false;
-}
+// Re-export canSync from its dedicated module so server-side callers
+// that already import from policy-engine are not broken.
+export { canSync } from "./can-sync";
 
 // ─────────────────────────────────────────────────────────────
 // Internal helpers

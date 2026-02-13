@@ -1,10 +1,12 @@
 import {
   BellIcon,
+  BuildingOffice2Icon,
   ChartBarIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpDownIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
   ExclamationTriangleIcon,
@@ -39,3 +41,5 @@ export const IconSpark = SparklesIcon;
 export const IconEdit = PencilSquareIcon;
 export const IconTrash = TrashIcon;
 export const IconUsers = UserGroupIcon;
+export const IconOrganization = BuildingOffice2Icon;
+export const IconChevronUpDown = ChevronUpDownIcon;

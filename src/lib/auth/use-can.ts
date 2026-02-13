@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import type { Permission } from "./permissions.constants";
-import { canSync } from "./policy-engine";
+import { canSync } from "./can-sync";
 
 /**
  * React hook that evaluates whether the current user has a permission.
