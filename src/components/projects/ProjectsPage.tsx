@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { ProjectsHeader } from "./ProjectsHeader";
 import { ProjectFormSheet } from "./ProjectFormSheet";
 import { ProjectsTable } from "./ProjectsTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { DataWorkspace } from "../ui/DataWorkspace";
+import { Button } from "../ui/Button";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -155,32 +156,39 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <ProjectsHeader
-          query={query}
-          onQueryChange={setQuery}
-          onCreate={handleCreate}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          canCreate={canManage}
-        />
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <DataWorkspace
+        eyebrow="Workspace de datos"
+        title="Proyectos"
+        subtitle="Administra el inventario de proyectos y su estado operativo."
+        toolbar={
+          <ProjectsHeader
+            query={query}
+            onQueryChange={setQuery}
+            onCreate={handleCreate}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            canCreate={canManage}
+          />
+        }
+        status={
+          <>
             <p className="text-sm font-semibold text-ink">Listado de proyectos</p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Actualizando..." : `Total: ${total}`}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
+            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+              {loading ? "Actualizando..." : `Total: ${total}`}
+            </div>
+          </>
+        }
+        feedback={
+          error ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+              <span>{error}</span>
+              <Button size="xs" variant="critical" onClick={fetchProjects}>
+                Reintentar
+              </Button>
+            </div>
+          ) : null
+        }
+        content={
           <ProjectsTable
             items={items}
             loading={loading}
@@ -188,17 +196,16 @@ export function ProjectsPage() {
             onDelete={handleDelete}
             canManage={canManage}
           />
-        </div>
-
-        <div className="mt-6">
+        }
+        footer={
           <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
           />
-        </div>
-      </Card>
+        }
+      />
 
       {canManage ? (
         <ProjectFormSheet

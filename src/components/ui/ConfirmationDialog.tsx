@@ -34,7 +34,7 @@ export function ConfirmationDialog({
                     <div
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${variant === "danger"
                             ? "bg-danger-100 text-danger-600"
-                            : "bg-warning-100 text-warning-600"
+                            : "bg-warning-500/15 text-warning-500"
                             }`}
                     >
                         <ExclamationTriangleIcon className="h-6 w-6" />
@@ -46,11 +46,11 @@ export function ConfirmationDialog({
                 </div>
 
                 <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <Button variant="ghost" onClick={onCancel} disabled={isConfirming}>
+                    <Button variant="quiet" onClick={onCancel} disabled={isConfirming}>
                         {cancelText}
                     </Button>
                     <Button
-                        variant={variant === "danger" ? "danger" : "primary"}
+                        variant={variant === "danger" ? "critical" : "primary"}
                         onClick={onConfirm}
                         disabled={isConfirming}
                     >

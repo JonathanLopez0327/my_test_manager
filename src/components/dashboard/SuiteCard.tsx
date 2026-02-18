@@ -2,7 +2,7 @@ import { Card } from "../ui/Card";
 
 const suites = [
   { name: "Checkout Suite", cases: 148, trend: "+12" },
-  { name: "Auth & SSO", cases: 96, trend: "+6" },
+  { name: "Auth y SSO", cases: 96, trend: "+6" },
   { name: "Mobile QA", cases: 72, trend: "+4" },
   { name: "Analytics", cases: 52, trend: "+2" },
 ];
@@ -11,8 +11,8 @@ export function SuiteCard() {
   return (
     <Card className="p-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Top Suites</p>
-        <span className="text-xs text-ink-muted">This month</span>
+        <p className="text-sm font-semibold text-ink">Suites con mas actividad</p>
+        <span className="text-xs text-ink-muted">Este mes</span>
       </div>
       <div className="mt-5 flex flex-col gap-4">
         {suites.map((suite) => (

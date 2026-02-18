@@ -24,8 +24,8 @@ describe('Button Component', () => {
     it('applies secondary variant classes', () => {
         render(<Button variant="secondary">Secondary</Button>);
         const button = screen.getByRole('button');
-        expect(button).toHaveClass('bg-surface');
-        expect(button).toHaveClass('border-stroke');
+        expect(button).toHaveClass('bg-surface-elevated');
+        expect(button).toHaveClass('border-stroke-strong');
     });
 
     it('can be disabled', () => {

@@ -2,7 +2,6 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import { Button } from "../ui/Button";
 import type { ProjectRecord } from "./types";
 
 type ProjectsTableProps = {
@@ -22,17 +21,24 @@ export function ProjectsTable({
 }: ProjectsTableProps) {
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
-        <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando proyectos...
+      <div className="grid gap-3 py-2">
+        {[1, 2, 3].map((row) => (
+          <div
+            key={row}
+            className="h-12 animate-pulse rounded-xl border border-stroke bg-surface-muted/80"
+          />
+        ))}
       </div>
     );
   }
 
   if (!items.length) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay proyectos para mostrar.
+      <div className="rounded-xl border border-dashed border-stroke-strong bg-surface-muted/50 px-6 py-12 text-center">
+        <p className="text-base font-semibold text-ink">No hay proyectos para mostrar.</p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Ajusta tus filtros o crea un nuevo proyecto para comenzar.
+        </p>
       </div>
     );
   }
@@ -40,7 +46,7 @@ export function ProjectsTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-separate border-spacing-y-1 text-[13px]">
           <thead>
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <th className="px-3 py-2">Key</th>
@@ -56,33 +62,33 @@ export function ProjectsTable({
             {items.map((project) => (
               <tr
                 key={project.id}
-                className="border-t border-stroke"
+                className="rounded-xl transition-colors hover:bg-brand-50/35"
               >
-                <td className="px-3 py-2.5 font-semibold text-ink">
+                <td className="rounded-l-xl border-y border-l border-stroke bg-surface px-3 py-3 font-semibold text-ink">
                   {project.key}
                 </td>
-                <td className="px-3 py-2.5 text-ink">{project.name}</td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-ink">{project.name}</td>
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-ink-muted">
                   {project.description ?? "Sin descripción"}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="border-y border-stroke bg-surface px-3 py-3">
                   <Badge tone={project.isActive ? "success" : "neutral"}>
                     {project.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="rounded-r-xl border-y border-r border-stroke bg-surface px-3 py-3">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => onEdit(project)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                         aria-label="Editar proyecto"
                       >
                         <IconEdit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => onDelete(project)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-stroke text-danger-500 transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:bg-danger-500/10"
                         aria-label="Eliminar proyecto"
                       >
                         <IconTrash className="h-4 w-4" />
@@ -100,7 +106,7 @@ export function ProjectsTable({
         {items.map((project) => (
           <div
             key={project.id}
-            className="rounded-lg border border-stroke bg-white p-5"
+            className="rounded-xl border border-stroke bg-surface-elevated p-5 shadow-soft-xs"
           >
             <div className="flex items-center justify-between gap-3">
               <div>

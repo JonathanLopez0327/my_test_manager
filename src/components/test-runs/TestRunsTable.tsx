@@ -59,17 +59,24 @@ export function TestRunsTable({
 }: TestRunsTableProps) {
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
-        <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando ejecuciones...
+      <div className="grid gap-3 py-2">
+        {[1, 2, 3].map((row) => (
+          <div
+            key={row}
+            className="h-14 animate-pulse rounded-xl border border-stroke bg-surface-muted/80"
+          />
+        ))}
       </div>
     );
   }
 
   if (!items.length) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay ejecuciones para mostrar.
+      <div className="rounded-xl border border-dashed border-stroke-strong bg-surface-muted/50 px-6 py-12 text-center">
+        <p className="text-base font-semibold text-ink">No hay ejecuciones para mostrar.</p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Crea un nuevo run o ajusta filtros para encontrar resultados.
+        </p>
       </div>
     );
   }
@@ -77,7 +84,7 @@ export function TestRunsTable({
   return (
     <>
       <div className="hidden md:block">
-        <table className="w-full border-collapse text-[13px]">
+        <table className="w-full border-separate border-spacing-y-1 text-[13px]">
           <thead>
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <th className="px-3 py-2">Run</th>
@@ -94,8 +101,8 @@ export function TestRunsTable({
           </thead>
           <tbody>
             {items.map((run) => (
-              <tr key={run.id} className="border-t border-stroke">
-                <td className="px-3 py-2.5">
+              <tr key={run.id} className="transition-colors hover:bg-brand-50/35">
+                <td className="rounded-l-xl border-y border-l border-stroke bg-surface px-3 py-3">
                   <p className="font-semibold text-ink">{getRunTitle(run)}</p>
                   <p className="text-xs text-ink-muted">
                     {run.environment ?? "Sin ambiente"} ·{" "}
@@ -105,7 +112,7 @@ export function TestRunsTable({
                     {run.branch ?? "Sin branch"}
                   </p>
                 </td>
-                <td className="px-3 py-2.5 text-ink">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-ink">
                   <p className="font-semibold">
                     {run.project.key} · {run.project.name}
                   </p>
@@ -113,7 +120,7 @@ export function TestRunsTable({
                     {run.commitSha ? run.commitSha.slice(0, 10) : "Sin commit"}
                   </p>
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-ink-muted">
                   <p className="font-semibold text-ink">
                     {run.testPlan?.name ?? run.suite?.testPlan.name ?? "Sin plan"}
                   </p>
@@ -121,12 +128,12 @@ export function TestRunsTable({
                     {run.suite?.name ?? "Sin suite"}
                   </p>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="border-y border-stroke bg-surface px-3 py-3">
                   <Badge tone={statusTones[run.status]}>
                     {statusLabels[run.status]}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5 text-xs text-ink-muted">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-xs text-ink-muted">
                   {run.metrics ? (
                     <div>
                       <p className="text-sm font-semibold text-ink">
@@ -140,18 +147,18 @@ export function TestRunsTable({
                     <span className="text-ink-soft">Sin métricas</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-ink-muted">
                   {runTypeLabels[run.runType]}
                 </td>
-                <td className="px-3 py-2.5 text-xs text-ink-muted">
+                <td className="border-y border-stroke bg-surface px-3 py-3 text-xs text-ink-muted">
                   <p>Inicio: {formatDate(run.startedAt)}</p>
                   <p>Fin: {formatDate(run.finishedAt)}</p>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="rounded-r-xl border-y border-r border-stroke bg-surface px-3 py-3">
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => onView(run)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                       aria-label="Ver detalles del run"
                     >
                       <IconClipboard className="h-4 w-4" />
@@ -160,14 +167,14 @@ export function TestRunsTable({
                       <>
                         <button
                           onClick={() => onEdit(run)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                           aria-label="Editar run"
                         >
                           <IconEdit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => onDelete(run)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-stroke text-danger-500 transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:bg-danger-500/10"
                           aria-label="Eliminar run"
                         >
                           <IconTrash className="h-4 w-4" />
@@ -186,7 +193,7 @@ export function TestRunsTable({
         {items.map((run) => (
           <div
             key={run.id}
-            className="rounded-lg border border-stroke bg-white p-5"
+            className="rounded-xl border border-stroke bg-surface-elevated p-5 shadow-soft-xs"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -233,7 +240,7 @@ export function TestRunsTable({
             <div className="mt-4 flex items-center gap-3">
               <button
                 onClick={() => onView(run)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:bg-brand-50 hover:text-brand-700"
                 aria-label="Ver detalles del run"
               >
                 <IconClipboard className="h-5 w-5" />
@@ -242,14 +249,14 @@ export function TestRunsTable({
                 <>
                   <button
                     onClick={() => onEdit(run)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:bg-brand-50 hover:text-brand-700"
                     aria-label="Editar run"
                   >
                     <IconEdit className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => onDelete(run)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-stroke text-danger-500 transition-all duration-200 ease-[var(--ease-emphasis)] hover:-translate-y-px hover:bg-danger-500/10"
                     aria-label="Eliminar run"
                   >
                     <IconTrash className="h-5 w-5" />

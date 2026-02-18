@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Button } from "./Button";
 
@@ -30,50 +30,45 @@ export function Sheet({
     children,
     width = "xl",
 }: SheetProps) {
-    const [isVisible, setIsVisible] = useState(open);
-
     useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
         if (open) {
-            setIsVisible(true);
             document.body.style.overflow = "hidden";
         } else {
-            const timer = setTimeout(() => setIsVisible(false), 300); // Wait for animation
-            document.body.style.overflow = "";
-            return () => clearTimeout(timer);
+            document.body.style.overflow = previousOverflow;
         }
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
     }, [open]);
 
-    if (!isVisible && !open) return null;
+    if (!open) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
-            {/* Backdrop */}
             <div
-                className={`absolute inset-0 bg-black/30 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"
-                    }`}
+                className="absolute inset-0 bg-[#1b1f27]/45 backdrop-blur-[1px]"
                 onClick={onClose}
                 aria-hidden="true"
             />
 
-            {/* Panel */}
             <div
-                className={`relative z-50 flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 transform ${widths[width]
-                    } ${open ? "translate-x-0" : "translate-x-full"}`}
+                className={`relative z-50 flex h-full w-full flex-col border-l border-stroke bg-surface-elevated shadow-soft ${widths[width]}`}
             >
-                <div className="flex items-start justify-between border-b border-stroke px-6 py-4">
+                <div className="flex items-start justify-between border-b border-stroke px-6 py-5">
                     <div>
                         {title ? (
-                            <h2 className="text-lg font-semibold text-ink">{title}</h2>
+                            <h2 className="text-2xl font-semibold text-ink">{title}</h2>
                         ) : null}
                         {description ? (
                             <p className="mt-1 text-sm text-ink-muted">{description}</p>
                         ) : null}
                     </div>
                     <Button
-                        variant="ghost"
-                        size="sm"
+                        variant="quiet"
+                        size="xs"
                         onClick={onClose}
-                        className="!p-2 text-ink-muted hover:text-ink"
+                        className="!h-8 !w-8 !p-0 text-ink-muted hover:text-ink"
                         aria-label="Close"
                     >
                         <XMarkIcon className="h-5 w-5" />

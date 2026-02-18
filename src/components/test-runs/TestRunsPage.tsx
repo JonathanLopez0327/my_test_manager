@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestRunsHeader } from "./TestRunsHeader";
 import { TestRunFormSheet } from "./TestRunFormSheet";
@@ -10,6 +9,8 @@ import { TestRunsTable } from "./TestRunsTable";
 
 import { TestRunDetailsSheet } from "./TestRunDetailsSheet";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { DataWorkspace } from "../ui/DataWorkspace";
+import { Button } from "../ui/Button";
 import type {
   TestRunPayload,
   TestRunRecord,
@@ -277,40 +278,49 @@ export function TestRunsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <TestRunsHeader
-          query={query}
-          onQueryChange={setQuery}
-          onCreate={handleCreate}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          canCreate={canManage}
-        />
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Listado de ejecuciones
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Actualizando..." : `Total: ${total}`}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
-            {error}
-          </div>
-        ) : null}
-
-        {optionsError ? (
-          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
-            {optionsError}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
+      <DataWorkspace
+        eyebrow="Workspace de datos"
+        title="Test Runs"
+        subtitle="Monitorea ejecuciones, resultados y trazabilidad por proyecto."
+        toolbar={
+          <TestRunsHeader
+            query={query}
+            onQueryChange={setQuery}
+            onCreate={handleCreate}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            canCreate={canManage}
+          />
+        }
+        status={
+          <>
+            <p className="text-sm font-semibold text-ink">Listado de ejecuciones</p>
+            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+              {loading ? "Actualizando..." : `Total: ${total}`}
+            </div>
+          </>
+        }
+        feedback={
+          <>
+            {error ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+                <span>{error}</span>
+                <Button size="xs" variant="critical" onClick={fetchRuns}>
+                  Reintentar
+                </Button>
+              </div>
+            ) : null}
+            {optionsError ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+                <span>{optionsError}</span>
+                <Button size="xs" variant="soft" onClick={fetchOptions}>
+                  Recargar catalogos
+                </Button>
+              </div>
+            ) : null}
+          </>
+        }
+        content={
           <TestRunsTable
             items={items}
             loading={loading}
@@ -319,17 +329,16 @@ export function TestRunsPage() {
             onDelete={handleDelete}
             canManage={canManage}
           />
-        </div>
-
-        <div className="mt-6">
+        }
+        footer={
           <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
           />
-        </div>
-      </Card>
+        }
+      />
 
       {canManage ? (
         <TestRunFormSheet

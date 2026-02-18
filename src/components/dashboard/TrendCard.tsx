@@ -8,12 +8,12 @@ export function TrendCard() {
     <Card className="p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-ink">Run Success Trend</p>
+          <p className="text-sm font-semibold text-ink">Tendencia de exito</p>
           <p className="mt-1 text-xs text-ink-muted">
-            Automated + manual runs over the last 7 days
+            Ejecuciones manuales y automatizadas de los ultimos 7 dias
           </p>
         </div>
-        <Badge tone="neutral">Weekly</Badge>
+        <Badge tone="neutral">Semanal</Badge>
       </div>
       <div className="mt-6 flex h-32 items-end gap-3">
         {bars.map((value, index) => (
@@ -30,11 +30,11 @@ export function TrendCard() {
       <div className="mt-5 flex items-center gap-4 text-xs text-ink-muted">
         <span className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-brand-600" />
-          Passed
+          Exitosos
         </span>
         <span className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-brand-300" />
-          Failed
+          Fallidos
         </span>
       </div>
     </Card>

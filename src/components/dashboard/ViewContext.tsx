@@ -1,19 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { OrganizationsResponse } from "../organizations/types";
 
 function getSectionLabel(pathname: string) {
-  if (pathname === "/manager") return "Overview";
-  if (pathname.startsWith("/manager/organizations")) return "Organizations";
-  if (pathname.startsWith("/manager/projects")) return "Projects";
-  if (pathname.startsWith("/manager/users")) return "Users";
-  if (pathname.startsWith("/manager/test-plans")) return "Test Plans";
-  if (pathname.startsWith("/manager/test-suites")) return "Test Suites";
-  if (pathname.startsWith("/manager/test-runs")) return "Test Runs";
-  if (pathname.startsWith("/manager/test-cases")) return "Test Cases";
+  if (pathname === "/manager") return "Resumen";
+  if (pathname.startsWith("/manager/organizations")) return "Organizaciones";
+  if (pathname.startsWith("/manager/projects")) return "Proyectos";
+  if (pathname.startsWith("/manager/users")) return "Usuarios";
+  if (pathname.startsWith("/manager/test-plans")) return "Planes de prueba";
+  if (pathname.startsWith("/manager/test-suites")) return "Suites de prueba";
+  if (pathname.startsWith("/manager/test-runs")) return "Ejecuciones";
+  if (pathname.startsWith("/manager/test-cases")) return "Casos de prueba";
   return "Manager";
 }
 
@@ -27,35 +27,55 @@ export function ViewContext() {
 
   const sectionLabel = useMemo(() => getSectionLabel(pathname), [pathname]);
 
-  const fetchOrgContext = useCallback(async () => {
-    if (!activeOrgId) {
-      setOrgName(null);
-      setOrgSlug(null);
-      return;
-    }
-    try {
-      const res = await fetch("/api/organizations");
-      if (!res.ok) return;
-      const data = (await res.json()) as OrganizationsResponse;
-      const activeOrg = data.items.find((org) => org.id === activeOrgId);
-      setOrgName(activeOrg?.name ?? null);
-      setOrgSlug(activeOrg?.slug ?? null);
-    } catch {
-      setOrgName(null);
-      setOrgSlug(null);
-    }
+  useEffect(() => {
+    let isMounted = true;
+    const loadContext = async () => {
+      if (!activeOrgId) {
+        if (isMounted) {
+          setOrgName(null);
+          setOrgSlug(null);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/organizations");
+        if (!res.ok) return;
+        const data = (await res.json()) as OrganizationsResponse;
+        const activeOrg = data.items.find((org) => org.id === activeOrgId);
+        if (isMounted) {
+          setOrgName(activeOrg?.name ?? null);
+          setOrgSlug(activeOrg?.slug ?? null);
+        }
+      } catch {
+        if (isMounted) {
+          setOrgName(null);
+          setOrgSlug(null);
+        }
+      }
+    };
+
+    void loadContext();
+    return () => {
+      isMounted = false;
+    };
   }, [activeOrgId]);
 
-  useEffect(() => {
-    fetchOrgContext();
-  }, [fetchOrgContext]);
-
   return (
-    <div className="mb-3 px-1">
-      <p className="text-xs font-semibold tracking-wide text-ink-soft">
-        {(orgName ?? "Sin organización") + " / " + (orgSlug ?? "—")} {"\u25B8"}{" "}
-        {sectionLabel}
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-stroke bg-surface-elevated px-3 py-2">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+        Contexto activo
       </p>
+      <span className="hidden text-ink-soft sm:inline">/</span>
+      <p className="text-sm font-semibold text-ink">
+        {orgName ?? "Sin organizacion"}
+      </p>
+      <span className="text-ink-soft">-</span>
+      <p className="text-xs font-medium text-ink-muted">
+        {orgSlug ?? "sin-slug"}
+      </p>
+      <span className="text-ink-soft">-</span>
+      <p className="text-sm font-semibold text-brand-700">{sectionLabel}</p>
     </div>
   );
 }
