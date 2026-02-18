@@ -54,6 +54,14 @@ export const PERMISSIONS = {
   USER_CREATE: "user:create",
   USER_UPDATE: "user:update",
 
+  // ── Bugs ─────────────────────────────────────────────────────
+  BUG_LIST: "bug:list",
+  BUG_CREATE: "bug:create",
+  BUG_UPDATE: "bug:update",
+  BUG_DELETE: "bug:delete",
+  BUG_COMMENT_CREATE: "bug-comment:create",
+  BUG_COMMENT_DELETE: "bug-comment:delete",
+
   // ── Organizations ───────────────────────────────────────────
   ORG_LIST: "org:list",
   ORG_CREATE: "org:create",
@@ -82,5 +90,6 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   PERMISSIONS.TEST_RUN_ITEM_LIST,
   PERMISSIONS.TEST_RUN_METRICS_VIEW,
   PERMISSIONS.ARTIFACT_LIST,
+  PERMISSIONS.BUG_LIST,
   PERMISSIONS.USER_LIST,
 ];

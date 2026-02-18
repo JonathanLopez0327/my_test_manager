@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
+  IconBug,
   IconChart,
   IconClipboard,
   IconFolder,
@@ -37,6 +38,12 @@ const groupedNavItems = [
   {
     title: "Ejecucion",
     items: [{ label: "Test Runs", icon: IconChart, href: "/manager/test-runs", permission: PERMISSIONS.TEST_RUN_LIST }],
+  },
+  {
+    title: "Calidad",
+    items: [
+      { label: "Bugs", icon: IconBug, href: "/manager/bugs", permission: PERMISSIONS.BUG_LIST },
+    ],
   },
   {
     title: "Gestion",

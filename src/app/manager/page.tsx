@@ -6,7 +6,7 @@ import { ActivityCard } from "@/components/dashboard/ActivityCard";
 import { TrendCard } from "@/components/dashboard/TrendCard";
 import { SuiteCard } from "@/components/dashboard/SuiteCard";
 import { ManagerShell } from "@/components/manager/ManagerShell";
-import { IconAlert, IconCheck, IconFolder, IconSpark } from "@/components/icons";
+import { IconAlert, IconBug, IconCheck, IconFolder, IconSpark } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import type { GlobalRole, OrgRole, Prisma } from "@/generated/prisma/client";
 import { canSync } from "@/lib/auth/can-sync";
@@ -40,12 +40,18 @@ export default async function ManagerPage() {
     ? { suite: { testPlan: { project: { organizationId: activeOrganizationId } } } }
     : {};
 
+  const bugOrgFilter: Prisma.BugWhereInput = activeOrganizationId
+    ? { project: { organizationId: activeOrganizationId } }
+    : {};
+
   const [
     activeProjects,
     executedCases,
     failedCases,
     totalCases,
     automatedCases,
+    openBugs,
+    criticalBugs,
   ] = await prisma.$transaction([
     prisma.project.count({ where: projectWhere }),
     prisma.testRunItem.count({
@@ -56,6 +62,16 @@ export default async function ManagerPage() {
     }),
     prisma.testCase.count({ where: testCaseOrgFilter }),
     prisma.testCase.count({ where: { isAutomated: true, ...testCaseOrgFilter } }),
+    prisma.bug.count({
+      where: { status: "open", ...bugOrgFilter },
+    }),
+    prisma.bug.count({
+      where: {
+        severity: "critical",
+        status: { notIn: ["closed", "verified"] },
+        ...bugOrgFilter,
+      },
+    }),
   ]);
 
   const automationRate =
@@ -72,7 +88,7 @@ export default async function ManagerPage() {
         </section>
       ) : null}
 
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
         <StatCard
           title="Proyectos activos"
           value={formatCount(activeProjects)}
@@ -100,6 +116,13 @@ export default async function ManagerPage() {
           change={`Automatizados: ${formatCount(automatedCases)} / ${formatCount(totalCases)}`}
           icon={<IconSpark className="h-6 w-6 text-accent-600" />}
           accent="bg-[#fff1e9] text-accent-600"
+        />
+        <StatCard
+          title="Bugs abiertos"
+          value={formatCount(openBugs)}
+          change={`${criticalBugs} criticos`}
+          icon={<IconBug className="h-6 w-6 text-danger-500" />}
+          accent="bg-[#ffe9ed] text-danger-500"
         />
       </section>
 

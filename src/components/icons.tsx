@@ -1,5 +1,6 @@
 import {
   BellIcon,
+  BugAntIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
   CheckIcon,
@@ -43,3 +44,4 @@ export const IconTrash = TrashIcon;
 export const IconUsers = UserGroupIcon;
 export const IconOrganization = BuildingOffice2Icon;
 export const IconChevronUpDown = ChevronUpDownIcon;
+export const IconBug = BugAntIcon;
