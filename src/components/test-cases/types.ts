@@ -42,6 +42,10 @@ export type TestCasesResponse = {
   pageSize: number;
 };
 
+export type TestCaseTagsResponse = {
+  items: string[];
+};
+
 export type TestCasePayload = {
   suiteId: string;
   title: string;

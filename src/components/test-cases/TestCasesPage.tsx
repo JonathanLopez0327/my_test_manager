@@ -12,6 +12,7 @@ import type {
   TestCasePayload,
   TestCaseRecord,
   TestCasesResponse,
+  TestCaseTagsResponse,
 } from "./types";
 import type { TestSuitesResponse } from "../test-suites/types";
 
@@ -32,6 +33,9 @@ export function TestCasesPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
+  const [suiteFilter, setSuiteFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -44,6 +48,7 @@ export function TestCasesPage() {
   const [editing, setEditing] = useState<TestCaseRecord | null>(null);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
   const [suitesError, setSuitesError] = useState<string | null>(null);
+  const [tagsError, setTagsError] = useState<string | null>(null);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -69,6 +74,12 @@ export function TestCasesPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (suiteFilter) {
+        params.set("suiteId", suiteFilter);
+      }
+      if (tagFilter) {
+        params.set("tag", tagFilter);
+      }
       const response = await fetch(`/api/test-cases?${params.toString()}`);
       const data = (await response.json()) as TestCasesResponse & {
         message?: string;
@@ -87,32 +98,47 @@ export function TestCasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, suiteFilter, tagFilter]);
 
   const fetchSuites = useCallback(async () => {
     setSuitesError(null);
     try {
-      const params = new URLSearchParams({
-        page: "1",
-        pageSize: "50",
-        query: "",
-      });
-      const response = await fetch(`/api/test-suites?${params.toString()}`);
-      const data = (await response.json()) as TestSuitesResponse & {
-        message?: string;
-      };
-      if (!response.ok) {
-        throw new Error(data.message || "Could not load test suites.");
+      const allSuites: TestSuiteOption[] = [];
+      const pageSizeForSuites = 50;
+      let currentPage = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          pageSize: String(pageSizeForSuites),
+          query: "",
+        });
+
+        const response = await fetch(`/api/test-suites?${params.toString()}`);
+        const data = (await response.json()) as TestSuitesResponse & {
+          message?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.message || "Could not load test suites.");
+        }
+
+        allSuites.push(
+          ...data.items.map((suite) => ({
+            id: suite.id,
+            name: suite.name,
+            testPlanName: suite.testPlan.name,
+            projectKey: suite.testPlan.project.key,
+            projectName: suite.testPlan.project.name,
+          })),
+        );
+
+        hasMore = currentPage * data.pageSize < data.total;
+        currentPage += 1;
       }
-      setSuites(
-        data.items.map((suite) => ({
-          id: suite.id,
-          name: suite.name,
-          testPlanName: suite.testPlan.name,
-          projectKey: suite.testPlan.project.key,
-          projectName: suite.testPlan.project.name,
-        })),
-      );
+
+      setSuites(allSuites);
     } catch (fetchError) {
       setSuitesError(
         fetchError instanceof Error
@@ -121,6 +147,35 @@ export function TestCasesPage() {
       );
     }
   }, []);
+
+  const fetchTags = useCallback(async () => {
+    setTagsError(null);
+    try {
+      const params = new URLSearchParams();
+      if (suiteFilter) {
+        params.set("suiteId", suiteFilter);
+      }
+      const queryString = params.toString();
+      const response = await fetch(
+        queryString
+          ? `/api/test-cases/tags?${queryString}`
+          : "/api/test-cases/tags",
+      );
+      const data = (await response.json()) as TestCaseTagsResponse & {
+        message?: string;
+      };
+      if (!response.ok) {
+        throw new Error(data.message || "Could not load test case tags.");
+      }
+      setTags(data.items);
+    } catch (fetchError) {
+      setTagsError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Could not load test case tags.",
+      );
+    }
+  }, [suiteFilter]);
 
   useEffect(() => {
     fetchCases();
@@ -131,8 +186,16 @@ export function TestCasesPage() {
   }, [fetchSuites]);
 
   useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
+
+  useEffect(() => {
+    setTagFilter("");
+  }, [suiteFilter]);
+
+  useEffect(() => {
     setPage(1);
-  }, [query, pageSize]);
+  }, [query, pageSize, suiteFilter, tagFilter]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -213,6 +276,15 @@ export function TestCasesPage() {
         <TestCasesHeader
           query={query}
           onQueryChange={setQuery}
+          suite={suiteFilter}
+          onSuiteChange={setSuiteFilter}
+          suiteOptions={suites.map((suite) => ({
+            id: suite.id,
+            label: `${suite.projectKey} · ${suite.testPlanName} · ${suite.name}`,
+          }))}
+          tag={tagFilter}
+          onTagChange={setTagFilter}
+          tagOptions={tags}
           onCreate={handleCreate}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
@@ -239,6 +311,12 @@ export function TestCasesPage() {
         {suitesError ? (
           <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
             {suitesError}
+          </div>
+        ) : null}
+
+        {tagsError ? (
+          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
+            {tagsError}
           </div>
         ) : null}
 

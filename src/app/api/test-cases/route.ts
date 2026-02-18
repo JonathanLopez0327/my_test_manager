@@ -68,6 +68,7 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   );
   const query = searchParams.get("query")?.trim();
   const suiteId = searchParams.get("suiteId")?.trim();
+  const tag = searchParams.get("tag")?.trim();
   const testPlanId = searchParams.get("testPlanId")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
@@ -97,6 +98,9 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
 
   if (suiteId) {
     filters.push({ suiteId });
+  }
+  if (tag) {
+    filters.push({ tags: { has: tag } });
   }
   if (testPlanId) {
     filters.push({ suite: { testPlanId } });

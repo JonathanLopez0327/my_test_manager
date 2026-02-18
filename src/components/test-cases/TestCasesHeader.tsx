@@ -7,6 +7,12 @@ import { Input } from "../ui/Input";
 type TestCasesHeaderProps = {
   query: string;
   onQueryChange: (value: string) => void;
+  suite: string;
+  onSuiteChange: (value: string) => void;
+  suiteOptions: Array<{ id: string; label: string }>;
+  tag: string;
+  onTagChange: (value: string) => void;
+  tagOptions: string[];
   onCreate: () => void;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
@@ -16,6 +22,12 @@ type TestCasesHeaderProps = {
 export function TestCasesHeader({
   query,
   onQueryChange,
+  suite,
+  onSuiteChange,
+  suiteOptions,
+  tag,
+  onTagChange,
+  tagOptions,
   onCreate,
   pageSize,
   onPageSizeChange,
@@ -41,6 +53,30 @@ export function TestCasesHeader({
             className="pl-11"
           />
         </div>
+        <select
+          value={suite}
+          onChange={(event) => onSuiteChange(event.target.value)}
+          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+        >
+          <option value="">All suites</option>
+          {suiteOptions.map((suiteOption) => (
+            <option key={suiteOption.id} value={suiteOption.id}>
+              {suiteOption.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={tag}
+          onChange={(event) => onTagChange(event.target.value)}
+          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+        >
+          <option value="">All tags</option>
+          {tagOptions.map((tagOption) => (
+            <option key={tagOption} value={tagOption}>
+              {tagOption}
+            </option>
+          ))}
+        </select>
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
