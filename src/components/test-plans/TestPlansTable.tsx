@@ -20,12 +20,12 @@ const statusLabels: Record<TestPlanStatus, string> = {
 };
 
 const statusTones: Record<TestPlanStatus, "success" | "warning" | "danger" | "neutral"> =
-  {
-    draft: "neutral",
-    active: "success",
-    completed: "warning",
-    archived: "danger",
-  };
+{
+  draft: "neutral",
+  active: "success",
+  completed: "warning",
+  archived: "danger",
+};
 
 const dateFormatter = new Intl.DateTimeFormat("es-MX", {
   dateStyle: "medium",
@@ -73,9 +73,9 @@ export function TestPlansTable({
 
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
         <table className="w-full border-collapse text-[13px]">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <th className="px-3 py-2">Plan</th>
               <th className="px-3 py-2">Proyecto</th>
