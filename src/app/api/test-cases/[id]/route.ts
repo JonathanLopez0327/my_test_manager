@@ -4,6 +4,7 @@ import { TestCaseStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
 
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
 
@@ -19,37 +20,6 @@ function parsePriority(value?: number | null) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 3;
   return Math.min(5, Math.max(1, Math.round(parsed)));
-}
-
-function normalizeSteps(value?: unknown) {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => {
-        if (typeof item === "object" && item !== null) {
-          const step = (item as any).step;
-          const expectedResult = (item as any).expectedResult;
-          if (typeof step === "string" || typeof expectedResult === "string") {
-            return {
-              step: String(step ?? "").trim(),
-              expectedResult: String(expectedResult ?? "").trim(),
-            };
-          }
-        }
-        return String(item).trim();
-      })
-      .filter((item) => {
-        if (typeof item === "string") return item.length > 0;
-        return item.step || item.expectedResult;
-      });
-  }
-  if (typeof value === "string") {
-    return value
-      .split("\n")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  }
-  return [];
 }
 
 export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
@@ -78,6 +48,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     const body = (await req.json()) as {
       suiteId?: string;
       title?: string;
+      style?: string;
       description?: string | null;
       preconditions?: string | null;
       steps?: unknown;
@@ -91,9 +62,10 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     const suiteId = body.suiteId?.trim();
     const title = body.title?.trim();
+    const style = parseStyle(body.style);
     const status = parseStatus(body.status ?? null) ?? "draft";
     const priority = parsePriority(body.priority);
-    const steps = normalizeSteps(body.steps);
+    const steps = normalizeSteps(body.steps, style);
     const tags = Array.isArray(body.tags)
       ? body.tags.map((t) => String(t).trim()).filter((t) => t.length > 0)
       : [];
@@ -146,6 +118,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
       data: {
         suiteId,
         title,
+        style,
         description: body.description?.trim() || null,
         preconditions: body.preconditions?.trim() || null,
         steps,

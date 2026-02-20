@@ -2,7 +2,7 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { TestCaseRecord, TestCaseStatus } from "./types";
+import type { TestCaseRecord, TestCaseStatus, TestCaseStyle } from "./types";
 
 type TestCasesTableProps = {
   items: TestCaseRecord[];
@@ -27,8 +27,34 @@ const statusTones: Record<
   deprecated: "warning",
 };
 
-function getStepsCount(steps: unknown) {
-  return Array.isArray(steps) ? steps.length : 0;
+const styleLabels: Record<TestCaseStyle, string> = {
+  step_by_step: "Step-by-Step",
+  gherkin: "BDD/Gherkin",
+  data_driven: "Data-Driven",
+  api: "API",
+};
+
+const styleTones: Record<TestCaseStyle, "success" | "warning" | "danger" | "neutral"> = {
+  step_by_step: "neutral",
+  gherkin: "success",
+  data_driven: "warning",
+  api: "danger",
+};
+
+function getStepsLabel(steps: unknown, style?: string) {
+  switch (style) {
+    case "gherkin":
+      return `${Array.isArray(steps) ? steps.length : 0} clauses`;
+    case "data_driven": {
+      const obj = steps as any;
+      const rows = obj?.examples?.rows;
+      return `${Array.isArray(rows) ? rows.length : 0} scenarios`;
+    }
+    case "api":
+      return "1 request";
+    default:
+      return `${Array.isArray(steps) ? steps.length : 0} steps`;
+  }
 }
 
 function getPriorityLabel(priority: number) {
@@ -85,9 +111,14 @@ export function TestCasesTable({
                   <p className="text-xs text-ink-muted">
                     {testCase.description ?? "No description"}
                   </p>
-                  <p className="mt-2 text-xs text-ink-soft">
-                    {getStepsCount(testCase.steps)} steps
-                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge tone={styleTones[testCase.style as TestCaseStyle] ?? "neutral"}>
+                      {styleLabels[testCase.style as TestCaseStyle] ?? "Step-by-Step"}
+                    </Badge>
+                    <span className="text-xs text-ink-soft">
+                      {getStepsLabel(testCase.steps, testCase.style)}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-3 py-2.5 text-ink">
                   <p className="font-semibold">{testCase.suite.name}</p>
@@ -178,7 +209,10 @@ export function TestCasesTable({
               {testCase.description ?? "No description"}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
-              <span>{getStepsCount(testCase.steps)} steps</span>
+              <Badge tone={styleTones[testCase.style as TestCaseStyle] ?? "neutral"}>
+                {styleLabels[testCase.style as TestCaseStyle] ?? "Step-by-Step"}
+              </Badge>
+              <span>{getStepsLabel(testCase.steps, testCase.style)}</span>
               <span>{getPriorityLabel(testCase.priority)}</span>
               {(testCase.tags?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1">
