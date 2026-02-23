@@ -94,20 +94,20 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   sessions                UserSession[]
-  createdProjects         Project[]              @relation("ProjectCreatedBy")
+  createdProjects         Project[]            @relation("ProjectCreatedBy")
   projectMemberships      ProjectMember[]
-  createdTestPlans        TestPlan[]             @relation("TestPlanCreatedBy")
-  ownedTestCases          TestCase[]             @relation("TestCaseAutomationOwner")
-  createdTestCases        TestCase[]             @relation("TestCaseCreatedBy")
-  triggeredTestRuns       TestRun[]              @relation("TestRunTriggeredBy")
-  executedRunItems        TestRunItem[]          @relation("TestRunItemExecutedBy")
-  auditLogEntries         AuditLog[]             @relation("AuditLogActor")
+  createdTestPlans        TestPlan[]           @relation("TestPlanCreatedBy")
+  ownedTestCases          TestCase[]           @relation("TestCaseAutomationOwner")
+  createdTestCases        TestCase[]           @relation("TestCaseCreatedBy")
+  triggeredTestRuns       TestRun[]            @relation("TestRunTriggeredBy")
+  executedRunItems        TestRunItem[]        @relation("TestRunItemExecutedBy")
+  auditLogEntries         AuditLog[]           @relation("AuditLogActor")
   globalRoles             UserGlobalRole[]
   organizationMemberships OrganizationMember[]
-  createdOrganizations    Organization[]         @relation("OrgCreatedBy")
-  assignedBugs            Bug[]                  @relation("BugAssignedTo")
-  reportedBugs            Bug[]                  @relation("BugReporter")
-  bugComments             BugComment[]           @relation("BugCommentAuthor")
+  createdOrganizations    Organization[]       @relation("OrgCreatedBy")
+  assignedBugs            Bug[]                @relation("BugAssignedTo")
+  reportedBugs            Bug[]                @relation("BugReporter")
+  bugComments             BugComment[]         @relation("BugCommentAuthor")
 
   @@map("users")
 }
@@ -143,6 +143,7 @@ model Project {
   key            String
   name           String
   description    String?
+  context        String?  @db.Text
   isActive       Boolean  @default(true) @map("is_active")
   createdById    String?  @map("created_by") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -382,7 +383,7 @@ model Organization {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  createdBy User?              @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User?                @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   members   OrganizationMember[]
   projects  Project[]
   auditLogs AuditLog[]
