@@ -97,6 +97,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       key?: string;
       name?: string;
       description?: string | null;
+      context?: string | null;
       isActive?: boolean;
     };
 
@@ -117,6 +118,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           key,
           name,
           description: body.description?.trim() || null,
+          context: body.context?.trim() || null,
           isActive: body.isActive ?? true,
           createdById: userId,
         },

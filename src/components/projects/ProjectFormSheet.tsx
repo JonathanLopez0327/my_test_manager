@@ -36,6 +36,7 @@ export function ProjectFormSheet({
             key: "",
             name: "",
             description: "",
+            context: "",
             isActive: true,
         },
     });
@@ -52,6 +53,7 @@ export function ProjectFormSheet({
                     key: project.key,
                     name: project.name,
                     description: project.description ?? "",
+                    context: project.context ?? "",
                     isActive: project.isActive,
                 });
             } else {
@@ -59,6 +61,7 @@ export function ProjectFormSheet({
                     key: "",
                     name: "",
                     description: "",
+                    context: "",
                     isActive: true,
                 });
             }
@@ -127,6 +130,19 @@ export function ProjectFormSheet({
                     {errors.description && (
                         <p className="mt-1 text-xs text-danger-500">
                             {errors.description.message}
+                        </p>
+                    )}
+                </label>
+                <label className="text-sm font-semibold text-ink">
+                    Contexto (AI)
+                    <textarea
+                        {...register("context")}
+                        placeholder="Detalles sobre el proyecto para proveer contexto al Agente IA"
+                        className="mt-2 flex min-h-[80px] w-full rounded-md border border-stroke bg-white px-3 py-2 text-sm placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    {errors.context && (
+                        <p className="mt-1 text-xs text-danger-500">
+                            {errors.context.message}
                         </p>
                     )}
                 </label>

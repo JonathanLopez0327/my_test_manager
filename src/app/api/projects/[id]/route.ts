@@ -35,6 +35,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       key?: string;
       name?: string;
       description?: string | null;
+      context?: string | null;
       isActive?: boolean;
     };
 
@@ -54,6 +55,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
         key,
         name,
         description: body.description?.trim() || null,
+        context: body.context?.trim() || null,
         isActive: body.isActive ?? true,
       },
     });

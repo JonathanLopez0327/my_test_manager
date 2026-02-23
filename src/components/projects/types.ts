@@ -3,6 +3,7 @@ export type ProjectRecord = {
   key: string;
   name: string;
   description: string | null;
+  context: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -19,5 +20,6 @@ export type ProjectPayload = {
   key: string;
   name: string;
   description?: string | null;
+  context?: string | null;
   isActive: boolean;
 };
