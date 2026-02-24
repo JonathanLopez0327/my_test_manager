@@ -84,7 +84,7 @@ export function DataDrivenEditor({
                 <select
                   value={item.keyword}
                   onChange={(e) => onUpdateClause(item.id, "keyword", e.target.value)}
-                  className="h-8 rounded border border-stroke bg-white px-2 text-sm font-medium text-ink"
+                  className="h-8 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 text-sm font-medium text-ink"
                 >
                   {keywords.map((kw) => (
                     <option key={kw} value={kw}>{kw}</option>
@@ -102,7 +102,7 @@ export function DataDrivenEditor({
                 value={item.text}
                 onChange={(e) => onUpdateClause(item.id, "text", e.target.value)}
                 placeholder='the user enters <username> and <password>'
-                className="min-h-[50px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+                className="min-h-[50px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
               />
             </div>
           ))}
@@ -126,7 +126,7 @@ export function DataDrivenEditor({
                         <input
                           value={col}
                           onChange={(e) => updateColumnName(colIdx, e.target.value)}
-                          className="w-full rounded border border-stroke bg-white px-2 py-1 text-xs font-medium text-ink outline-none focus:border-brand-300"
+                          className="w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1 text-xs font-medium text-ink outline-none focus:border-brand-300"
                         />
                         <button
                           type="button"
@@ -149,7 +149,7 @@ export function DataDrivenEditor({
                         <input
                           value={cell}
                           onChange={(e) => updateCell(rowIdx, colIdx, e.target.value)}
-                          className="w-full rounded border border-stroke bg-white px-2 py-1 text-xs text-ink outline-none focus:border-brand-300"
+                          className="w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1 text-xs text-ink outline-none focus:border-brand-300"
                         />
                       </td>
                     ))}

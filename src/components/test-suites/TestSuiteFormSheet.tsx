@@ -180,7 +180,7 @@ export function TestSuiteFormSheet({
                                 parentSuiteId: "",
                             }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         <option value="">Selecciona un plan</option>
                         {testPlans.map((plan) => (
@@ -198,7 +198,7 @@ export function TestSuiteFormSheet({
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, parentSuiteId: event.target.value }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                         disabled={!form.testPlanId || loadingParents}
                     >
                         <option value="">

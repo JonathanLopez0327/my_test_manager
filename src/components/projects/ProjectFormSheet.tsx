@@ -138,7 +138,7 @@ export function ProjectFormSheet({
                     <textarea
                         {...register("context")}
                         placeholder="Detalles sobre el proyecto para proveer contexto al Agente IA"
-                        className="mt-2 flex min-h-[80px] w-full rounded-md border border-stroke bg-white px-3 py-2 text-sm placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="mt-2 flex min-h-[80px] w-full rounded-md border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     {errors.context && (
                         <p className="mt-1 text-xs text-danger-500">

@@ -1,17 +1,7 @@
 import type { Metadata } from "next";
-import { Manrope, Fraunces } from "next/font/google";
 import { Providers } from "./providers";
+import "@/css/satoshi.css";
 import "./globals.css";
-
-const manrope = Manrope({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-display",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Test Manager",
@@ -24,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${manrope.variable} ${fraunces.variable} font-sans antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-satoshi antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

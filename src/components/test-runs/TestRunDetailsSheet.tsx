@@ -559,7 +559,7 @@ export function TestRunDetailsSheet({
 
                 {!loading && !error && tab === "summary" ? (
                     <div className="space-y-4">
-                        <div className="grid gap-3 rounded-lg border border-stroke bg-white p-4 text-sm text-ink-muted md:grid-cols-2">
+                        <div className="grid gap-3 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4 text-sm text-ink-muted md:grid-cols-2">
                             <div>
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                                     Project
@@ -616,7 +616,7 @@ export function TestRunDetailsSheet({
                             </div>
                         </div>
 
-                        <div className="rounded-lg border border-stroke bg-white p-4">
+                        <div className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4">
                             <div className="flex items-center justify-between gap-4">
                                 <div>
                                     <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
@@ -675,7 +675,7 @@ export function TestRunDetailsSheet({
                                 ) : null}
 
 
-                                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-stroke bg-white p-3">
+                                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-3">
                                     <div className="flex-1">
                                         <input
                                             type="text"
@@ -709,7 +709,7 @@ export function TestRunDetailsSheet({
                                     items.map((item) => (
                                         <div
                                             key={item.id}
-                                            className="rounded-lg border border-stroke bg-white p-4"
+                                            className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4"
                                         >
                                             <div className="flex flex-wrap items-center justify-between gap-3">
                                                 <div>
@@ -839,7 +839,7 @@ export function TestRunDetailsSheet({
                 {!loading && !error && tab === "artifacts" ? (
                     <div className="space-y-3">
                         {canManage ? (
-                            <div className="rounded-lg border border-stroke bg-white p-4">
+                            <div className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4">
                                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                                     New Artifact
                                 </p>
@@ -1000,7 +1000,7 @@ export function TestRunDetailsSheet({
                                 {artifacts.map((artifact) => (
                                     <div
                                         key={artifact.id}
-                                        className="flex flex-col justify-between rounded-lg border border-stroke bg-white p-4"
+                                        className="flex flex-col justify-between rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4"
                                     >
                                         <div>
                                             <div className="flex items-center justify-between gap-2">

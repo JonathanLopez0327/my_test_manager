@@ -23,7 +23,7 @@ export function Input({
       {label ? (
         <label
           htmlFor={resolvedId}
-          className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-muted"
+          className="mb-1.5 block text-sm font-medium text-ink dark:text-white"
         >
           {label}
         </label>
@@ -36,7 +36,7 @@ export function Input({
         ) : null}
         <input
           id={resolvedId}
-          className={`h-10 w-full rounded-xl border bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-soft/80 focus:border-brand-300 focus:ring-2 focus:ring-[var(--focus-ring)] ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${className}`}
+          className={`h-10 w-full rounded-lg border-[1.5px] bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-soft/80 focus:border-brand-500 dark:bg-surface-muted dark:text-white ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${className}`}
           {...props}
         />
       </div>

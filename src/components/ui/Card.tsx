@@ -7,7 +7,7 @@ type CardProps = HTMLAttributes<HTMLDivElement> & {
 
 const elevations = {
   flat: "shadow-none",
-  raised: "shadow-soft-sm",
+  raised: "shadow-[0px_1px_2px_0px_rgba(0,0,0,0.12)]",
 };
 
 const paddings = {
@@ -25,7 +25,7 @@ export function Card({
 }: CardProps) {
   return (
     <div
-      className={`rounded-2xl border border-stroke bg-surface-elevated ${elevations[elevation]} ${paddings[padding]} ${className}`}
+      className={`rounded-[10px] border border-stroke bg-surface-elevated dark:bg-surface-muted ${elevations[elevation]} ${paddings[padding]} ${className}`}
       {...props}
     />
   );

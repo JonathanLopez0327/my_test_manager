@@ -130,7 +130,7 @@ export function SuperAdminOrganizationsView() {
         <Card className="overflow-hidden">
           <div className="max-h-[600px] overflow-x-auto overflow-y-auto">
             <table className="w-full text-left text-sm border-collapse">
-              <thead className="sticky top-0 z-10 bg-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
+              <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
                 <tr className="bg-surface-muted/50 text-ink-muted">
                   <th className="px-4 py-3 font-semibold text-ink-muted">Nombre</th>
                   <th className="px-4 py-3 font-semibold text-ink-muted">Slug</th>

@@ -13,7 +13,7 @@ export function Avatar({ name, role }: AvatarProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
         {initials}
       </div>
       <div className="hidden text-left sm:block">

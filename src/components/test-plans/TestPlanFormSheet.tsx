@@ -130,7 +130,7 @@ export function TestPlanFormSheet({
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, projectId: event.target.value }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         <option value="">Selecciona un proyecto</option>
                         {projects.map((project) => (
@@ -172,7 +172,7 @@ export function TestPlanFormSheet({
                                 status: event.target.value as TestPlanStatus,
                             }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         {statusOptions.map((option) => (
                             <option key={option.value} value={option.value}>

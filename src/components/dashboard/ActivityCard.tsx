@@ -28,7 +28,7 @@ export function ActivityCard() {
         {timeline.map((item) => (
           <div
             key={item.title}
-            className="flex items-center justify-between rounded-lg border border-stroke bg-surface-muted/60 px-4 py-3"
+            className="flex items-center justify-between rounded-lg border border-stroke bg-surface-muted/60 px-4 py-3 dark:bg-surface/60"
           >
             <p className="text-sm font-semibold text-ink">{item.title}</p>
             <Badge tone={item.tone}>{item.status}</Badge>

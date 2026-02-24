@@ -87,11 +87,11 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-brand-50/80 ${
+        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-brand-50 ${
           collapsed ? "lg:justify-center" : ""
         }`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
           {abbrev}
         </span>
         <span className={`flex min-w-0 flex-1 flex-col ${collapsed ? "lg:hidden" : ""}`}>
@@ -108,7 +108,7 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
       </button>
 
       {open && (
-        <div className="absolute left-0 z-50 mt-1 w-64 rounded-lg border border-stroke bg-white p-2 shadow-lg">
+        <div className="absolute left-0 z-50 mt-1 w-64 rounded-lg border border-stroke bg-surface-elevated p-2 shadow-lg dark:bg-surface-muted">
           <p className="px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-ink-muted">
             Organizaciones
           </p>
@@ -125,10 +125,10 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
                   org.id === activeOrgId
                     ? "bg-brand-50 font-semibold text-brand-700"
-                    : "text-ink-muted hover:bg-surface-muted hover:text-ink"
+                    : "text-ink-muted hover:bg-surface-muted hover:text-ink dark:hover:bg-surface"
                 }`}
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
                   {org.name
                     .split(/\s+/)
                     .slice(0, 2)

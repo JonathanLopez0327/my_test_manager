@@ -45,12 +45,12 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-8">
       <button
-        className="absolute inset-0 bg-[#1b1f27]/45 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-black/50"
         onClick={onClose}
         aria-label="Close modal"
       />
       <div
-        className={`relative flex w-full ${maxWidthClass} max-h-[calc(100vh-4rem)] flex-col rounded-2xl border border-stroke bg-surface-elevated p-6 shadow-soft`}
+        className={`relative flex w-full ${maxWidthClass} max-h-[calc(100vh-4rem)] flex-col rounded-[10px] border border-stroke bg-surface-elevated p-6 shadow-3 dark:bg-surface-muted`}
       >
         <div className="flex items-start justify-between gap-4">
           <div>

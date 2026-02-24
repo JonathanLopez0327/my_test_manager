@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { IconChevronDown } from "../icons";
 import { Avatar } from "../ui/Avatar";
+import { ThemeToggle } from "../ui/ThemeToggle";
 import type { OrganizationsResponse } from "../organizations/types";
 
 function getViewTitle(pathname: string) {
@@ -60,7 +61,7 @@ export function Topbar() {
   }, [activeOrgId]);
 
   return (
-    <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-stroke bg-surface-elevated/90 px-4 py-3 backdrop-blur sm:px-6">
+    <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-stroke bg-surface-elevated px-4 py-3 shadow-[0px_1px_2px_0px_rgba(84,87,118,0.12)] dark:bg-surface sm:px-6">
       <div className="min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-soft">
           Test Manager
@@ -71,21 +72,22 @@ export function Topbar() {
         )}
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end md:gap-3 lg:flex-1">
+        <ThemeToggle />
         <div className="relative">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-xl border border-stroke bg-surface px-2.5 py-1.5 transition-all duration-200 ease-[var(--ease-emphasis)] hover:border-brand-300 hover:bg-brand-50/45"
+            className="flex items-center gap-2 rounded-lg border border-stroke bg-surface px-2.5 py-1.5 transition-all duration-200 ease-[var(--ease-emphasis)] hover:border-brand-300 hover:bg-brand-50"
           >
             <Avatar name={displayName} />
             <IconChevronDown className="h-4 w-4 text-ink-soft" />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-stroke bg-surface-elevated p-2 shadow-soft-sm">
+            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-stroke bg-surface-elevated p-2 shadow-soft-sm dark:bg-surface-muted">
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+                className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-ink-muted transition hover:bg-surface-muted hover:text-ink dark:hover:bg-surface"
               >
                 Cerrar sesion
               </button>

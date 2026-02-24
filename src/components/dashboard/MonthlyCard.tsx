@@ -2,7 +2,7 @@ import { Card } from "../ui/Card";
 
 export function MonthlyCard() {
   return (
-    <Card className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-[#3b1ea8] p-6 text-white">
+    <Card className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-[#3830B1] p-6 text-white">
       <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/10" />
       <p className="text-xs uppercase tracking-[0.2em] text-white/70">
         Active testers

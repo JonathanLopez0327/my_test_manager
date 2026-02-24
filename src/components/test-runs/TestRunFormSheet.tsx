@@ -235,7 +235,7 @@ export function TestRunFormSheet({
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, projectId: event.target.value }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         <option value="">Selecciona un proyecto</option>
                         {projects.map((project) => (
@@ -259,7 +259,7 @@ export function TestRunFormSheet({
                                 }))
                             }
                             disabled={!form.projectId}
-                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink disabled:bg-surface-muted"
+                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:bg-surface-muted"
                         >
                             <option value="">Sin plan</option>
                             {availablePlans.map((plan) => (
@@ -277,7 +277,7 @@ export function TestRunFormSheet({
                                 setForm((prev) => ({ ...prev, suiteId: event.target.value }))
                             }
                             disabled={!form.projectId}
-                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink disabled:bg-surface-muted"
+                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:bg-surface-muted"
                         >
                             <option value="">Sin suite</option>
                             {availableSuites.map((suite) => (
@@ -312,7 +312,7 @@ export function TestRunFormSheet({
                                     runType: event.target.value as TestRunType,
                                 }))
                             }
-                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                         >
                             {typeOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -331,7 +331,7 @@ export function TestRunFormSheet({
                                     status: event.target.value as TestRunStatus,
                                 }))
                             }
-                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                         >
                             {statusOptions.map((option) => (
                                 <option key={option.value} value={option.value}>

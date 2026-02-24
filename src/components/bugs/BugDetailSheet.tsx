@@ -121,12 +121,12 @@ export function BugDetailSheet({
   return (
     <Sheet open={open} title={bug.title} description={`${bug.project.key} · ${bug.project.name}`} onClose={onClose} width="2xl">
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-stroke bg-surface-muted p-1">
+      <div className="mb-6 flex gap-1 rounded-lg border border-stroke bg-surface-muted p-1">
         <button
           onClick={() => setActiveTab("details")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
             activeTab === "details"
-              ? "bg-white text-ink shadow-soft-xs"
+              ? "bg-surface-elevated dark:bg-surface-muted text-ink shadow-soft-xs"
               : "text-ink-muted hover:text-ink"
           }`}
         >
@@ -136,7 +136,7 @@ export function BugDetailSheet({
           onClick={() => setActiveTab("comments")}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
             activeTab === "comments"
-              ? "bg-white text-ink shadow-soft-xs"
+              ? "bg-surface-elevated dark:bg-surface-muted text-ink shadow-soft-xs"
               : "text-ink-muted hover:text-ink"
           }`}
         >
@@ -249,7 +249,7 @@ export function BugDetailSheet({
               {comments.map((comment) => (
                 <div
                   key={comment.id}
-                  className="rounded-lg border border-stroke bg-white p-4"
+                  className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
@@ -284,7 +284,7 @@ export function BugDetailSheet({
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Write a comment..."
-                className="min-h-[80px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                className="min-h-[80px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               />
               <div className="flex justify-end">
                 <Button

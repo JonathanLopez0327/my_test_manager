@@ -209,7 +209,7 @@ export function UserFormSheet({
                         {form.memberships.map((membership, index) => (
                             <div
                                 key={index}
-                                className="group relative flex flex-col gap-3 rounded-xl border border-stroke bg-gray-50/50 p-3 transition hover:border-brand-200 hover:bg-brand-50/30 sm:flex-row sm:items-center"
+                                className="group relative flex flex-col gap-3 rounded-lg border border-stroke bg-surface-muted/50 p-3 transition hover:border-brand-300 hover:bg-brand-50/30 sm:flex-row sm:items-center"
                             >
                                 <div className="flex-1 space-y-1">
                                     <div className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
@@ -220,7 +220,7 @@ export function UserFormSheet({
                                         onChange={(e) =>
                                             handleUpdateMembership(index, "organizationId", e.target.value)
                                         }
-                                        className="h-9 w-full rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="h-9 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                                     >
                                         {availableOrganizations(membership.organizationId).map((o) => (
                                             <option key={o.id} value={o.id}>
@@ -239,7 +239,7 @@ export function UserFormSheet({
                                         onChange={(e) =>
                                             handleUpdateMembership(index, "role", e.target.value)
                                         }
-                                        className="h-9 flex-1 rounded-lg border border-stroke bg-white px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                                        className="h-9 flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-2.5 text-sm text-ink transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
                                     >
                                         <option value="member">Member</option>
                                         <option value="admin">Admin</option>
@@ -248,7 +248,7 @@ export function UserFormSheet({
                                     </select>
                                     <button
                                         onClick={() => handleRemoveMembership(index)}
-                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-muted transition hover:bg-danger-50 hover:text-danger-500 sm:absolute sm:-right-2 sm:-top-2 sm:h-6 sm:w-6 sm:rounded-full sm:bg-white sm:border-stroke sm:shadow-sm"
+                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-muted transition hover:bg-danger-50 hover:text-danger-500 sm:absolute sm:-right-2 sm:-top-2 sm:h-6 sm:w-6 sm:rounded-full sm:bg-surface-elevated sm:dark:bg-surface-muted sm:border-stroke sm:shadow-sm"
                                         aria-label="Quitar organización"
                                     >
                                         <svg
@@ -270,7 +270,7 @@ export function UserFormSheet({
                             </div>
                         ))}
                         {form.memberships.length === 0 && (
-                            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-stroke py-8 text-center">
+                            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-stroke py-8 text-center">
                                 <p className="text-sm text-ink-muted">
                                     Este usuario no tiene organizaciones asignadas.
                                 </p>

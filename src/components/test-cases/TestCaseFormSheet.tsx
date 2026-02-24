@@ -396,7 +396,7 @@ export function TestCaseFormSheet({
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, suiteId: event.target.value }))
                         }
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         <option value="">Select a suite</option>
                         {suites.map((suite) => (
@@ -427,7 +427,7 @@ export function TestCaseFormSheet({
                             setForm((prev) => ({ ...prev, description: event.target.value }))
                         }
                         placeholder="Context of the test case"
-                        className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                        className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
@@ -442,7 +442,7 @@ export function TestCaseFormSheet({
                             }))
                         }
                         placeholder="Data or states required before execution"
-                        className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                        className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
@@ -452,7 +452,7 @@ export function TestCaseFormSheet({
                     <select
                         value={form.style}
                         onChange={(e) => handleStyleChange(e.target.value as TestCaseStyle)}
-                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                        className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
                         {styleOptions.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -541,7 +541,7 @@ export function TestCaseFormSheet({
                                     status: event.target.value as TestCaseStatus,
                                 }))
                             }
-                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+                            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                         >
                             {statusOptions.map((option) => (
                                 <option key={option.value} value={option.value}>

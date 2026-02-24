@@ -91,7 +91,7 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="mt-8 rounded-xl border border-stroke bg-brand-50/60 px-5 py-4 text-xs text-ink-muted">
+      <div className="mt-8 rounded-lg border border-stroke bg-brand-50/60 px-5 py-4 text-xs text-ink-muted">
         <p className="font-semibold text-ink">Acceso seguro activo</p>
         <p className="mt-2">
           El inicio de sesion esta integrado con NextAuth para cada organizacion.

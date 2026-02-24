@@ -303,7 +303,7 @@ export function TestRunsPage() {
         feedback={
           <>
             {error ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
                 <span>{error}</span>
                 <Button size="xs" variant="critical" onClick={fetchRuns}>
                   Reintentar
@@ -311,7 +311,7 @@ export function TestRunsPage() {
               </div>
             ) : null}
             {optionsError ? (
-              <div className="flex items-center justify-between gap-3 rounded-xl border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
                 <span>{optionsError}</span>
                 <Button size="xs" variant="soft" onClick={fetchOptions}>
                   Recargar catalogos

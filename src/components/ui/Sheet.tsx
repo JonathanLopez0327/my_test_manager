@@ -47,13 +47,13 @@ export function Sheet({
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             <div
-                className="absolute inset-0 bg-[#1b1f27]/45 backdrop-blur-[1px]"
+                className="absolute inset-0 bg-black/50"
                 onClick={onClose}
                 aria-hidden="true"
             />
 
             <div
-                className={`relative z-50 flex h-full w-full flex-col border-l border-stroke bg-surface-elevated shadow-soft ${widths[width]}`}
+                className={`relative z-50 flex h-full w-full flex-col border-l border-stroke bg-surface-elevated shadow-soft dark:bg-surface-muted ${widths[width]}`}
             >
                 <div className="flex items-start justify-between border-b border-stroke px-6 py-5">
                     <div>

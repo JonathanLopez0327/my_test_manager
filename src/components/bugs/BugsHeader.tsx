@@ -71,7 +71,7 @@ export function BugsHeader({
         <select
           value={status}
           onChange={(event) => onStatusChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           {statusOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -82,7 +82,7 @@ export function BugsHeader({
         <select
           value={severity}
           onChange={(event) => onSeverityChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           {severityOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -93,7 +93,7 @@ export function BugsHeader({
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>

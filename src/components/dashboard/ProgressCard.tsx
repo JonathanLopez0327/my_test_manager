@@ -17,10 +17,10 @@ export function ProgressCard({ title, percent, detail }: ProgressCardProps) {
         <div
           className="flex h-28 w-28 items-center justify-center rounded-full"
           style={{
-            background: `conic-gradient(#7c4dff ${percent * 3.6}deg, #e9e3ff 0deg)`,
+            background: `conic-gradient(#5750F1 ${percent * 3.6}deg, rgba(87,80,241,0.12) 0deg)`,
           }}
         >
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white text-lg font-semibold text-ink">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-surface-elevated text-lg font-semibold text-ink dark:bg-surface-muted">
             {percent}%
           </div>
         </div>

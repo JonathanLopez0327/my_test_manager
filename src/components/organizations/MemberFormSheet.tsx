@@ -105,7 +105,7 @@ export function MemberFormSheet({
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             >
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -122,7 +122,7 @@ export function MemberFormSheet({
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value as OrgRole)}
-            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           >
             {ROLE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>

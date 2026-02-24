@@ -33,7 +33,7 @@ export function ConfirmationDialog({
                 <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
                     <div
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${variant === "danger"
-                            ? "bg-danger-100 text-danger-600"
+                            ? "bg-danger-100 text-danger-600 dark:bg-danger-500/15 dark:text-danger-500"
                             : "bg-warning-500/15 text-warning-500"
                             }`}
                     >

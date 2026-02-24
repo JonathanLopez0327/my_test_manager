@@ -37,13 +37,13 @@ function KeyValueEditor({
             value={pair.key}
             onChange={(e) => updatePair(idx, "key", e.target.value)}
             placeholder="Key"
-            className="w-1/3 rounded border border-stroke bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-300"
+            className="w-1/3 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-300"
           />
           <input
             value={pair.value}
             onChange={(e) => updatePair(idx, "value", e.target.value)}
             placeholder="Value"
-            className="flex-1 rounded border border-stroke bg-white px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-300"
+            className="flex-1 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1.5 text-xs text-ink outline-none focus:border-brand-300"
           />
           <button
             type="button"
@@ -81,7 +81,7 @@ export function ApiStyleEditor({
           <select
             value={request.method}
             onChange={(e) => onUpdateRequest({ ...request, method: e.target.value })}
-            className="h-9 rounded border border-stroke bg-white px-2 text-sm font-medium text-ink"
+            className="h-9 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 text-sm font-medium text-ink"
           >
             {HTTP_METHODS.map((m) => (
               <option key={m} value={m}>{m}</option>
@@ -107,7 +107,7 @@ export function ApiStyleEditor({
             value={request.body}
             onChange={(e) => onUpdateRequest({ ...request, body: e.target.value })}
             placeholder='{"name": "John"}'
-            className="min-h-[60px] w-full rounded border border-stroke bg-white px-3 py-2 text-xs font-mono text-ink outline-none focus:border-brand-300"
+            className="min-h-[60px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-xs font-mono text-ink outline-none focus:border-brand-300"
           />
         </div>
       </div>
@@ -137,7 +137,7 @@ export function ApiStyleEditor({
             value={expectedResponse.body}
             onChange={(e) => onUpdateResponse({ ...expectedResponse, body: e.target.value })}
             placeholder='{"id": 1, "name": "John"}'
-            className="min-h-[60px] w-full rounded border border-stroke bg-white px-3 py-2 text-xs font-mono text-ink outline-none focus:border-brand-300"
+            className="min-h-[60px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-xs font-mono text-ink outline-none focus:border-brand-300"
           />
         </div>
       </div>

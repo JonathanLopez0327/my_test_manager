@@ -56,7 +56,7 @@ export function TestCasesHeader({
         <select
           value={suite}
           onChange={(event) => onSuiteChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           <option value="">All suites</option>
           {suiteOptions.map((suiteOption) => (
@@ -68,7 +68,7 @@ export function TestCasesHeader({
         <select
           value={tag}
           onChange={(event) => onTagChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           <option value="">All tags</option>
           {tagOptions.map((tagOption) => (
@@ -80,7 +80,7 @@ export function TestCasesHeader({
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>

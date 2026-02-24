@@ -20,7 +20,7 @@ export function TrendCard() {
           <div key={`bar-${index}`} className="flex-1">
             <div className="h-full rounded-full bg-brand-100/60 p-1">
               <div
-                className="w-full rounded-full bg-gradient-to-t from-brand-600 to-brand-300"
+                className="w-full rounded-full bg-gradient-to-t from-brand-600 to-brand-500"
                 style={{ height: `${value}%` }}
               />
             </div>
@@ -33,7 +33,7 @@ export function TrendCard() {
           Exitosos
         </span>
         <span className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-brand-300" />
+          <span className="h-2 w-2 rounded-full bg-brand-500" />
           Fallidos
         </span>
       </div>

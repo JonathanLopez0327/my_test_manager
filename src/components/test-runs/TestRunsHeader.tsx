@@ -35,7 +35,7 @@ export function TestRunsHeader({
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-xl border border-stroke bg-surface-elevated px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300 focus:ring-2 focus:ring-[var(--focus-ring)]"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
