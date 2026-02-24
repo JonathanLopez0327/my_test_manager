@@ -1,4 +1,5 @@
 import {
+  Bars3Icon,
   BellIcon,
   BugAntIcon,
   BuildingOffice2Icon,
@@ -45,3 +46,4 @@ export const IconUsers = UserGroupIcon;
 export const IconOrganization = BuildingOffice2Icon;
 export const IconChevronUpDown = ChevronUpDownIcon;
 export const IconBug = BugAntIcon;
+export const IconMenu = Bars3Icon;

@@ -51,8 +51,12 @@ const groupedNavItems = [
   },
 ];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+type SidebarProps = {
+  collapsed: boolean;
+  onToggle: () => void;
+};
+
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
   const { update } = useSession();
   const pathname = usePathname();
@@ -75,27 +79,19 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`flex h-screen w-full flex-col border-r border-stroke bg-surface-elevated px-3 py-3 transition-all duration-300 dark:bg-surface lg:w-auto ${
-        collapsed ? "lg:w-[92px]" : "lg:w-[286px]"
-      }`}
+      className={`flex h-screen flex-col border-r border-stroke bg-surface-elevated px-3 py-3 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[72px]" : "w-[286px]"
+        }`}
     >
-      <div className="flex items-center justify-between gap-2 px-1 pb-3">
-        <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "lg:justify-center" : ""}`}>
+      <div className="flex items-center gap-2 px-1 pb-3">
+        <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold tracking-wide text-white shadow-soft-xs">
             TM
           </div>
-          <div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
+          <div className={`min-w-0 ${collapsed ? "hidden" : ""}`}>
             <p className="truncate text-base font-semibold text-ink">Test Manager</p>
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Quality workspace</p>
           </div>
         </Link>
-        <button
-          onClick={() => setCollapsed((prev) => !prev)}
-          className="hidden h-9 w-9 items-center justify-center rounded-lg border border-stroke text-ink-muted transition-all duration-200 ease-[var(--ease-emphasis)] hover:border-brand-300 hover:bg-brand-50 hover:text-ink lg:flex"
-          aria-label="Toggle sidebar"
-        >
-          <IconGrid className={`h-5 w-5 transition-transform duration-200 ${collapsed ? "rotate-90" : ""}`} />
-        </button>
       </div>
 
       {!isSuperAdmin && (
@@ -108,19 +104,18 @@ export function Sidebar() {
         {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.href ? pathname === item.href : false;
-          const baseClass = `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${
-            isActive
-              ? "border border-brand-300 bg-brand-50 text-brand-700"
-              : item.href
-                ? "text-ink-muted hover:bg-brand-50 hover:text-ink"
-                : "text-ink-soft"
-          } ${collapsed ? "lg:justify-center" : ""}`;
+          const baseClass = `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${isActive
+            ? "border border-brand-300 bg-brand-50 text-brand-700"
+            : item.href
+              ? "text-ink-muted hover:bg-brand-50 hover:text-ink"
+              : "text-ink-soft"
+            } ${collapsed ? "justify-center" : ""}`;
 
           if (item.href) {
             return (
               <Link key={item.label} href={item.href} className={baseClass}>
                 <Icon className="h-5 w-5 shrink-0" />
-                <span className={`${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+                <span className={`${collapsed ? "hidden" : ""}`}>{item.label}</span>
               </Link>
             );
           }
@@ -128,7 +123,7 @@ export function Sidebar() {
           return (
             <button key={item.label} className={baseClass} disabled>
               <Icon className="h-5 w-5" />
-              <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+              <span className={collapsed ? "hidden" : ""}>{item.label}</span>
             </button>
           );
         })}
@@ -138,9 +133,8 @@ export function Sidebar() {
         {visibleGroupedNavItems.map((group) => (
           <div key={group.title} className="rounded-lg border border-transparent p-1">
             <p
-              className={`px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-soft ${
-                collapsed ? "lg:hidden" : ""
-              }`}
+              className={`px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-soft ${collapsed ? "hidden" : ""
+                }`}
             >
               {group.title}
             </p>
@@ -152,14 +146,13 @@ export function Sidebar() {
                   <Link
                     key={item.label}
                     href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${
-                      isActive
-                        ? "border border-brand-300 bg-brand-50 text-brand-700"
-                        : "text-ink-muted hover:bg-brand-50 hover:text-ink"
-                    } ${collapsed ? "lg:justify-center lg:px-2" : ""}`}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${isActive
+                      ? "border border-brand-300 bg-brand-50 text-brand-700"
+                      : "text-ink-muted hover:bg-brand-50 hover:text-ink"
+                      } ${collapsed ? "justify-center px-2" : ""}`}
                   >
                     <Icon className="h-5 w-5 shrink-0" />
-                    <span className={collapsed ? "lg:hidden" : ""}>{item.label}</span>
+                    <span className={collapsed ? "hidden" : ""}>{item.label}</span>
                   </Link>
                 );
               })}
@@ -168,12 +161,12 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className={`mt-auto rounded-lg border border-stroke bg-surface-elevated px-3 py-3 dark:bg-surface-muted ${collapsed ? "lg:px-2" : ""}`}>
-        <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] text-ink-soft ${collapsed ? "lg:hidden" : ""}`}>
+      <div className={`mt-auto rounded-lg border border-stroke bg-surface-elevated px-3 py-3 dark:bg-surface-muted ${collapsed ? "px-2" : ""}`}>
+        <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] text-ink-soft ${collapsed ? "hidden" : ""}`}>
           Estado
         </p>
-        <p className={`mt-1 text-sm font-semibold text-ink ${collapsed ? "lg:hidden" : ""}`}>Workspace listo</p>
-        <p className={`mt-1 text-xs text-ink-muted ${collapsed ? "lg:hidden" : ""}`}>
+        <p className={`mt-1 text-sm font-semibold text-ink ${collapsed ? "hidden" : ""}`}>Workspace listo</p>
+        <p className={`mt-1 text-xs text-ink-muted ${collapsed ? "hidden" : ""}`}>
           Navegacion optimizada para operaciones QA.
         </p>
       </div>
@@ -183,6 +176,6 @@ export function Sidebar() {
         onClose={() => setCreateOrgOpen(false)}
         onCreated={handleOrgCreated}
       />
-    </aside>
+    </aside >
   );
 }

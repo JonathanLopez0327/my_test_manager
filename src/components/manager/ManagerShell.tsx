@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
 import { Sidebar } from "../dashboard/Sidebar";
 import { Topbar } from "../dashboard/Topbar";
 import { ViewContext } from "../dashboard/ViewContext";
@@ -8,13 +10,15 @@ type ManagerShellProps = {
 };
 
 export function ManagerShell({ children }: ManagerShellProps) {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
       <div className="h-full shrink-0">
-        <Sidebar />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((prev) => !prev)} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar />
+        <Topbar onToggleSidebar={() => setCollapsed((prev) => !prev)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 2xl:p-10">
           <div className="mx-auto w-full max-w-[1320px]">
             <ViewContext />
