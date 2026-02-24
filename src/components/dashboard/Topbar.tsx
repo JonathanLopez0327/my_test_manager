@@ -4,16 +4,23 @@ import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { IconChevronDown, IconMenu } from "../icons";
 import { ThemeToggle } from "../ui/ThemeToggle";
+import { OrgSwitcher } from "./OrgSwitcher";
+import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
+import type { OrganizationRecord } from "../organizations/types";
+import { usePermissions } from "@/lib/auth/use-can";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
 };
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [createOrgOpen, setCreateOrgOpen] = useState(false);
   const displayName = session?.user?.name ?? "Usuario";
   const email = session?.user?.email ?? "";
+  const { globalRoles } = usePermissions();
+  const isSuperAdmin = (globalRoles as string[]).includes("super_admin");
 
   const initials = displayName
     .split(" ")
@@ -22,21 +29,35 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     .slice(0, 2)
     .toUpperCase();
 
+  const handleOrgCreated = async (org: OrganizationRecord) => {
+    await update({ activeOrganizationId: org.id });
+    window.location.reload();
+  };
+
   return (
     <header className="flex h-11 items-center justify-between border-b border-stroke bg-surface-elevated px-4 dark:bg-surface sm:px-6">
-      <button
-        type="button"
-        onClick={onToggleSidebar}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors duration-200 hover:bg-surface-muted hover:text-ink"
-        aria-label="Toggle sidebar"
-      >
-        <IconMenu className="h-4 w-4" />
-      </button>
+      {/* Left side: toggle + org switcher */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors duration-200 hover:bg-surface-muted hover:text-ink"
+          aria-label="Toggle sidebar"
+        >
+          <IconMenu className="h-4 w-4" />
+        </button>
 
+        {!isSuperAdmin && (
+          <OrgSwitcher
+            onCreateOrg={() => setCreateOrgOpen(true)}
+          />
+        )}
+      </div>
+
+      {/* Right side: theme + user menu */}
       <div className="flex items-center gap-2">
         <ThemeToggle />
 
-        {/* User menu */}
         <div className="relative">
           <button
             type="button"
@@ -56,7 +77,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
           {menuOpen ? (
             <div className="absolute right-0 z-50 mt-1.5 w-56 overflow-hidden rounded-lg border border-stroke bg-surface-elevated shadow-soft-sm dark:bg-surface-muted">
-              {/* User info header */}
               <div className="border-b border-stroke px-4 py-3">
                 <p className="text-sm font-semibold text-ink">{displayName}</p>
                 {email && (
@@ -66,7 +86,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 )}
               </div>
 
-              {/* Menu items */}
               <div className="p-1.5">
                 <button
                   type="button"
@@ -89,7 +108,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 </button>
               </div>
 
-              {/* Divider + sign out */}
               <div className="border-t border-stroke p-1.5">
                 <button
                   type="button"
@@ -106,6 +124,12 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           ) : null}
         </div>
       </div>
+
+      <OrganizationCreateSheet
+        open={createOrgOpen}
+        onClose={() => setCreateOrgOpen(false)}
+        onCreated={handleOrgCreated}
+      />
     </header>
   );
 }

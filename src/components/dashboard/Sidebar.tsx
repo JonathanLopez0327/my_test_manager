@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
 import {
   IconBug,
   IconChart,
@@ -14,9 +12,6 @@ import {
   IconOrganization,
   IconUsers,
 } from "../icons";
-import { OrgSwitcher } from "./OrgSwitcher";
-import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
-import type { OrganizationRecord } from "../organizations/types";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 
@@ -57,12 +52,8 @@ type SidebarProps = {
 };
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const [createOrgOpen, setCreateOrgOpen] = useState(false);
-  const { update } = useSession();
   const pathname = usePathname();
-  const { can, globalRoles } = usePermissions();
-
-  const isSuperAdmin = (globalRoles as string[]).includes("super_admin");
+  const { can } = usePermissions();
 
   const visibleNavItems = navItems.filter((item) => can(item.permission));
   const visibleGroupedNavItems = groupedNavItems
@@ -72,11 +63,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     }))
     .filter((group) => group.items.length > 0);
 
-  const handleOrgCreated = async (org: OrganizationRecord) => {
-    await update({ activeOrganizationId: org.id });
-    window.location.reload();
-  };
-
   return (
     <aside
       className={`flex h-screen flex-col border-r border-stroke bg-surface-elevated px-3 py-3 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[72px]" : "w-[286px]"
@@ -84,7 +70,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       <div className="flex items-center gap-2 px-1 pb-3">
         <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold tracking-wide text-white shadow-soft-xs">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold tracking-wide text-white shadow-soft-xs">
             TM
           </div>
           <div className={`min-w-0 ${collapsed ? "hidden" : ""}`}>
@@ -93,12 +79,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
         </Link>
       </div>
-
-      {!isSuperAdmin && (
-        <div className="rounded-lg border border-stroke bg-surface-elevated p-2 dark:bg-surface-muted">
-          <OrgSwitcher collapsed={collapsed} onCreateOrg={() => setCreateOrgOpen(true)} />
-        </div>
-      )}
 
       <nav className="mt-4 flex flex-col gap-1.5">
         {visibleNavItems.map((item) => {
@@ -170,12 +150,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           Navegacion optimizada para operaciones QA.
         </p>
       </div>
-
-      <OrganizationCreateSheet
-        open={createOrgOpen}
-        onClose={() => setCreateOrgOpen(false)}
-        onCreated={handleOrgCreated}
-      />
-    </aside >
+    </aside>
   );
 }

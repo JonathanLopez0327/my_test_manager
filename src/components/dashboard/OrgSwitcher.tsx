@@ -8,11 +8,10 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import type { OrganizationRecord, OrganizationsResponse } from "../organizations/types";
 
 type OrgSwitcherProps = {
-  collapsed: boolean;
   onCreateOrg: () => void;
 };
 
-export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
+export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
   const { data: session, update } = useSession();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const [open, setOpen] = useState(false);
@@ -76,10 +75,10 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
 
   const abbrev = activeOrg
     ? activeOrg.name
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() ?? "")
-        .join("")
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("")
     : "??";
 
   return (
@@ -87,24 +86,15 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-brand-50 ${
-          collapsed ? "lg:justify-center" : ""
-        }`}
+        className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors duration-200 hover:bg-surface-muted"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
           {abbrev}
         </span>
-        <span className={`flex min-w-0 flex-1 flex-col ${collapsed ? "lg:hidden" : ""}`}>
-          <span className="truncate text-sm font-semibold text-ink">
-            {activeOrg?.name ?? "Sin organización"}
-          </span>
-          <span className="truncate text-xs text-ink-muted">
-            {activeOrg?.slug ?? "—"}
-          </span>
+        <span className="hidden truncate text-sm font-medium text-ink sm:inline">
+          {activeOrg?.name ?? "Sin organización"}
         </span>
-        <IconChevronUpDown
-          className={`h-4 w-4 shrink-0 text-ink-muted ${collapsed ? "lg:hidden" : ""}`}
-        />
+        <IconChevronUpDown className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
       </button>
 
       {open && (
@@ -122,11 +112,10 @@ export function OrgSwitcher({ collapsed, onCreateOrg }: OrgSwitcherProps) {
                   setOpen(false);
                 }}
                 disabled={switching}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition ${
-                  org.id === activeOrgId
-                    ? "bg-brand-50 font-semibold text-brand-700"
-                    : "text-ink-muted hover:bg-surface-muted hover:text-ink dark:hover:bg-surface"
-                }`}
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition ${org.id === activeOrgId
+                  ? "bg-brand-50 font-semibold text-brand-700"
+                  : "text-ink-muted hover:bg-surface-muted hover:text-ink dark:hover:bg-surface"
+                  }`}
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">
                   {org.name
