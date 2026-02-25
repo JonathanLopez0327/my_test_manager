@@ -1,7 +1,8 @@
 "use client";
 
 import { IconEdit, IconTrash } from "../icons";
-import type { TestSuiteRecord } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type { TestSuiteRecord, TestSuiteSortBy, SortDir } from "./types";
 
 type TestSuitesTableProps = {
   items: TestSuiteRecord[];
@@ -9,6 +10,9 @@ type TestSuitesTableProps = {
   onEdit: (suite: TestSuiteRecord) => void;
   onDelete: (suite: TestSuiteRecord) => void;
   canManage?: boolean;
+  sortBy: TestSuiteSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestSuiteSortBy) => void;
 };
 
 function getParentLabel(suite: TestSuiteRecord) {
@@ -21,6 +25,9 @@ export function TestSuitesTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestSuitesTableProps) {
   if (loading) {
     return (
@@ -45,10 +52,34 @@ export function TestSuitesTable({
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Suite</th>
-              <th className="px-3 py-2">Plan</th>
-              <th className="px-3 py-2">Padre</th>
-              <th className="px-3 py-2">Orden</th>
+              <SortableHeaderCell
+                label="Suite"
+                sortKey="name"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Plan"
+                sortKey="plan"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Padre"
+                sortKey="parent"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Orden"
+                sortKey="displayOrder"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>

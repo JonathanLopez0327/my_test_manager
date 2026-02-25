@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
@@ -13,8 +14,11 @@ import type {
   TestCaseRecord,
   TestCasesResponse,
   TestCaseTagsResponse,
+  TestCaseSortBy,
+  SortDir,
 } from "./types";
 import type { TestSuitesResponse } from "../test-suites/types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -28,6 +32,9 @@ type TestSuiteOption = {
 
 export function TestCasesPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<TestCaseRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -59,6 +66,8 @@ export function TestCasesPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as TestCaseSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -80,6 +89,10 @@ export function TestCasesPage() {
       if (tagFilter) {
         params.set("tag", tagFilter);
       }
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/test-cases?${params.toString()}`);
       const data = (await response.json()) as TestCasesResponse & {
         message?: string;
@@ -98,7 +111,7 @@ export function TestCasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query, suiteFilter, tagFilter]);
+  }, [page, pageSize, query, suiteFilter, tagFilter, sortBy, sortDir]);
 
   const fetchSuites = useCallback(async () => {
     setSuitesError(null);
@@ -270,6 +283,21 @@ export function TestCasesPage() {
     await fetchCases();
   };
 
+  const handleSort = (column: TestCaseSortBy) => {
+    const next = nextSort<TestCaseSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -327,6 +355,9 @@ export function TestCasesPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         </div>
 

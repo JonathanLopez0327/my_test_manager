@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { TestPlansHeader } from "./TestPlansHeader";
@@ -12,8 +13,11 @@ import type {
   TestPlanPayload,
   TestPlanRecord,
   TestPlansResponse,
+  TestPlanSortBy,
+  SortDir,
 } from "./types";
 import type { ProjectsResponse } from "../projects/types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -25,6 +29,9 @@ type ProjectOption = {
 
 export function TestPlansPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<TestPlanRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -52,6 +59,8 @@ export function TestPlansPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as TestPlanSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -67,6 +76,10 @@ export function TestPlansPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/test-plans?${params.toString()}`);
       const data = (await response.json()) as TestPlansResponse & {
         message?: string;
@@ -85,7 +98,7 @@ export function TestPlansPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   const fetchProjects = useCallback(async () => {
     setProjectsError(null);
@@ -201,6 +214,21 @@ export function TestPlansPage() {
     await fetchTestPlans();
   };
 
+  const handleSort = (column: TestPlanSortBy) => {
+    const next = nextSort<TestPlanSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -243,6 +271,9 @@ export function TestPlansPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         </div>
 

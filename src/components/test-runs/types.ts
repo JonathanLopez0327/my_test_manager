@@ -1,3 +1,13 @@
+export type SortDir = "asc" | "desc";
+export type TestRunSortBy =
+  | "run"
+  | "project"
+  | "planSuite"
+  | "status"
+  | "metrics"
+  | "runType"
+  | "dates";
+
 export type TestRunType = "manual" | "automated";
 
 export type TestRunStatus =

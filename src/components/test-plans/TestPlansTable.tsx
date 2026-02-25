@@ -2,7 +2,13 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { TestPlanRecord, TestPlanStatus } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type {
+  TestPlanRecord,
+  TestPlanStatus,
+  TestPlanSortBy,
+  SortDir,
+} from "./types";
 
 type TestPlansTableProps = {
   items: TestPlanRecord[];
@@ -10,6 +16,9 @@ type TestPlansTableProps = {
   onEdit: (plan: TestPlanRecord) => void;
   onDelete: (plan: TestPlanRecord) => void;
   canManage?: boolean;
+  sortBy: TestPlanSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestPlanSortBy) => void;
 };
 
 const statusLabels: Record<TestPlanStatus, string> = {
@@ -53,6 +62,9 @@ export function TestPlansTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestPlansTableProps) {
   if (loading) {
     return (
@@ -77,10 +89,34 @@ export function TestPlansTable({
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Plan</th>
-              <th className="px-3 py-2">Proyecto</th>
-              <th className="px-3 py-2">Estado</th>
-              <th className="px-3 py-2">Fechas</th>
+              <SortableHeaderCell
+                label="Plan"
+                sortKey="name"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Proyecto"
+                sortKey="project"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Estado"
+                sortKey="status"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Fechas"
+                sortKey="startsOn"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>

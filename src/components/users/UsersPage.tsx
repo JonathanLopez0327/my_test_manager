@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { UserFormSheet } from "./UserFormSheet";
@@ -12,7 +13,10 @@ import type {
   UserRecord,
   UsersResponse,
   UserUpdatePayload,
+  UserSortBy,
+  SortDir,
 } from "./types";
+import { nextSort } from "@/lib/sorting";
 
 type OrganizationOption = {
   id: string;
@@ -28,6 +32,9 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export function UsersPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<UserRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -43,6 +50,8 @@ export function UsersPage() {
     () => session?.user?.globalRoles?.includes("super_admin") ?? false,
     [session?.user?.globalRoles],
   );
+  const sortBy = (searchParams.get("sortBy") as UserSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -58,6 +67,10 @@ export function UsersPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/users?${params.toString()}`);
       const data = (await response.json()) as UsersResponse & {
         message?: string;
@@ -76,7 +89,7 @@ export function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   const fetchOrganizations = useCallback(async () => {
     if (!canCreate) return;
@@ -151,6 +164,21 @@ export function UsersPage() {
     await fetchUsers();
   };
 
+  const handleSort = (column: UserSortBy) => {
+    const next = nextSort<UserSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -184,6 +212,9 @@ export function UsersPage() {
             loading={loading}
             onEdit={handleEdit}
             canManage={canCreate}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         </div>
 

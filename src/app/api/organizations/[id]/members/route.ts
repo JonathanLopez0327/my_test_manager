@@ -4,11 +4,21 @@ import { Prisma, OrgRole } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const VALID_ROLES: OrgRole[] = ["owner", "admin", "member", "billing"];
+const SORTABLE_FIELDS = ["name", "email", "role", "isActive"] as const;
+type MemberSortBy = (typeof SORTABLE_FIELDS)[number];
 
-export const GET = withAuth(null, async (_req, { userId, globalRoles, organizationRole }, routeCtx) => {
+export const GET = withAuth(null, async (req, { userId, globalRoles, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
+  const { searchParams } = new URL(req.url);
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as MemberSortBy)
+      ? parseSortBy<MemberSortBy>(requestedSortBy, SORTABLE_FIELDS, "name")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   const allowed = await can(PERMISSIONS.ORG_MEMBER_LIST, {
     userId,
@@ -24,6 +34,28 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, organizati
     );
   }
 
+  let orderBy: Prisma.OrganizationMemberOrderByWithRelationInput[] = [
+    { createdAt: "asc" },
+    { userId: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "name":
+        orderBy = [{ user: { fullName: sortDir } }, { userId: "asc" }];
+        break;
+      case "email":
+        orderBy = [{ user: { email: sortDir } }, { userId: "asc" }];
+        break;
+      case "role":
+        orderBy = [{ role: sortDir }, { userId: "asc" }];
+        break;
+      case "isActive":
+        orderBy = [{ user: { isActive: sortDir } }, { userId: "asc" }];
+        break;
+    }
+  }
+
   const members = await prisma.organizationMember.findMany({
     where: { organizationId: id },
     include: {
@@ -36,7 +68,7 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, organizati
         },
       },
     },
-    orderBy: { createdAt: "asc" },
+    orderBy,
   });
 
   return NextResponse.json({ items: members });

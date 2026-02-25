@@ -5,9 +5,19 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
+const SORTABLE_FIELDS = [
+  "email",
+  "fullName",
+  "isActive",
+  "organization",
+  "role",
+  "global",
+] as const;
+type UserSortBy = (typeof SORTABLE_FIELDS)[number];
 
 function parseNumber(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -22,6 +32,12 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
     MAX_PAGE_SIZE,
   );
   const query = searchParams.get("query")?.trim();
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as UserSortBy)
+      ? parseSortBy<UserSortBy>(requestedSortBy, SORTABLE_FIELDS, "email")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   const isSuperAdmin = anyGlobalRoleHasPermission(
     globalRoles,
@@ -52,10 +68,44 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
     ? { AND: filters }
     : {};
 
+  let orderBy: Prisma.UserOrderByWithRelationInput[] = [
+    { createdAt: "desc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "email":
+      case "fullName":
+      case "isActive":
+        orderBy = [
+          { [sortBy]: sortDir },
+          { email: "asc" },
+          { id: "asc" },
+        ];
+        break;
+      case "organization":
+      case "role":
+        orderBy = [
+          { organizationMemberships: { _count: sortDir } },
+          { email: "asc" },
+          { id: "asc" },
+        ];
+        break;
+      case "global":
+        orderBy = [
+          { globalRoles: { _count: sortDir } },
+          { email: "asc" },
+          { id: "asc" },
+        ];
+        break;
+    }
+  }
+
   const [items, total] = await prisma.$transaction([
     prisma.user.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
       select: {

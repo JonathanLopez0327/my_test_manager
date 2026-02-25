@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { ProjectsHeader } from "./ProjectsHeader";
 import { ProjectFormSheet } from "./ProjectFormSheet";
@@ -9,12 +10,22 @@ import { ProjectsTable } from "./ProjectsTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { DataWorkspace } from "../ui/DataWorkspace";
 import { Button } from "../ui/Button";
-import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
+import type {
+  ProjectPayload,
+  ProjectRecord,
+  ProjectsResponse,
+  ProjectSortBy,
+  SortDir,
+} from "./types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export function ProjectsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<ProjectRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -40,6 +51,8 @@ export function ProjectsPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as ProjectSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -55,6 +68,10 @@ export function ProjectsPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/projects?${params.toString()}`);
       const data = (await response.json()) as ProjectsResponse & {
         message?: string;
@@ -73,7 +90,7 @@ export function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProjects();
@@ -154,6 +171,21 @@ export function ProjectsPage() {
     await fetchProjects();
   };
 
+  const handleSort = (column: ProjectSortBy) => {
+    const next = nextSort<ProjectSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <DataWorkspace
@@ -195,6 +227,9 @@ export function ProjectsPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         }
         footer={

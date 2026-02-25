@@ -4,12 +4,23 @@ import { Prisma, BugStatus, BugSeverity, BugType } from "@/generated/prisma/clie
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 const STATUS_VALUES: BugStatus[] = ["open", "in_progress", "resolved", "verified", "closed", "reopened"];
 const SEVERITY_VALUES: BugSeverity[] = ["critical", "high", "medium", "low"];
 const TYPE_VALUES: BugType[] = ["bug", "enhancement", "task"];
+const SORTABLE_FIELDS = [
+  "bug",
+  "status",
+  "severity",
+  "type",
+  "priority",
+  "assignedTo",
+  "comments",
+] as const;
+type BugSortBy = (typeof SORTABLE_FIELDS)[number];
 
 function parseNumber(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -57,6 +68,12 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
   const severity = parseSeverity(searchParams.get("severity")?.trim() ?? null);
   const type = parseType(searchParams.get("type")?.trim() ?? null);
   const assignedToId = searchParams.get("assignedToId")?.trim();
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as BugSortBy)
+      ? parseSortBy<BugSortBy>(requestedSortBy, SORTABLE_FIELDS, "bug")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   if (projectId) {
     const allowed = await can(PERMISSIONS.BUG_LIST, {
@@ -124,6 +141,39 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
     ? { AND: filters }
     : {};
 
+  let orderBy: Prisma.BugOrderByWithRelationInput[] = [
+    { updatedAt: "desc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "bug":
+        orderBy = [{ title: sortDir }, { updatedAt: "desc" }, { id: "asc" }];
+        break;
+      case "status":
+      case "severity":
+      case "type":
+      case "priority":
+        orderBy = [{ [sortBy]: sortDir }, { title: "asc" }, { id: "asc" }];
+        break;
+      case "assignedTo":
+        orderBy = [
+          { assignedTo: { fullName: sortDir } },
+          { title: "asc" },
+          { id: "asc" },
+        ];
+        break;
+      case "comments":
+        orderBy = [
+          { comments: { _count: sortDir } },
+          { updatedAt: "desc" },
+          { id: "asc" },
+        ];
+        break;
+    }
+  }
+
   const [items, total] = await prisma.$transaction([
     prisma.bug.findMany({
       where,
@@ -159,7 +209,7 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
           select: { comments: true },
         },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

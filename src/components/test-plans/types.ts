@@ -1,3 +1,11 @@
+export type SortDir = "asc" | "desc";
+export type TestPlanSortBy =
+  | "name"
+  | "project"
+  | "status"
+  | "startsOn"
+  | "endsOn";
+
 export type TestPlanStatus = "draft" | "active" | "completed" | "archived";
 
 export type TestPlanRecord = {

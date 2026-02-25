@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { IconEdit, IconPlus } from "../icons";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { OrganizationEditSheet } from "./OrganizationEditSheet";
 import { OrganizationCreateSheet } from "./OrganizationCreateSheet";
 import type {
   OrganizationRecord,
   OrganizationUpdatePayload,
   OrganizationsResponse,
+  OrganizationSortBy,
+  SortDir,
 } from "./types";
+import { nextSort } from "@/lib/sorting";
 
 async function safeJson(res: Response): Promise<{ message?: string } & Record<string, unknown>> {
   const text = await res.text();
@@ -23,6 +28,9 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
 }
 
 export function SuperAdminOrganizationsView() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,12 +41,19 @@ export function SuperAdminOrganizationsView() {
 
   // Create sheet
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
+  const sortBy = (searchParams.get("sortBy") as OrganizationSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const fetchOrgs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/organizations");
+      const params = new URLSearchParams();
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
+      const res = await fetch(`/api/organizations${params.toString() ? `?${params.toString()}` : ""}`);
       if (!res.ok) throw new Error("No se pudieron cargar las organizaciones.");
       const data = (await res.json()) as OrganizationsResponse;
       setOrgs(data.items);
@@ -47,7 +62,7 @@ export function SuperAdminOrganizationsView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortDir]);
 
   useEffect(() => {
     fetchOrgs();
@@ -94,6 +109,19 @@ export function SuperAdminOrganizationsView() {
     await fetchOrgs();
   };
 
+  const handleSort = (column: OrganizationSortBy) => {
+    const next = nextSort<OrganizationSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -132,11 +160,46 @@ export function SuperAdminOrganizationsView() {
             <table className="w-full text-left text-sm border-collapse">
               <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
                 <tr className="bg-surface-muted/50 text-ink-muted">
-                  <th className="px-4 py-3 font-semibold text-ink-muted">Nombre</th>
-                  <th className="px-4 py-3 font-semibold text-ink-muted">Slug</th>
-                  <th className="px-4 py-3 font-semibold text-ink-muted text-center">Miembros</th>
-                  <th className="px-4 py-3 font-semibold text-ink-muted text-center">Proyectos</th>
-                  <th className="px-4 py-3 font-semibold text-ink-muted text-center">Estado</th>
+                  <SortableHeaderCell
+                    label="Nombre"
+                    sortKey="name"
+                    activeSortBy={sortBy}
+                    activeSortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-3 font-semibold text-ink-muted"
+                  />
+                  <SortableHeaderCell
+                    label="Slug"
+                    sortKey="slug"
+                    activeSortBy={sortBy}
+                    activeSortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-3 font-semibold text-ink-muted"
+                  />
+                  <SortableHeaderCell
+                    label="Miembros"
+                    sortKey="members"
+                    activeSortBy={sortBy}
+                    activeSortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-3 font-semibold text-ink-muted text-center"
+                  />
+                  <SortableHeaderCell
+                    label="Proyectos"
+                    sortKey="projects"
+                    activeSortBy={sortBy}
+                    activeSortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-3 font-semibold text-ink-muted text-center"
+                  />
+                  <SortableHeaderCell
+                    label="Estado"
+                    sortKey="isActive"
+                    activeSortBy={sortBy}
+                    activeSortDir={sortDir}
+                    onSort={handleSort}
+                    className="px-4 py-3 font-semibold text-ink-muted text-center"
+                  />
                   <th className="px-4 py-3 font-semibold text-ink-muted text-right">Acciones</th>
                 </tr>
               </thead>

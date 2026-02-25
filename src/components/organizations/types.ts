@@ -1,5 +1,9 @@
 import type { OrgRole } from "@/generated/prisma/client";
 
+export type SortDir = "asc" | "desc";
+export type OrganizationSortBy = "name" | "slug" | "members" | "projects" | "isActive";
+export type MemberSortBy = "name" | "email" | "role" | "isActive";
+
 export type OrganizationRecord = {
   id: string;
   slug: string;

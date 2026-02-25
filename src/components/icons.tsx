@@ -8,6 +8,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   ChevronUpDownIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
@@ -27,6 +28,7 @@ import {
 export const IconSearch = MagnifyingGlassIcon;
 export const IconBell = BellIcon;
 export const IconChevronDown = ChevronDownIcon;
+export const IconChevronUp = ChevronUpIcon;
 export const IconChevronLeft = ChevronLeftIcon;
 export const IconChevronRight = ChevronRightIcon;
 export const IconGrid = Squares2X2Icon;

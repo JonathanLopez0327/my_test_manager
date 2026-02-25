@@ -2,7 +2,14 @@
 
 import { IconClipboard, IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { TestRunRecord, TestRunStatus, TestRunType } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type {
+  TestRunRecord,
+  TestRunStatus,
+  TestRunType,
+  TestRunSortBy,
+  SortDir,
+} from "./types";
 
 type TestRunsTableProps = {
   items: TestRunRecord[];
@@ -11,6 +18,9 @@ type TestRunsTableProps = {
   onEdit: (run: TestRunRecord) => void;
   onDelete: (run: TestRunRecord) => void;
   canManage?: boolean;
+  sortBy: TestRunSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestRunSortBy) => void;
 };
 
 const statusLabels: Record<TestRunStatus, string> = {
@@ -56,6 +66,9 @@ export function TestRunsTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestRunsTableProps) {
   if (loading) {
     return (
@@ -87,13 +100,55 @@ export function TestRunsTable({
         <table className="w-full border-separate border-spacing-y-1 text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Run</th>
-              <th className="px-3 py-2">Proyecto</th>
-              <th className="px-3 py-2">Plan / Suite</th>
-              <th className="px-3 py-2">Estado</th>
-              <th className="px-3 py-2">Métricas</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Fechas</th>
+              <SortableHeaderCell
+                label="Run"
+                sortKey="run"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Proyecto"
+                sortKey="project"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Plan / Suite"
+                sortKey="planSuite"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Estado"
+                sortKey="status"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Métricas"
+                sortKey="metrics"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Tipo"
+                sortKey="runType"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Fechas"
+                sortKey="dates"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>

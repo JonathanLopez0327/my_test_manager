@@ -2,13 +2,17 @@
 
 import { IconEdit } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { UserRecord } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type { UserRecord, UserSortBy, SortDir } from "./types";
 
 type UsersTableProps = {
   items: UserRecord[];
   loading: boolean;
   onEdit?: (user: UserRecord) => void;
   canManage?: boolean;
+  sortBy: UserSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: UserSortBy) => void;
 };
 
 export function UsersTable({
@@ -16,6 +20,9 @@ export function UsersTable({
   loading,
   onEdit,
   canManage = false,
+  sortBy,
+  sortDir,
+  onSort,
 }: UsersTableProps) {
   if (loading) {
     return (
@@ -40,12 +47,48 @@ export function UsersTable({
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Nombre</th>
-              <th className="px-3 py-2">Organización</th>
-              <th className="px-3 py-2">Rol</th>
-              <th className="px-3 py-2">Global</th>
-              <th className="px-3 py-2">Estado</th>
+              <SortableHeaderCell
+                label="Email"
+                sortKey="email"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Nombre"
+                sortKey="fullName"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Organización"
+                sortKey="organization"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Rol"
+                sortKey="role"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Global"
+                sortKey="global"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Estado"
+                sortKey="isActive"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>

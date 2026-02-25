@@ -2,7 +2,14 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { TestCaseRecord, TestCaseStatus, TestCaseStyle } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type {
+  TestCaseRecord,
+  TestCaseStatus,
+  TestCaseStyle,
+  TestCaseSortBy,
+  SortDir,
+} from "./types";
 
 type TestCasesTableProps = {
   items: TestCaseRecord[];
@@ -10,6 +17,9 @@ type TestCasesTableProps = {
   onEdit: (testCase: TestCaseRecord) => void;
   onDelete: (testCase: TestCaseRecord) => void;
   canManage?: boolean;
+  sortBy: TestCaseSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestCaseSortBy) => void;
 };
 
 const statusLabels: Record<TestCaseStatus, string> = {
@@ -68,6 +78,9 @@ export function TestCasesTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestCasesTableProps) {
   if (loading) {
     return (
@@ -92,12 +105,48 @@ export function TestCasesTable({
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Case</th>
-              <th className="px-3 py-2">Suite</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Tags</th>
-              <th className="px-3 py-2">Priority</th>
-              <th className="px-3 py-2">Automation</th>
+              <SortableHeaderCell
+                label="Case"
+                sortKey="case"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Suite"
+                sortKey="suite"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Status"
+                sortKey="status"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Tags"
+                sortKey="tags"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Priority"
+                sortKey="priority"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Automation"
+                sortKey="automation"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Actions" : ""}
               </th>

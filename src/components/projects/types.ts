@@ -1,3 +1,6 @@
+export type SortDir = "asc" | "desc";
+export type ProjectSortBy = "key" | "name" | "description" | "isActive";
+
 export type ProjectRecord = {
   id: string;
   key: string;

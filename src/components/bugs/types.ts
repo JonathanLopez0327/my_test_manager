@@ -1,3 +1,13 @@
+export type SortDir = "asc" | "desc";
+export type BugSortBy =
+  | "bug"
+  | "status"
+  | "severity"
+  | "type"
+  | "priority"
+  | "assignedTo"
+  | "comments";
+
 export type BugSeverity = "critical" | "high" | "medium" | "low";
 export type BugStatus = "open" | "in_progress" | "resolved" | "verified" | "closed" | "reopened";
 export type BugType = "bug" | "enhancement" | "task";

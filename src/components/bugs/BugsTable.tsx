@@ -2,7 +2,15 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { BugRecord, BugStatus, BugSeverity, BugType } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type {
+  BugRecord,
+  BugStatus,
+  BugSeverity,
+  BugType,
+  BugSortBy,
+  SortDir,
+} from "./types";
 
 type BugsTableProps = {
   items: BugRecord[];
@@ -12,6 +20,9 @@ type BugsTableProps = {
   onView: (bug: BugRecord) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  sortBy: BugSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: BugSortBy) => void;
 };
 
 const statusLabels: Record<BugStatus, string> = {
@@ -70,6 +81,9 @@ export function BugsTable({
   onView,
   canEdit = true,
   canDelete = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: BugsTableProps) {
   if (loading) {
     return (
@@ -95,13 +109,55 @@ export function BugsTable({
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Bug</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Severity</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Priority</th>
-              <th className="px-3 py-2">Assigned To</th>
-              <th className="px-3 py-2">Comments</th>
+              <SortableHeaderCell
+                label="Bug"
+                sortKey="bug"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Status"
+                sortKey="status"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Severity"
+                sortKey="severity"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Type"
+                sortKey="type"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Priority"
+                sortKey="priority"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Assigned To"
+                sortKey="assignedTo"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Comments"
+                sortKey="comments"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canEdit || canDelete ? "Actions" : ""}
               </th>
