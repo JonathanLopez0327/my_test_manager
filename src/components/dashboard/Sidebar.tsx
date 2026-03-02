@@ -11,6 +11,7 @@ import {
   IconGrid,
   IconLayers,
   IconOrganization,
+  IconSpark,
   IconUsers,
 } from "../icons";
 import { Badge } from "../ui/Badge";
@@ -57,7 +58,10 @@ const groupedNavItems: NavGroup[] = [
   },
   {
     title: "Gestion",
-    items: [{ label: "Usuarios", icon: IconUsers, href: "/manager/users", permission: PERMISSIONS.USER_LIST }],
+    items: [
+      { label: "Usuarios", icon: IconUsers, href: "/manager/users", permission: PERMISSIONS.USER_LIST },
+      { label: "QA Assistant", icon: IconSpark, href: "/manager/ai-chat", permission: PERMISSIONS.PROJECT_LIST },
+    ],
   },
 ];
 
