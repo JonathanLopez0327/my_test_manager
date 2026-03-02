@@ -546,7 +546,7 @@ export function AiChatWorkspace() {
         </div>
       </Card>
 
-      <div className="grid min-h-[calc(100vh-17rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-h-[calc(100vh-17rem)] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card className="flex min-h-[620px] flex-col bg-surface p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between border-b border-stroke pb-3">
             <div className="flex items-center gap-2">
