@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
 import { ArtifactPreview } from "../ui/ArtifactPreview";
+import { SearchInput } from "../ui/SearchInput";
 import { EyeIcon, TrashIcon } from "@heroicons/react/24/outline";
 import type { TestRunMetricsRecord, TestRunRecord } from "./types";
 
@@ -676,15 +677,12 @@ export function TestRunDetailsSheet({
 
 
                                 <div className="flex flex-wrap items-center gap-3 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-3">
-                                    <div className="flex-1">
-                                        <input
-                                            type="text"
-                                            placeholder="Search test cases..."
-                                            value={search}
-                                            onChange={(e) => setSearch(e.target.value)}
-                                            className="w-full rounded-md border border-stroke px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-brand-500 focus:outline-none"
-                                        />
-                                    </div>
+                                    <SearchInput
+                                        placeholder="Search test cases..."
+                                        value={search}
+                                        onChange={setSearch}
+                                        containerClassName="min-w-[220px] flex-1"
+                                    />
                                     <div>
                                         <select
                                             value={filterStatus}

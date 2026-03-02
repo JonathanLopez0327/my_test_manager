@@ -1,8 +1,8 @@
 "use client";
 
-import { IconPlus, IconSearch } from "../icons";
+import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
+import { SearchInput } from "../ui/SearchInput";
 
 type TestRunsHeaderProps = {
   query: string;
@@ -23,14 +23,12 @@ export function TestRunsHeader({
 }: TestRunsHeaderProps) {
   return (
     <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4">
-      <div className="min-w-[220px] flex-1">
-        <Input
-          placeholder="Search by name, environment, or branch..."
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          leadingIcon={<IconSearch className="h-4 w-4" />}
-        />
-      </div>
+      <SearchInput
+        placeholder="Search by name, environment, or branch..."
+        value={query}
+        onChange={onQueryChange}
+        containerClassName="min-w-[220px] flex-1"
+      />
       <div className="flex items-center gap-2">
         <select
           value={pageSize}

@@ -1,8 +1,8 @@
 "use client";
 
-import { IconPlus, IconSearch } from "../icons";
+import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
+import { SearchInput } from "../ui/SearchInput";
 
 type UsersHeaderProps = {
   query: string;
@@ -30,17 +30,12 @@ export function UsersHeader({
         <h2 className="text-2xl font-semibold text-ink">User Manager</h2>
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:flex-1">
-        <div className="relative flex w-full min-w-[220px] flex-1 items-center gap-2 sm:max-w-sm">
-          <span className="absolute left-4 text-ink-soft">
-            <IconSearch className="h-4 w-4" />
-          </span>
-          <Input
-            placeholder="Buscar por email o nombre..."
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            className="pl-11"
-          />
-        </div>
+        <SearchInput
+          placeholder="Buscar por email o nombre..."
+          value={query}
+          onChange={onQueryChange}
+          containerClassName="w-full min-w-[220px] flex-1 sm:max-w-sm"
+        />
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}

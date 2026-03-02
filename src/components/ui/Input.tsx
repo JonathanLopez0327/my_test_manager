@@ -36,7 +36,7 @@ export function Input({
         ) : null}
         <input
           id={resolvedId}
-          className={`h-10 w-full rounded-lg border-[1.5px] bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-soft/80 focus:border-brand-500 dark:bg-surface-muted dark:text-white ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${className}`}
+          className={`h-10 w-full rounded-lg border-[1.5px] bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-muted focus:border-brand-500 dark:bg-surface-muted dark:text-white ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${className}`}
           {...props}
         />
       </div>
