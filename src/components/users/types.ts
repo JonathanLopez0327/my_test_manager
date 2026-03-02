@@ -1,5 +1,14 @@
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 
+export type SortDir = "asc" | "desc";
+export type UserSortBy =
+  | "email"
+  | "fullName"
+  | "isActive"
+  | "organization"
+  | "role"
+  | "global";
+
 export type UserMembership = {
   organizationId: string;
   organizationSlug: string;

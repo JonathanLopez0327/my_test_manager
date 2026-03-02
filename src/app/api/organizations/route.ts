@@ -4,8 +4,20 @@ import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
+
+const SORTABLE_FIELDS = ["name", "slug", "members", "projects", "isActive"] as const;
+type OrganizationSortBy = (typeof SORTABLE_FIELDS)[number];
 
 export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
+  const { searchParams } = new URL(req.url);
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as OrganizationSortBy)
+      ? parseSortBy<OrganizationSortBy>(requestedSortBy, SORTABLE_FIELDS, "name")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
+
   const isSuperAdmin = anyGlobalRoleHasPermission(
     globalRoles,
     PERMISSIONS.ORG_LIST,
@@ -15,9 +27,30 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     ? {}
     : { members: { some: { userId } } };
 
+  let orderBy: Prisma.OrganizationOrderByWithRelationInput[] = [
+    { createdAt: "asc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "name":
+      case "slug":
+      case "isActive":
+        orderBy = [{ [sortBy]: sortDir }, { createdAt: "asc" }, { id: "asc" }];
+        break;
+      case "members":
+        orderBy = [{ members: { _count: sortDir } }, { name: "asc" }, { id: "asc" }];
+        break;
+      case "projects":
+        orderBy = [{ projects: { _count: sortDir } }, { name: "asc" }, { id: "asc" }];
+        break;
+    }
+  }
+
   const items = await prisma.organization.findMany({
     where,
-    orderBy: { createdAt: "asc" },
+    orderBy,
     include: {
       _count: { select: { members: true, projects: true } },
     },

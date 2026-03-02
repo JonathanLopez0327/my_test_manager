@@ -193,7 +193,7 @@ export function BugFormSheet({
             onChange={(event) =>
               setForm((prev) => ({ ...prev, projectId: event.target.value }))
             }
-            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             disabled={!!bug}
           >
             <option value="">Select a project</option>
@@ -225,7 +225,7 @@ export function BugFormSheet({
               setForm((prev) => ({ ...prev, description: event.target.value }))
             }
             placeholder="Detailed description of the issue"
-            className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           />
         </label>
 
@@ -240,7 +240,7 @@ export function BugFormSheet({
                   severity: event.target.value as BugSeverity,
                 }))
               }
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
               {severityOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -274,7 +274,7 @@ export function BugFormSheet({
                   type: event.target.value as BugType,
                 }))
               }
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
               {typeOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -296,7 +296,7 @@ export function BugFormSheet({
                   status: event.target.value as BugStatus,
                 }))
               }
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
               {statusOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -313,7 +313,7 @@ export function BugFormSheet({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, assignedToId: event.target.value }))
               }
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-white px-3 text-sm text-ink"
+              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
               <option value="">Unassigned</option>
               {users.map((user) => (
@@ -333,7 +333,7 @@ export function BugFormSheet({
               setForm((prev) => ({ ...prev, reproductionSteps: event.target.value }))
             }
             placeholder="Steps to reproduce the issue"
-            className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           />
         </label>
 
@@ -346,7 +346,7 @@ export function BugFormSheet({
                 setForm((prev) => ({ ...prev, expectedResult: event.target.value }))
               }
               placeholder="What should happen"
-              className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+              className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </label>
 
@@ -358,7 +358,7 @@ export function BugFormSheet({
                 setForm((prev) => ({ ...prev, actualResult: event.target.value }))
               }
               placeholder="What actually happened"
-              className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+              className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </label>
         </div>

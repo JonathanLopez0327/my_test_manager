@@ -5,10 +5,20 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
+const SORTABLE_FIELDS = [
+  "case",
+  "suite",
+  "status",
+  "tags",
+  "priority",
+  "automation",
+] as const;
+type TestCaseSortBy = (typeof SORTABLE_FIELDS)[number];
 
 function parseNumber(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -42,6 +52,12 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   const testPlanId = searchParams.get("testPlanId")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestCaseSortBy)
+      ? parseSortBy<TestCaseSortBy>(requestedSortBy, SORTABLE_FIELDS, "case")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   if (projectId) {
     const allowed = await can(PERMISSIONS.TEST_CASE_LIST, {
@@ -126,6 +142,38 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
     ? { AND: filters }
     : {};
 
+  let orderBy: Prisma.TestCaseOrderByWithRelationInput[] = [
+    { updatedAt: "desc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "case":
+        orderBy = [{ title: sortDir }, { updatedAt: "desc" }, { id: "asc" }];
+        break;
+      case "suite":
+        orderBy = [{ suite: { name: sortDir } }, { title: "asc" }, { id: "asc" }];
+        break;
+      case "status":
+      case "priority":
+        orderBy = [{ [sortBy]: sortDir }, { title: "asc" }, { id: "asc" }];
+        break;
+      case "tags":
+        // Proxy sort: stable ordering by title when the column is derived.
+        orderBy = [{ title: sortDir }, { updatedAt: "desc" }, { id: "asc" }];
+        break;
+      case "automation":
+        orderBy = [
+          { isAutomated: sortDir },
+          { automationType: sortDir },
+          { title: "asc" },
+          { id: "asc" },
+        ];
+        break;
+    }
+  }
+
   const [items, total] = await prisma.$transaction([
     prisma.testCase.findMany({
       where,
@@ -150,7 +198,7 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
           },
         },
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

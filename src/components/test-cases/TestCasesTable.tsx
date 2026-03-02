@@ -2,7 +2,16 @@
 
 import { IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
-import type { TestCaseRecord, TestCaseStatus, TestCaseStyle } from "./types";
+import { RowActionButton } from "../ui/RowActionButton";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import { TableShell } from "../ui/TableShell";
+import type {
+  TestCaseRecord,
+  TestCaseStatus,
+  TestCaseStyle,
+  TestCaseSortBy,
+  SortDir,
+} from "./types";
 
 type TestCasesTableProps = {
   items: TestCaseRecord[];
@@ -10,6 +19,9 @@ type TestCasesTableProps = {
   onEdit: (testCase: TestCaseRecord) => void;
   onDelete: (testCase: TestCaseRecord) => void;
   canManage?: boolean;
+  sortBy: TestCaseSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestCaseSortBy) => void;
 };
 
 const statusLabels: Record<TestCaseStatus, string> = {
@@ -46,8 +58,14 @@ function getStepsLabel(steps: unknown, style?: string) {
     case "gherkin":
       return `${Array.isArray(steps) ? steps.length : 0} clauses`;
     case "data_driven": {
-      const obj = steps as any;
-      const rows = obj?.examples?.rows;
+      const rows =
+        typeof steps === "object" &&
+        steps !== null &&
+        "examples" in steps &&
+        typeof (steps as { examples?: unknown }).examples === "object" &&
+        (steps as { examples?: { rows?: unknown[] } }).examples?.rows
+          ? (steps as { examples?: { rows?: unknown[] } }).examples?.rows
+          : undefined;
       return `${Array.isArray(rows) ? rows.length : 0} scenarios`;
     }
     case "api":
@@ -68,36 +86,62 @@ export function TestCasesTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestCasesTableProps) {
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
-        <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Loading cases...
-      </div>
-    );
-  }
-
-  if (!items.length) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No test cases to show.
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
+    <TableShell
+      loading={loading}
+      hasItems={items.length > 0}
+      emptyTitle="No test cases found."
+      emptyDescription="Create a new test case or adjust your filters."
+      desktop={
         <table className="w-full border-collapse text-[13px]">
-          <thead className="sticky top-0 z-10 bg-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
+          <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Case</th>
-              <th className="px-3 py-2">Suite</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Tags</th>
-              <th className="px-3 py-2">Priority</th>
-              <th className="px-3 py-2">Automation</th>
+              <SortableHeaderCell
+                label="Case"
+                sortKey="case"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Suite"
+                sortKey="suite"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Status"
+                sortKey="status"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Tags"
+                sortKey="tags"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Priority"
+                sortKey="priority"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Automation"
+                sortKey="automation"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Actions" : ""}
               </th>
@@ -105,8 +149,8 @@ export function TestCasesTable({
           </thead>
           <tbody>
             {items.map((testCase) => (
-              <tr key={testCase.id} className="border-t border-stroke">
-                <td className="px-3 py-2.5">
+              <tr key={testCase.id} className="transition-colors hover:bg-brand-50/35">
+                <td className="px-3 py-3">
                   <p className="font-semibold text-ink">{testCase.title}</p>
                   <p className="text-xs text-ink-muted">
                     {testCase.description ?? "No description"}
@@ -120,19 +164,19 @@ export function TestCasesTable({
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-ink">
+                <td className="px-3 py-3 text-ink">
                   <p className="font-semibold">{testCase.suite.name}</p>
                   <p className="text-xs text-ink-muted">
                     {testCase.suite.testPlan.project.key} ·{" "}
                     {testCase.suite.testPlan.name}
                   </p>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-3">
                   <Badge tone={statusTones[testCase.status]}>
                     {statusLabels[testCase.status]}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="px-3 py-3 text-ink-muted">
                   <div className="flex flex-wrap gap-1">
                     {testCase.tags?.slice(0, 3).map((tag) => (
                       <span
@@ -149,31 +193,28 @@ export function TestCasesTable({
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="px-3 py-3 text-ink-muted">
                   {getPriorityLabel(testCase.priority)}
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="px-3 py-3 text-ink-muted">
                   {testCase.isAutomated
                     ? testCase.automationType ?? "Automated"
                     : "Manual"}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-3">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <RowActionButton
                         onClick={() => onEdit(testCase)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Edit case"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </button>
-                      <button
+                        icon={<IconEdit className="h-4 w-4" />}
+                        label="Edit case"
+                      />
+                      <RowActionButton
                         onClick={() => onDelete(testCase)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                        aria-label="Delete case"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                      </button>
+                        icon={<IconTrash className="h-4 w-4" />}
+                        label="Delete case"
+                        tone="danger"
+                      />
                     </div>
                   ) : null}
                 </td>
@@ -181,13 +222,13 @@ export function TestCasesTable({
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="grid gap-4 md:hidden">
+      }
+      mobile={
+        <>
         {items.map((testCase) => (
           <div
             key={testCase.id}
-            className="rounded-lg border border-stroke bg-white p-5"
+            className="rounded-lg bg-surface-elevated p-5 shadow-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -231,25 +272,25 @@ export function TestCasesTable({
             </div>
             {canManage ? (
               <div className="mt-4 flex items-center gap-3">
-                <button
+                <RowActionButton
                   onClick={() => onEdit(testCase)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Edit case"
-                >
-                  <IconEdit className="h-5 w-5" />
-                </button>
-                <button
+                  icon={<IconEdit className="h-5 w-5" />}
+                  label="Edit case"
+                  size="md"
+                />
+                <RowActionButton
                   onClick={() => onDelete(testCase)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                  aria-label="Delete case"
-                >
-                  <IconTrash className="h-5 w-5" />
-                </button>
+                  icon={<IconTrash className="h-5 w-5" />}
+                  label="Delete case"
+                  tone="danger"
+                  size="md"
+                />
               </div>
             ) : null}
           </div>
         ))}
-      </div>
-    </>
+        </>
+      }
+    />
   );
 }

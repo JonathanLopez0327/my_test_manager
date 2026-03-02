@@ -1,7 +1,10 @@
 "use client";
 
 import { IconEdit, IconTrash } from "../icons";
-import type { TestSuiteRecord } from "./types";
+import { RowActionButton } from "../ui/RowActionButton";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import { TableShell } from "../ui/TableShell";
+import type { TestSuiteRecord, TestSuiteSortBy, SortDir } from "./types";
 
 type TestSuitesTableProps = {
   items: TestSuiteRecord[];
@@ -9,10 +12,13 @@ type TestSuitesTableProps = {
   onEdit: (suite: TestSuiteRecord) => void;
   onDelete: (suite: TestSuiteRecord) => void;
   canManage?: boolean;
+  sortBy: TestSuiteSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: TestSuiteSortBy) => void;
 };
 
 function getParentLabel(suite: TestSuiteRecord) {
-  return suite.parent?.name ?? "Raíz";
+  return suite.parent?.name ?? "Root";
 }
 
 export function TestSuitesTable({
@@ -21,77 +27,88 @@ export function TestSuitesTable({
   onEdit,
   onDelete,
   canManage = true,
+  sortBy,
+  sortDir,
+  onSort,
 }: TestSuitesTableProps) {
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
-        <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando suites...
-      </div>
-    );
-  }
-
-  if (!items.length) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay suites de prueba para mostrar.
-      </div>
-    );
-  }
-
   return (
-    <>
-      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
+    <TableShell
+      loading={loading}
+      hasItems={items.length > 0}
+      emptyTitle="No test suites found."
+      emptyDescription="Create a new suite or adjust your filters."
+      desktop={
         <table className="w-full border-collapse text-[13px]">
-          <thead className="sticky top-0 z-10 bg-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
+          <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Suite</th>
-              <th className="px-3 py-2">Plan</th>
-              <th className="px-3 py-2">Padre</th>
-              <th className="px-3 py-2">Orden</th>
+              <SortableHeaderCell
+                label="Suite"
+                sortKey="name"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Plan"
+                sortKey="plan"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Parent"
+                sortKey="parent"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Order"
+                sortKey="displayOrder"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
-                {canManage ? "Acciones" : ""}
+                {canManage ? "Actions" : ""}
               </th>
             </tr>
           </thead>
           <tbody>
             {items.map((suite) => (
-              <tr key={suite.id} className="border-t border-stroke">
-                <td className="px-3 py-2.5">
+              <tr key={suite.id} className="transition-colors hover:bg-brand-50/35">
+                <td className="px-3 py-3">
                   <p className="font-semibold text-ink">{suite.name}</p>
                   <p className="text-xs text-ink-muted">
-                    {suite.description ?? "Sin descripción"}
+                    {suite.description ?? "No description"}
                   </p>
                 </td>
-                <td className="px-3 py-2.5 text-ink">
+                <td className="px-3 py-3 text-ink">
                   <p className="font-semibold">{suite.testPlan.name}</p>
                   <p className="text-xs text-ink-muted">
                     {suite.testPlan.project.key} · {suite.testPlan.project.name}
                   </p>
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="px-3 py-3 text-ink-muted">
                   {getParentLabel(suite)}
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
+                <td className="px-3 py-3 text-ink-muted">
                   {suite.displayOrder}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-3">
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      <RowActionButton
                         onClick={() => onEdit(suite)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Editar suite"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </button>
-                      <button
+                        icon={<IconEdit className="h-4 w-4" />}
+                        label="Edit suite"
+                      />
+                      <RowActionButton
                         onClick={() => onDelete(suite)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                        aria-label="Eliminar suite"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                      </button>
+                        icon={<IconTrash className="h-4 w-4" />}
+                        label="Delete suite"
+                        tone="danger"
+                      />
                     </div>
                   ) : null}
                 </td>
@@ -99,13 +116,13 @@ export function TestSuitesTable({
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="grid gap-4 md:hidden">
+      }
+      mobile={
+        <>
         {items.map((suite) => (
           <div
             key={suite.id}
-            className="rounded-lg border border-stroke bg-white p-5"
+            className="rounded-lg bg-surface-elevated p-5 shadow-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -115,39 +132,39 @@ export function TestSuitesTable({
                 <p className="text-lg font-semibold text-ink">{suite.name}</p>
               </div>
               <span className="text-xs font-semibold text-ink-muted">
-                Orden {suite.displayOrder}
+                Order {suite.displayOrder}
               </span>
             </div>
             <p className="mt-2 text-sm text-ink-muted">
               {suite.testPlan.name} · {suite.testPlan.project.name}
             </p>
             <p className="mt-3 text-sm text-ink-muted">
-              {suite.description ?? "Sin descripción"}
+              {suite.description ?? "No description"}
             </p>
             <p className="mt-3 text-xs text-ink-soft">
-              Padre: {getParentLabel(suite)}
+              Parent: {getParentLabel(suite)}
             </p>
             {canManage ? (
               <div className="mt-4 flex items-center gap-3">
-                <button
+                <RowActionButton
                   onClick={() => onEdit(suite)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Editar suite"
-                >
-                  <IconEdit className="h-5 w-5" />
-                </button>
-                <button
+                  icon={<IconEdit className="h-5 w-5" />}
+                  label="Edit suite"
+                  size="md"
+                />
+                <RowActionButton
                   onClick={() => onDelete(suite)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stroke text-danger-500 transition hover:bg-danger-500/10"
-                  aria-label="Eliminar suite"
-                >
-                  <IconTrash className="h-5 w-5" />
-                </button>
+                  icon={<IconTrash className="h-5 w-5" />}
+                  label="Delete suite"
+                  tone="danger"
+                  size="md"
+                />
               </div>
             ) : null}
           </div>
         ))}
-      </div>
-    </>
+        </>
+      }
+    />
   );
 }

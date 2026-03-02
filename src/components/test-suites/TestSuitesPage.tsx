@@ -2,18 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "../ui/Card";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { TestSuitesHeader } from "./TestSuitesHeader";
 import { TestSuiteFormSheet } from "./TestSuiteFormSheet";
 import { TestSuitesTable } from "./TestSuitesTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { DataWorkspace } from "../ui/DataWorkspace";
+import { Button } from "../ui/Button";
 import type {
   TestSuitePayload,
   TestSuiteRecord,
   TestSuitesResponse,
+  TestSuiteSortBy,
+  SortDir,
 } from "./types";
 import type { TestPlansResponse } from "../test-plans/types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -26,6 +31,9 @@ type TestPlanOption = {
 
 export function TestSuitesPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<TestSuiteRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -54,6 +62,8 @@ export function TestSuitesPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as TestSuiteSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -69,12 +79,16 @@ export function TestSuitesPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/test-suites?${params.toString()}`);
       const data = (await response.json()) as TestSuitesResponse & {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar las suites.");
+        throw new Error(data.message || "Could not load test suites.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -82,12 +96,12 @@ export function TestSuitesPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar las suites.",
+          : "Could not load test suites.",
       );
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   const fetchTestPlans = useCallback(async () => {
     setPlansError(null);
@@ -102,7 +116,7 @@ export function TestSuitesPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los planes.");
+        throw new Error(data.message || "Could not load test plans.");
       }
       setTestPlans(
         data.items.map((plan) => ({
@@ -116,7 +130,7 @@ export function TestSuitesPage() {
       setPlansError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los planes.",
+          : "Could not load test plans.",
       );
     }
   }, []);
@@ -173,7 +187,7 @@ export function TestSuitesPage() {
       });
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar la suite.");
+        throw new Error(data.message || "Could not delete test suite.");
       }
       await fetchSuites();
       setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
@@ -181,7 +195,7 @@ export function TestSuitesPage() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar la suite.",
+          : "Could not delete test suite.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -201,65 +215,91 @@ export function TestSuitesPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar la suite.");
+      throw new Error(data.message || "Could not save test suite.");
     }
     await fetchSuites();
   };
 
+  const handleSort = (column: TestSuiteSortBy) => {
+    const next = nextSort<TestSuiteSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <TestSuitesHeader
-          query={query}
-          onQueryChange={setQuery}
-          onCreate={handleCreate}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          canCreate={canManage}
-        />
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Listado de suites de prueba
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Actualizando..." : `Total: ${total}`}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
-            {error}
-          </div>
-        ) : null}
-
-        {plansError ? (
-          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
-            {plansError}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
+      <DataWorkspace
+        eyebrow="Data workspace"
+        title="Test Suites"
+        subtitle="Organize hierarchy and execution order inside each test plan."
+        toolbar={
+          <TestSuitesHeader
+            query={query}
+            onQueryChange={setQuery}
+            onCreate={handleCreate}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            canCreate={canManage}
+          />
+        }
+        status={
+          <>
+            <p className="text-sm font-semibold text-ink">Test suite list</p>
+            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+              {loading ? "Updating..." : `Total: ${total}`}
+            </div>
+          </>
+        }
+        feedback={
+          <>
+            {error ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+                <span>{error}</span>
+                <Button size="xs" variant="critical" onClick={fetchSuites}>
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {plansError ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+                <span>{plansError}</span>
+                <Button size="xs" variant="soft" onClick={fetchTestPlans}>
+                  Reload plans
+                </Button>
+              </div>
+            ) : null}
+          </>
+        }
+        content={
           <TestSuitesTable
             items={items}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
-        </div>
-
-        <div className="mt-6">
+        }
+        footer={
           <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
           />
-        </div>
-      </Card>
+        }
+      />
 
       {canManage ? (
         <TestSuiteFormSheet
@@ -267,16 +307,15 @@ export function TestSuitesPage() {
           suite={editing}
           testPlans={testPlans}
           onClose={() => setModalOpen(false)}
-
           onSave={handleSave}
         />
       ) : null}
 
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar suite "${deleteConfirmation.name}"?`}
-        description="Esta acción eliminará la suite permanentemente. No se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete test suite "${deleteConfirmation.name}"?`}
+        description="This action will permanently delete the test suite. This cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
           setDeleteConfirmation({

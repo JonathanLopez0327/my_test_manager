@@ -32,13 +32,13 @@ export function StepByStepEditor({ steps, onAdd, onRemove, onUpdate }: StepBySte
               value={item.step}
               onChange={(e) => onUpdate(item.id, "step", e.target.value)}
               placeholder="Step description"
-              className="min-h-[60px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[60px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
             />
             <textarea
               value={item.expectedResult}
               onChange={(e) => onUpdate(item.id, "expectedResult", e.target.value)}
               placeholder="Expected result"
-              className="min-h-[40px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[40px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
             />
           </div>
         ))}

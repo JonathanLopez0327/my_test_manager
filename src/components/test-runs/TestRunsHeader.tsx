@@ -1,8 +1,8 @@
 "use client";
 
-import { IconPlus, IconSearch } from "../icons";
+import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
+import { SearchInput } from "../ui/SearchInput";
 
 type TestRunsHeaderProps = {
   query: string;
@@ -23,30 +23,28 @@ export function TestRunsHeader({
 }: TestRunsHeaderProps) {
   return (
     <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4">
-      <div className="min-w-[220px] flex-1">
-        <Input
-          placeholder="Buscar por nombre, ambiente o branch..."
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          leadingIcon={<IconSearch className="h-4 w-4" />}
-        />
-      </div>
+      <SearchInput
+        placeholder="Search by name, environment, or branch..."
+        value={query}
+        onChange={onQueryChange}
+        containerClassName="min-w-[220px] flex-1"
+      />
       <div className="flex items-center gap-2">
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-xl border border-stroke bg-surface-elevated px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300 focus:ring-2 focus:ring-[var(--focus-ring)]"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap" variant="primary">
             <IconPlus className="h-4 w-4" />
-            Nuevo run
+            New Run
           </Button>
         ) : null}
       </div>

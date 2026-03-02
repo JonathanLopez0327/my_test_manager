@@ -1,8 +1,8 @@
 "use client";
 
-import { IconPlus, IconSearch } from "../icons";
+import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
+import { SearchInput } from "../ui/SearchInput";
 
 type TestCasesHeaderProps = {
   query: string;
@@ -34,53 +34,42 @@ export function TestCasesHeader({
   canCreate = true,
 }: TestCasesHeaderProps) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Test Case Management
-        </p>
-        <h2 className="text-2xl font-semibold text-ink">Test Cases</h2>
-      </div>
-      <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:flex-1">
-        <div className="relative flex w-full min-w-[220px] flex-1 items-center gap-2 sm:max-w-sm">
-          <span className="absolute left-4 text-ink-soft">
-            <IconSearch className="h-4 w-4" />
-          </span>
-          <Input
-            placeholder="Search by title, suite or plan..."
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            className="pl-11"
-          />
-        </div>
-        <select
-          value={suite}
-          onChange={(event) => onSuiteChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
-        >
-          <option value="">All suites</option>
-          {suiteOptions.map((suiteOption) => (
-            <option key={suiteOption.id} value={suiteOption.id}>
-              {suiteOption.label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={tag}
-          onChange={(event) => onTagChange(event.target.value)}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
-        >
-          <option value="">All tags</option>
-          {tagOptions.map((tagOption) => (
-            <option key={tagOption} value={tagOption}>
-              {tagOption}
-            </option>
-          ))}
-        </select>
+    <div className="flex w-full flex-wrap items-center gap-3 md:gap-4">
+      <SearchInput
+        placeholder="Search title, suite, or plan..."
+        value={query}
+        onChange={onQueryChange}
+        containerClassName="min-w-[240px] flex-[1.2]"
+      />
+      <select
+        value={suite}
+        onChange={(event) => onSuiteChange(event.target.value)}
+        className="h-10 min-w-[190px] flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+      >
+        <option value="">All suites</option>
+        {suiteOptions.map((suiteOption) => (
+          <option key={suiteOption.id} value={suiteOption.id}>
+            {suiteOption.label}
+          </option>
+        ))}
+      </select>
+      <select
+        value={tag}
+        onChange={(event) => onTagChange(event.target.value)}
+        className="h-10 min-w-[160px] flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+      >
+        <option value="">All tags</option>
+        {tagOptions.map((tagOption) => (
+          <option key={tagOption} value={tagOption}>
+            {tagOption}
+          </option>
+        ))}
+      </select>
+      <div className="ml-auto flex items-center gap-2">
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-xl border border-stroke bg-white px-3 text-sm text-ink"
+          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>

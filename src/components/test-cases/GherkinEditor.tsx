@@ -25,7 +25,7 @@ export function GherkinEditor({ clauses, onAdd, onRemove, onUpdate }: GherkinEdi
               <select
                 value={item.keyword}
                 onChange={(e) => onUpdate(item.id, "keyword", e.target.value)}
-                className="h-8 rounded border border-stroke bg-white px-2 text-sm font-medium text-ink"
+                className="h-8 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 text-sm font-medium text-ink"
               >
                 {keywords.map((kw) => (
                   <option key={kw} value={kw}>{kw}</option>
@@ -43,7 +43,7 @@ export function GherkinEditor({ clauses, onAdd, onRemove, onUpdate }: GherkinEdi
               value={item.text}
               onChange={(e) => onUpdate(item.id, "text", e.target.value)}
               placeholder="the user is on the login page"
-              className="min-h-[50px] w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[50px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
             />
           </div>
         ))}

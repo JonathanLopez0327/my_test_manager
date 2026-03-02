@@ -1,4 +1,5 @@
 import {
+  Bars3Icon,
   BellIcon,
   BugAntIcon,
   BuildingOffice2Icon,
@@ -7,6 +8,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   ChevronUpDownIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
@@ -26,6 +28,7 @@ import {
 export const IconSearch = MagnifyingGlassIcon;
 export const IconBell = BellIcon;
 export const IconChevronDown = ChevronDownIcon;
+export const IconChevronUp = ChevronUpIcon;
 export const IconChevronLeft = ChevronLeftIcon;
 export const IconChevronRight = ChevronRightIcon;
 export const IconGrid = Squares2X2Icon;
@@ -45,3 +48,4 @@ export const IconUsers = UserGroupIcon;
 export const IconOrganization = BuildingOffice2Icon;
 export const IconChevronUpDown = ChevronUpDownIcon;
 export const IconBug = BugAntIcon;
+export const IconMenu = Bars3Icon;

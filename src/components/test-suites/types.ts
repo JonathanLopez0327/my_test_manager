@@ -1,3 +1,6 @@
+export type SortDir = "asc" | "desc";
+export type TestSuiteSortBy = "name" | "plan" | "parent" | "displayOrder";
+
 export type TestSuiteRecord = {
   id: string;
   testPlanId: string;

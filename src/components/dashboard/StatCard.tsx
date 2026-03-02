@@ -11,8 +11,7 @@ type StatCardProps = {
 
 export function StatCard({ title, value, change, icon, accent }: StatCardProps) {
   return (
-    <Card className="relative overflow-hidden border-stroke-strong">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-300 via-brand-500/60 to-accent-500/50" />
+    <Card className="overflow-hidden">
       <div className="flex items-center justify-between gap-4 p-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">

@@ -3,7 +3,8 @@
 import type { OrgRole } from "@/generated/prisma/client";
 import { Badge } from "../ui/Badge";
 import { IconEdit, IconTrash } from "../icons";
-import type { MemberRecord } from "./types";
+import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import type { MemberRecord, MemberSortBy, SortDir } from "./types";
 
 type MembersTableProps = {
   items: MemberRecord[];
@@ -11,6 +12,9 @@ type MembersTableProps = {
   canManage: boolean;
   onEdit?: (member: MemberRecord) => void;
   onRemove?: (member: MemberRecord) => void;
+  sortBy: MemberSortBy | null;
+  sortDir: SortDir | null;
+  onSort: (column: MemberSortBy) => void;
 };
 
 const ROLE_LABELS: Record<OrgRole, string> = {
@@ -33,6 +37,9 @@ export function MembersTable({
   canManage,
   onEdit,
   onRemove,
+  sortBy,
+  sortDir,
+  onSort,
 }: MembersTableProps) {
   if (loading) {
     return (
@@ -54,14 +61,38 @@ export function MembersTable({
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
+      <div className="hidden max-h-[600px] overflow-y-auto md:block">
         <table className="w-full border-collapse text-[13px]">
-          <thead className="sticky top-0 z-10 bg-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
+          <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
-              <th className="px-3 py-2">Nombre</th>
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Rol</th>
-              <th className="px-3 py-2">Estado</th>
+              <SortableHeaderCell
+                label="Nombre"
+                sortKey="name"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Email"
+                sortKey="email"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Rol"
+                sortKey="role"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
+              <SortableHeaderCell
+                label="Estado"
+                sortKey="isActive"
+                activeSortBy={sortBy}
+                activeSortDir={sortDir}
+                onSort={onSort}
+              />
               <th className="px-3 py-2 text-right">
                 {canManage ? "Acciones" : ""}
               </th>
@@ -69,7 +100,7 @@ export function MembersTable({
           </thead>
           <tbody>
             {items.map((member) => (
-              <tr key={member.userId} className="border-t border-stroke">
+              <tr key={member.userId}>
                 <td className="px-3 py-2.5 font-semibold text-ink">
                   {member.user.fullName ?? "Sin nombre"}
                 </td>
@@ -115,7 +146,7 @@ export function MembersTable({
         {items.map((member) => (
           <div
             key={member.userId}
-            className="rounded-lg border border-stroke bg-white p-5"
+            className="rounded-lg bg-surface-elevated p-5 shadow-sm dark:bg-surface-muted"
           >
             <p className="text-sm font-semibold text-ink">
               {member.user.fullName ?? "Sin nombre"}

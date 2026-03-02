@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
@@ -18,7 +19,10 @@ import type {
   MembersResponse,
   OrganizationDetail,
   OrganizationUpdatePayload,
+  MemberSortBy,
+  SortDir,
 } from "./types";
+import { nextSort } from "@/lib/sorting";
 
 async function safeJson(res: Response): Promise<{ message?: string } & Record<string, unknown>> {
   const text = await res.text();
@@ -46,6 +50,9 @@ export function OrganizationsPage() {
 
 function ActiveOrgView() {
   const { can, activeOrganizationId } = usePermissions();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [org, setOrg] = useState<OrganizationDetail | null>(null);
   const [members, setMembers] = useState<MemberRecord[]>([]);
@@ -68,6 +75,8 @@ function ActiveOrgView() {
 
   const canUpdate = can(PERMISSIONS.ORG_UPDATE);
   const canManageMembers = can(PERMISSIONS.ORG_MEMBER_MANAGE);
+  const memberSortBy = (searchParams.get("sortBy") as MemberSortBy | null) ?? null;
+  const memberSortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const fetchOrg = useCallback(async () => {
     if (!activeOrganizationId) return;
@@ -84,8 +93,13 @@ function ActiveOrgView() {
   const fetchMembers = useCallback(async () => {
     if (!activeOrganizationId) return;
     try {
+      const params = new URLSearchParams();
+      if (memberSortBy && memberSortDir) {
+        params.set("sortBy", memberSortBy);
+        params.set("sortDir", memberSortDir);
+      }
       const res = await fetch(
-        `/api/organizations/${activeOrganizationId}/members`,
+        `/api/organizations/${activeOrganizationId}/members${params.toString() ? `?${params.toString()}` : ""}`,
       );
       if (!res.ok) throw new Error("No se pudieron cargar los miembros.");
       const data = (await res.json()) as MembersResponse;
@@ -93,7 +107,7 @@ function ActiveOrgView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar miembros.");
     }
-  }, [activeOrganizationId]);
+  }, [activeOrganizationId, memberSortBy, memberSortDir]);
 
   useEffect(() => {
     if (!activeOrganizationId) return;
@@ -191,6 +205,19 @@ function ActiveOrgView() {
     }
   };
 
+  const handleMemberSort = (column: MemberSortBy) => {
+    const next = nextSort<MemberSortBy>(memberSortBy, memberSortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   if (!activeOrganizationId) {
     return (
       <Card className="p-6">
@@ -246,6 +273,9 @@ function ActiveOrgView() {
                 canManage={canManageMembers}
                 onEdit={handleEditMember}
                 onRemove={handleRemoveMember}
+                sortBy={memberSortBy}
+                sortDir={memberSortDir}
+                onSort={handleMemberSort}
               />
             </div>
           </Card>

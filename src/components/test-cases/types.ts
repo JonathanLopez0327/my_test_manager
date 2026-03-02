@@ -1,3 +1,12 @@
+export type SortDir = "asc" | "desc";
+export type TestCaseSortBy =
+  | "case"
+  | "suite"
+  | "status"
+  | "tags"
+  | "priority"
+  | "automation";
+
 export type TestCaseStatus = "draft" | "ready" | "deprecated";
 
 export type TestCaseStyle = "step_by_step" | "gherkin" | "data_driven" | "api";

@@ -2,19 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "../ui/Card";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
 import { TestCaseFormSheet } from "./TestCaseFormSheet";
 import { TestCasesTable } from "./TestCasesTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { DataWorkspace } from "../ui/DataWorkspace";
+import { Button } from "../ui/Button";
 import type {
   TestCasePayload,
   TestCaseRecord,
   TestCasesResponse,
   TestCaseTagsResponse,
+  TestCaseSortBy,
+  SortDir,
 } from "./types";
 import type { TestSuitesResponse } from "../test-suites/types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -28,6 +33,9 @@ type TestSuiteOption = {
 
 export function TestCasesPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<TestCaseRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -59,6 +67,8 @@ export function TestCasesPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as TestCaseSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -80,6 +90,10 @@ export function TestCasesPage() {
       if (tagFilter) {
         params.set("tag", tagFilter);
       }
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/test-cases?${params.toString()}`);
       const data = (await response.json()) as TestCasesResponse & {
         message?: string;
@@ -98,7 +112,7 @@ export function TestCasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query, suiteFilter, tagFilter]);
+  }, [page, pageSize, query, suiteFilter, tagFilter, sortBy, sortDir]);
 
   const fetchSuites = useCallback(async () => {
     setSuitesError(null);
@@ -270,75 +284,103 @@ export function TestCasesPage() {
     await fetchCases();
   };
 
+  const handleSort = (column: TestCaseSortBy) => {
+    const next = nextSort<TestCaseSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <TestCasesHeader
-          query={query}
-          onQueryChange={setQuery}
-          suite={suiteFilter}
-          onSuiteChange={setSuiteFilter}
-          suiteOptions={suites.map((suite) => ({
-            id: suite.id,
-            label: `${suite.projectKey} · ${suite.testPlanName} · ${suite.name}`,
-          }))}
-          tag={tagFilter}
-          onTagChange={setTagFilter}
-          tagOptions={tags}
-          onCreate={handleCreate}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          canCreate={canManage}
-        />
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Test Cases List
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Updating..." : `Total: ${total}`}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
-            {error}
-          </div>
-        ) : null}
-
-        {suitesError ? (
-          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
-            {suitesError}
-          </div>
-        ) : null}
-
-        {tagsError ? (
-          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
-            {tagsError}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
+      <DataWorkspace
+        eyebrow="Data workspace"
+        title="Test Cases"
+        subtitle="Manage reusable test coverage across suites and execution styles."
+        toolbar={
+          <TestCasesHeader
+            query={query}
+            onQueryChange={setQuery}
+            suite={suiteFilter}
+            onSuiteChange={setSuiteFilter}
+            suiteOptions={suites.map((suite) => ({
+              id: suite.id,
+              label: `${suite.projectKey} · ${suite.testPlanName} · ${suite.name}`,
+            }))}
+            tag={tagFilter}
+            onTagChange={setTagFilter}
+            tagOptions={tags}
+            onCreate={handleCreate}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            canCreate={canManage}
+          />
+        }
+        status={
+          <>
+            <p className="text-sm font-semibold text-ink">Test case list</p>
+            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+              {loading ? "Updating..." : `Total: ${total}`}
+            </div>
+          </>
+        }
+        feedback={
+          <>
+            {error ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+                <span>{error}</span>
+                <Button size="xs" variant="critical" onClick={fetchCases}>
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {suitesError ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+                <span>{suitesError}</span>
+                <Button size="xs" variant="soft" onClick={fetchSuites}>
+                  Reload suites
+                </Button>
+              </div>
+            ) : null}
+            {tagsError ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+                <span>{tagsError}</span>
+                <Button size="xs" variant="soft" onClick={fetchTags}>
+                  Reload tags
+                </Button>
+              </div>
+            ) : null}
+          </>
+        }
+        content={
           <TestCasesTable
             items={items}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
-        </div>
-
-        <div className="mt-6">
+        }
+        footer={
           <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
           />
-        </div>
-      </Card>
+        }
+      />
 
       {canManage ? (
         <TestCaseFormSheet
@@ -348,7 +390,6 @@ export function TestCasesPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
-
       ) : null}
 
       <ConfirmationDialog

@@ -4,9 +4,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
+const SORTABLE_FIELDS = ["key", "name", "description", "isActive"] as const;
+type ProjectSortBy = (typeof SORTABLE_FIELDS)[number];
 
 function parseNumber(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -21,6 +24,12 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, { userId, glob
     MAX_PAGE_SIZE,
   );
   const query = searchParams.get("query")?.trim();
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as ProjectSortBy)
+      ? parseSortBy<ProjectSortBy>(requestedSortBy, SORTABLE_FIELDS, "key")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   const filters: Prisma.ProjectWhereInput[] = [];
 
@@ -53,10 +62,14 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, { userId, glob
     ? { AND: filters }
     : {};
 
+  const orderBy: Prisma.ProjectOrderByWithRelationInput[] = sortBy
+    ? [{ [sortBy]: sortDir }, { createdAt: "desc" }, { id: "asc" }]
+    : [{ createdAt: "desc" }, { id: "asc" }];
+
   const [items, total] = await prisma.$transaction([
     prisma.project.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

@@ -4,9 +4,18 @@ import { Prisma, TestPlanStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
+const SORTABLE_FIELDS = [
+  "name",
+  "project",
+  "status",
+  "startsOn",
+  "endsOn",
+] as const;
+type TestPlanSortBy = (typeof SORTABLE_FIELDS)[number];
 const STATUS_VALUES: TestPlanStatus[] = [
   "draft",
   "active",
@@ -41,6 +50,12 @@ export const GET = withAuth(PERMISSIONS.TEST_PLAN_LIST, async (req, { userId, gl
   );
   const query = searchParams.get("query")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestPlanSortBy)
+      ? parseSortBy<TestPlanSortBy>(requestedSortBy, SORTABLE_FIELDS, "name")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   if (projectId) {
     const allowed = await can(PERMISSIONS.TEST_PLAN_LIST, {
@@ -93,6 +108,33 @@ export const GET = withAuth(PERMISSIONS.TEST_PLAN_LIST, async (req, { userId, gl
     ? { AND: filters }
     : {};
 
+  let orderBy: Prisma.TestPlanOrderByWithRelationInput[] = [
+    { createdAt: "desc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "name":
+      case "status":
+      case "startsOn":
+      case "endsOn":
+        orderBy = [
+          { [sortBy]: sortDir },
+          { createdAt: "desc" },
+          { id: "asc" },
+        ];
+        break;
+      case "project":
+        orderBy = [
+          { project: { name: sortDir } },
+          { name: "asc" },
+          { id: "asc" },
+        ];
+        break;
+    }
+  }
+
   const [items, total] = await prisma.$transaction([
     prisma.testPlan.findMany({
       where,
@@ -101,7 +143,7 @@ export const GET = withAuth(PERMISSIONS.TEST_PLAN_LIST, async (req, { userId, gl
           select: { id: true, key: true, name: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

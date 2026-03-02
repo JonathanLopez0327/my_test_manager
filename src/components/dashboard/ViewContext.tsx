@@ -21,7 +21,6 @@ export function ViewContext() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [orgName, setOrgName] = useState<string | null>(null);
-  const [orgSlug, setOrgSlug] = useState<string | null>(null);
 
   const activeOrgId = session?.user?.activeOrganizationId;
 
@@ -33,7 +32,6 @@ export function ViewContext() {
       if (!activeOrgId) {
         if (isMounted) {
           setOrgName(null);
-          setOrgSlug(null);
         }
         return;
       }
@@ -45,12 +43,10 @@ export function ViewContext() {
         const activeOrg = data.items.find((org) => org.id === activeOrgId);
         if (isMounted) {
           setOrgName(activeOrg?.name ?? null);
-          setOrgSlug(activeOrg?.slug ?? null);
         }
       } catch {
         if (isMounted) {
           setOrgName(null);
-          setOrgSlug(null);
         }
       }
     };
@@ -62,20 +58,14 @@ export function ViewContext() {
   }, [activeOrgId]);
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-stroke bg-surface-elevated px-3 py-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
-        Contexto activo
-      </p>
-      <span className="hidden text-ink-soft sm:inline">/</span>
-      <p className="text-sm font-semibold text-ink">
+    <nav className="mb-4 flex items-center justify-end gap-1 py-1" aria-label="Breadcrumb">
+      <span className="text-sm font-medium text-ink-muted">
         {orgName ?? "Sin organizacion"}
-      </p>
-      <span className="text-ink-soft">-</span>
-      <p className="text-xs font-medium text-ink-muted">
-        {orgSlug ?? "sin-slug"}
-      </p>
-      <span className="text-ink-soft">-</span>
-      <p className="text-sm font-semibold text-brand-700">{sectionLabel}</p>
-    </div>
+      </span>
+      <span className="text-sm text-ink-muted/50">/</span>
+      <span className="text-sm font-medium text-brand-400">
+        {sectionLabel}
+      </span>
+    </nav>
   );
 }

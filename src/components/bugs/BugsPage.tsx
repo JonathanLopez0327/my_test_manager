@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card } from "../ui/Card";
 import { Pagination } from "../ui/Pagination";
 import { BugsHeader } from "./BugsHeader";
@@ -11,7 +12,14 @@ import { BugDetailSheet } from "./BugDetailSheet";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { useCan } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
-import type { BugPayload, BugRecord, BugsResponse } from "./types";
+import type {
+  BugPayload,
+  BugRecord,
+  BugsResponse,
+  BugSortBy,
+  SortDir,
+} from "./types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -20,6 +28,9 @@ type UserOption = { id: string; email: string; fullName: string | null };
 
 export function BugsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const canCreate = useCan(PERMISSIONS.BUG_CREATE);
   const canUpdate = useCan(PERMISSIONS.BUG_UPDATE);
   const canDelete = useCan(PERMISSIONS.BUG_DELETE);
@@ -52,6 +63,8 @@ export function BugsPage() {
   const [users, setUsers] = useState<UserOption[]>([]);
 
   const currentUserId = session?.user?.id;
+  const sortBy = (searchParams.get("sortBy") as BugSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -69,6 +82,10 @@ export function BugsPage() {
       });
       if (statusFilter) params.set("status", statusFilter);
       if (severityFilter) params.set("severity", severityFilter);
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
 
       const response = await fetch(`/api/bugs?${params.toString()}`);
       const data = (await response.json()) as BugsResponse & { message?: string };
@@ -84,7 +101,7 @@ export function BugsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query, statusFilter, severityFilter]);
+  }, [page, pageSize, query, statusFilter, severityFilter, sortBy, sortDir]);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -201,6 +218,21 @@ export function BugsPage() {
     await fetchBugs();
   };
 
+  const handleSort = (column: BugSortBy) => {
+    const next = nextSort<BugSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -241,6 +273,9 @@ export function BugsPage() {
             onView={handleView}
             canEdit={canUpdate}
             canDelete={canDelete}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         </div>
 

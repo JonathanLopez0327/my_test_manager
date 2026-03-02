@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { serializeRunMetrics, upsertRunMetrics } from "@/lib/test-runs";
+import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -16,6 +17,16 @@ const STATUS_VALUES: TestRunStatus[] = [
   "failed",
 ];
 const TYPE_VALUES: TestRunType[] = ["manual", "automated"];
+const SORTABLE_FIELDS = [
+  "run",
+  "project",
+  "planSuite",
+  "status",
+  "metrics",
+  "runType",
+  "dates",
+] as const;
+type TestRunSortBy = (typeof SORTABLE_FIELDS)[number];
 
 function parseNumber(value: string | null, fallback: number) {
   const parsed = Number(value);
@@ -55,6 +66,12 @@ export const GET = withAuth(PERMISSIONS.TEST_RUN_LIST, async (req, { userId, glo
   const suiteId = searchParams.get("suiteId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
   const runType = parseRunType(searchParams.get("runType")?.trim() ?? null);
+  const requestedSortBy = searchParams.get("sortBy");
+  const sortBy =
+    requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestRunSortBy)
+      ? parseSortBy<TestRunSortBy>(requestedSortBy, SORTABLE_FIELDS, "run")
+      : null;
+  const sortDir = parseSortDir(searchParams.get("sortDir"), "asc");
 
   if (projectId) {
     const allowed = await can(PERMISSIONS.TEST_RUN_LIST, {
@@ -125,6 +142,49 @@ export const GET = withAuth(PERMISSIONS.TEST_RUN_LIST, async (req, { userId, glo
     ? { AND: filters }
     : {};
 
+  let orderBy: Prisma.TestRunOrderByWithRelationInput[] = [
+    { createdAt: "desc" },
+    { id: "asc" },
+  ];
+
+  if (sortBy) {
+    switch (sortBy) {
+      case "run":
+        orderBy = [{ name: sortDir }, { createdAt: "desc" }, { id: "asc" }];
+        break;
+      case "project":
+        orderBy = [{ project: { name: sortDir } }, { name: "asc" }, { id: "asc" }];
+        break;
+      case "planSuite":
+        orderBy = [
+          { testPlan: { name: sortDir } },
+          { suite: { name: sortDir } },
+          { name: "asc" },
+          { id: "asc" },
+        ];
+        break;
+      case "status":
+      case "runType":
+        orderBy = [{ [sortBy]: sortDir }, { createdAt: "desc" }, { id: "asc" }];
+        break;
+      case "metrics":
+        orderBy = [
+          { metrics: { passRate: sortDir } },
+          { createdAt: "desc" },
+          { id: "asc" },
+        ];
+        break;
+      case "dates":
+        orderBy = [
+          { startedAt: sortDir },
+          { finishedAt: sortDir },
+          { createdAt: "desc" },
+          { id: "asc" },
+        ];
+        break;
+    }
+  }
+
   const [items, total] = await prisma.$transaction([
     prisma.testRun.findMany({
       where,
@@ -149,7 +209,7 @@ export const GET = withAuth(PERMISSIONS.TEST_RUN_LIST, async (req, { userId, glo
         },
         metrics: true,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),

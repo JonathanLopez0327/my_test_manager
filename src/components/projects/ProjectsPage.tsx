@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { ProjectsHeader } from "./ProjectsHeader";
 import { ProjectFormSheet } from "./ProjectFormSheet";
@@ -9,12 +10,22 @@ import { ProjectsTable } from "./ProjectsTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { DataWorkspace } from "../ui/DataWorkspace";
 import { Button } from "../ui/Button";
-import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
+import type {
+  ProjectPayload,
+  ProjectRecord,
+  ProjectsResponse,
+  ProjectSortBy,
+  SortDir,
+} from "./types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 export function ProjectsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<ProjectRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -40,6 +51,8 @@ export function ProjectsPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as ProjectSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -55,12 +68,16 @@ export function ProjectsPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/projects?${params.toString()}`);
       const data = (await response.json()) as ProjectsResponse & {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los proyectos.");
+        throw new Error(data.message || "Could not load projects.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -68,12 +85,12 @@ export function ProjectsPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los proyectos.",
+          : "Could not load projects.",
       );
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProjects();
@@ -123,7 +140,7 @@ export function ProjectsPage() {
       });
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar el proyecto.");
+        throw new Error(data.message || "Could not delete project.");
       }
       await fetchProjects();
       setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
@@ -131,7 +148,7 @@ export function ProjectsPage() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el proyecto.",
+          : "Could not delete project.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -149,17 +166,32 @@ export function ProjectsPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar el proyecto.");
+      throw new Error(data.message || "Could not save project.");
     }
     await fetchProjects();
+  };
+
+  const handleSort = (column: ProjectSortBy) => {
+    const next = nextSort<ProjectSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
   };
 
   return (
     <div className="space-y-6">
       <DataWorkspace
-        eyebrow="Workspace de datos"
-        title="Proyectos"
-        subtitle="Administra el inventario de proyectos y su estado operativo."
+        eyebrow="Data workspace"
+        title="Projects"
+        subtitle="Manage your project inventory and operational status."
         toolbar={
           <ProjectsHeader
             query={query}
@@ -172,18 +204,18 @@ export function ProjectsPage() {
         }
         status={
           <>
-            <p className="text-sm font-semibold text-ink">Listado de proyectos</p>
+            <p className="text-sm font-semibold text-ink">Project list</p>
             <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
-              {loading ? "Actualizando..." : `Total: ${total}`}
+              {loading ? "Updating..." : `Total: ${total}`}
             </div>
           </>
         }
         feedback={
           error ? (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
               <span>{error}</span>
               <Button size="xs" variant="critical" onClick={fetchProjects}>
-                Reintentar
+                Retry
               </Button>
             </div>
           ) : null
@@ -195,6 +227,9 @@ export function ProjectsPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
         }
         footer={
@@ -214,14 +249,13 @@ export function ProjectsPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
-
       ) : null}
 
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar proyecto "${deleteConfirmation.name}"?`}
-        description="Esta acción eliminará el proyecto permanentemente. No se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete project "${deleteConfirmation.name}"?`}
+        description="This action will permanently delete the project. This cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
           setDeleteConfirmation({

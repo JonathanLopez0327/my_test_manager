@@ -2,18 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "../ui/Card";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { TestPlansHeader } from "./TestPlansHeader";
 import { TestPlanFormSheet } from "./TestPlanFormSheet";
 import { TestPlansTable } from "./TestPlansTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { DataWorkspace } from "../ui/DataWorkspace";
+import { Button } from "../ui/Button";
 import type {
   TestPlanPayload,
   TestPlanRecord,
   TestPlansResponse,
+  TestPlanSortBy,
+  SortDir,
 } from "./types";
 import type { ProjectsResponse } from "../projects/types";
+import { nextSort } from "@/lib/sorting";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -25,6 +30,9 @@ type ProjectOption = {
 
 export function TestPlansPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<TestPlanRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -52,6 +60,8 @@ export function TestPlansPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const sortBy = (searchParams.get("sortBy") as TestPlanSortBy | null) ?? null;
+  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / pageSize)),
@@ -67,12 +77,16 @@ export function TestPlansPage() {
         pageSize: String(pageSize),
         query,
       });
+      if (sortBy && sortDir) {
+        params.set("sortBy", sortBy);
+        params.set("sortDir", sortDir);
+      }
       const response = await fetch(`/api/test-plans?${params.toString()}`);
       const data = (await response.json()) as TestPlansResponse & {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los planes.");
+        throw new Error(data.message || "Could not load test plans.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -80,12 +94,12 @@ export function TestPlansPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los planes.",
+          : "Could not load test plans.",
       );
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, sortBy, sortDir]);
 
   const fetchProjects = useCallback(async () => {
     setProjectsError(null);
@@ -100,7 +114,7 @@ export function TestPlansPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los proyectos.");
+        throw new Error(data.message || "Could not load projects.");
       }
       setProjects(
         data.items.map((project) => ({
@@ -113,7 +127,7 @@ export function TestPlansPage() {
       setProjectsError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los proyectos.",
+          : "Could not load projects.",
       );
     }
   }, []);
@@ -170,7 +184,7 @@ export function TestPlansPage() {
       });
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar el plan.");
+        throw new Error(data.message || "Could not delete test plan.");
       }
       await fetchTestPlans();
       setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
@@ -178,7 +192,7 @@ export function TestPlansPage() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el plan.",
+          : "Could not delete test plan.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -196,65 +210,91 @@ export function TestPlansPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar el plan.");
+      throw new Error(data.message || "Could not save test plan.");
     }
     await fetchTestPlans();
   };
 
+  const handleSort = (column: TestPlanSortBy) => {
+    const next = nextSort<TestPlanSortBy>(sortBy, sortDir, column);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    if (!next) {
+      params.delete("sortBy");
+      params.delete("sortDir");
+    } else {
+      params.set("sortBy", next.sortBy);
+      params.set("sortDir", next.sortDir);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+    setPage(1);
+  };
+
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <TestPlansHeader
-          query={query}
-          onQueryChange={setQuery}
-          onCreate={handleCreate}
-          pageSize={pageSize}
-          onPageSizeChange={setPageSize}
-          canCreate={canManage}
-        />
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Listado de planes de prueba
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Actualizando..." : `Total: ${total}`}
-          </div>
-        </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg bg-danger-500/10 px-4 py-3 text-sm text-danger-500">
-            {error}
-          </div>
-        ) : null}
-
-        {projectsError ? (
-          <div className="mt-4 rounded-lg bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
-            {projectsError}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
+      <DataWorkspace
+        eyebrow="Data workspace"
+        title="Test Plans"
+        subtitle="Track planning windows, ownership, and progress by project."
+        toolbar={
+          <TestPlansHeader
+            query={query}
+            onQueryChange={setQuery}
+            onCreate={handleCreate}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            canCreate={canManage}
+          />
+        }
+        status={
+          <>
+            <p className="text-sm font-semibold text-ink">Test plan list</p>
+            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+              {loading ? "Updating..." : `Total: ${total}`}
+            </div>
+          </>
+        }
+        feedback={
+          <>
+            {error ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+                <span>{error}</span>
+                <Button size="xs" variant="critical" onClick={fetchTestPlans}>
+                  Retry
+                </Button>
+              </div>
+            ) : null}
+            {projectsError ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
+                <span>{projectsError}</span>
+                <Button size="xs" variant="soft" onClick={fetchProjects}>
+                  Reload projects
+                </Button>
+              </div>
+            ) : null}
+          </>
+        }
+        content={
           <TestPlansTable
             items={items}
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
             canManage={canManage}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
-        </div>
-
-        <div className="mt-6">
+        }
+        footer={
           <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
           />
-        </div>
-      </Card>
+        }
+      />
 
       {canManage ? (
         <TestPlanFormSheet
@@ -264,14 +304,13 @@ export function TestPlansPage() {
           onClose={() => setModalOpen(false)}
           onSave={handleSave}
         />
-
       ) : null}
 
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar plan "${deleteConfirmation.name}"?`}
-        description="Esta acción eliminará el plan permanentemente. No se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete test plan "${deleteConfirmation.name}"?`}
+        description="This action will permanently delete the test plan. This cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
           setDeleteConfirmation({
