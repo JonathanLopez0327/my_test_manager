@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "next-best-practices": {
+      "source": "vercel-labs/next-skills",
+      "sourceType": "github",
+      "computedHash": "c31ddd68ba5798a79a516c619b1e1fc4408cc4876ad600fefa4f5add4425719d"
+    },
+    "nextauth-authentication": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "computedHash": "71be099a628217df877d48b9423468097e6706df5a382f4ab6cb28b0e7212343"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "bdf01cb716d99c640cf02438eee71b544709730ef4d59b3cc24b8721a4540e4b"
+    }
+  }
+}
