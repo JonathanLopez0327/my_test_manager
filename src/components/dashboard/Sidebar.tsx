@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ComponentType } from "react";
 import {
   IconBug,
   IconChart,
@@ -12,16 +13,30 @@ import {
   IconOrganization,
   IconUsers,
 } from "../icons";
+import { Badge } from "../ui/Badge";
 import { usePermissions } from "@/lib/auth/use-can";
-import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
 
-const navItems = [
+type NavItem = {
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  href: string;
+  permission: Permission;
+  badge?: string | number;
+};
+
+type NavGroup = {
+  title: string;
+  items: NavItem[];
+};
+
+const navItems: NavItem[] = [
   { label: "Resumen", icon: IconGrid, href: "/manager", permission: PERMISSIONS.PROJECT_LIST },
   { label: "Organizaciones", icon: IconOrganization, href: "/manager/organizations", permission: PERMISSIONS.ORG_LIST },
   { label: "Proyectos", icon: IconFolder, href: "/manager/projects", permission: PERMISSIONS.PROJECT_LIST },
 ];
 
-const groupedNavItems = [
+const groupedNavItems: NavGroup[] = [
   {
     title: "Planificacion",
     items: [
@@ -51,7 +66,62 @@ type SidebarProps = {
   onToggle: () => void;
 };
 
+function isItemActive(pathname: string, href: string) {
+  return pathname === href || (href !== "/manager" && pathname.startsWith(`${href}/`));
+}
+
+function SidebarNavItem({
+  item,
+  pathname,
+  collapsed,
+}: {
+  item: NavItem;
+  pathname: string;
+  collapsed: boolean;
+}) {
+  const Icon = item.icon;
+  const isActive = isItemActive(pathname, item.href);
+
+  return (
+    <Link
+      href={item.href}
+      aria-current={isActive ? "page" : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 ease-[var(--ease-emphasis)] focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated ${
+        isActive
+          ? "bg-brand-50/40 font-medium text-brand-700"
+          : "font-medium text-ink-muted hover:bg-brand-50/35 hover:text-ink"
+      } ${collapsed ? "justify-center px-2" : ""}`}
+    >
+      <span
+        aria-hidden
+        className={`absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-500 transition-opacity ${
+          isActive ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <Icon
+        aria-hidden
+        className={`h-5 w-5 shrink-0 transition-colors ${
+          isActive ? "text-brand-600" : "text-ink-soft group-hover:text-ink-muted"
+        }`}
+      />
+      <span className={`truncate ${collapsed ? "hidden" : ""}`}>{item.label}</span>
+      {!collapsed && item.badge !== undefined ? (
+        <Badge className="ml-auto px-2 py-0.5 text-[10px] tracking-normal">
+          {item.badge}
+        </Badge>
+      ) : null}
+      {collapsed ? (
+        <span className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-stroke bg-surface-elevated px-2 py-1 text-xs font-medium text-ink opacity-0 shadow-soft-xs transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 dark:bg-surface">
+          {item.label}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  void onToggle;
   const pathname = usePathname();
   const { can } = usePermissions();
 
@@ -81,61 +151,24 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="mt-4 flex flex-col gap-1.5">
-        {visibleNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.href ? pathname === item.href : false;
-          const baseClass = `flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${isActive
-            ? "border border-brand-300 bg-brand-50 text-brand-700"
-            : item.href
-              ? "text-ink-muted hover:bg-brand-50 hover:text-ink"
-              : "text-ink-soft"
-            } ${collapsed ? "justify-center" : ""}`;
-
-          if (item.href) {
-            return (
-              <Link key={item.label} href={item.href} className={baseClass}>
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className={`${collapsed ? "hidden" : ""}`}>{item.label}</span>
-              </Link>
-            );
-          }
-
-          return (
-            <button key={item.label} className={baseClass} disabled>
-              <Icon className="h-5 w-5" />
-              <span className={collapsed ? "hidden" : ""}>{item.label}</span>
-            </button>
-          );
-        })}
+        {visibleNavItems.map((item) => (
+          <SidebarNavItem key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
+        ))}
       </nav>
 
-      <div className="mt-3 space-y-2 overflow-y-auto pr-1">
+      <div className="mt-5 space-y-3 overflow-y-auto pr-1">
         {visibleGroupedNavItems.map((group) => (
           <div key={group.title} className="rounded-lg border border-transparent p-1">
             <p
-              className={`px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-soft ${collapsed ? "hidden" : ""
+              className={`px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft/90 ${collapsed ? "hidden" : ""
                 }`}
             >
               {group.title}
             </p>
             <div className="flex flex-col gap-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all duration-200 ease-[var(--ease-emphasis)] ${isActive
-                      ? "border border-brand-300 bg-brand-50 text-brand-700"
-                      : "text-ink-muted hover:bg-brand-50 hover:text-ink"
-                      } ${collapsed ? "justify-center px-2" : ""}`}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span className={collapsed ? "hidden" : ""}>{item.label}</span>
-                  </Link>
-                );
-              })}
+              {group.items.map((item) => (
+                <SidebarNavItem key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
+              ))}
             </div>
           </div>
         ))}
