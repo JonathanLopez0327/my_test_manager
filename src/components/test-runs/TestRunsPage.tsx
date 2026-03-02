@@ -7,7 +7,6 @@ import { Pagination } from "../ui/Pagination";
 import { TestRunsHeader } from "./TestRunsHeader";
 import { TestRunFormSheet } from "./TestRunFormSheet";
 import { TestRunsTable } from "./TestRunsTable";
-
 import { TestRunDetailsSheet } from "./TestRunDetailsSheet";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { DataWorkspace } from "../ui/DataWorkspace";
@@ -111,7 +110,7 @@ export function TestRunsPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los runs.");
+        throw new Error(data.message || "Could not load test runs.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -119,7 +118,7 @@ export function TestRunsPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los runs.",
+          : "Could not load test runs.",
       );
     } finally {
       setLoading(false);
@@ -148,19 +147,13 @@ export function TestRunsPage() {
       ]);
 
       if (!projectsResponse.ok) {
-        throw new Error(
-          projectsData.message || "No se pudieron cargar los proyectos.",
-        );
+        throw new Error(projectsData.message || "Could not load projects.");
       }
       if (!plansResponse.ok) {
-        throw new Error(
-          plansData.message || "No se pudieron cargar los planes.",
-        );
+        throw new Error(plansData.message || "Could not load plans.");
       }
       if (!suitesResponse.ok) {
-        throw new Error(
-          suitesData.message || "No se pudieron cargar las suites.",
-        );
+        throw new Error(suitesData.message || "Could not load suites.");
       }
 
       const projectsPayload = projectsData as ProjectsResponse;
@@ -196,7 +189,7 @@ export function TestRunsPage() {
       setOptionsError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los datos auxiliares.",
+          : "Could not load supporting data.",
       );
     }
   }, []);
@@ -258,7 +251,7 @@ export function TestRunsPage() {
       });
       const data = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudo eliminar el run.");
+        throw new Error(data.message || "Could not delete test run.");
       }
       await fetchRuns();
       setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
@@ -266,7 +259,7 @@ export function TestRunsPage() {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el run.",
+          : "Could not delete test run.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -284,7 +277,7 @@ export function TestRunsPage() {
     });
     const data = (await response.json()) as { message?: string };
     if (!response.ok) {
-      throw new Error(data.message || "No se pudo guardar el run.");
+      throw new Error(data.message || "Could not save test run.");
     }
     await fetchRuns();
   };
@@ -307,9 +300,9 @@ export function TestRunsPage() {
   return (
     <div className="space-y-6">
       <DataWorkspace
-        eyebrow="Workspace de datos"
+        eyebrow="Data workspace"
         title="Test Runs"
-        subtitle="Monitorea ejecuciones, resultados y trazabilidad por proyecto."
+        subtitle="Monitor executions, outcomes, and project traceability."
         toolbar={
           <TestRunsHeader
             query={query}
@@ -322,9 +315,9 @@ export function TestRunsPage() {
         }
         status={
           <>
-            <p className="text-sm font-semibold text-ink">Listado de ejecuciones</p>
+            <p className="text-sm font-semibold text-ink">Execution list</p>
             <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
-              {loading ? "Actualizando..." : `Total: ${total}`}
+              {loading ? "Updating..." : `Total: ${total}`}
             </div>
           </>
         }
@@ -334,7 +327,7 @@ export function TestRunsPage() {
               <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
                 <span>{error}</span>
                 <Button size="xs" variant="critical" onClick={fetchRuns}>
-                  Reintentar
+                  Retry
                 </Button>
               </div>
             ) : null}
@@ -342,7 +335,7 @@ export function TestRunsPage() {
               <div className="flex items-center justify-between gap-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-500">
                 <span>{optionsError}</span>
                 <Button size="xs" variant="soft" onClick={fetchOptions}>
-                  Recargar catalogos
+                  Reload catalogs
                 </Button>
               </div>
             ) : null}
@@ -395,9 +388,9 @@ export function TestRunsPage() {
       />
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar run "${deleteConfirmation.name}"?`}
-        description="Esta acción eliminará la ejecución permanentemente. No se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete test run "${deleteConfirmation.name}"?`}
+        description="This action will permanently delete the run. This cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
           setDeleteConfirmation({

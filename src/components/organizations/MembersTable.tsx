@@ -61,7 +61,7 @@ export function MembersTable({
   return (
     <>
       {/* Desktop table */}
-      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
+      <div className="hidden max-h-[600px] overflow-y-auto md:block">
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
@@ -100,7 +100,7 @@ export function MembersTable({
           </thead>
           <tbody>
             {items.map((member) => (
-              <tr key={member.userId} className="border-t border-stroke">
+              <tr key={member.userId}>
                 <td className="px-3 py-2.5 font-semibold text-ink">
                   {member.user.fullName ?? "Sin nombre"}
                 </td>
@@ -146,7 +146,7 @@ export function MembersTable({
         {items.map((member) => (
           <div
             key={member.userId}
-            className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-5"
+            className="rounded-lg bg-surface-elevated p-5 shadow-sm dark:bg-surface-muted"
           >
             <p className="text-sm font-semibold text-ink">
               {member.user.fullName ?? "Sin nombre"}

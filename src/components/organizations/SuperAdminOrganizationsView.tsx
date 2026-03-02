@@ -207,7 +207,7 @@ export function SuperAdminOrganizationsView() {
                 {orgs.map((org) => (
                   <tr
                     key={org.id}
-                    className="border-b border-stroke/50 transition hover:bg-surface-muted/30"
+                    className="transition hover:bg-surface-muted/30"
                   >
                     <td className="px-4 py-3 font-medium text-ink">{org.name}</td>
                     <td className="px-4 py-3 text-ink-muted">{org.slug}</td>

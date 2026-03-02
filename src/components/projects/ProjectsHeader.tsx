@@ -25,7 +25,7 @@ export function ProjectsHeader({
     <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4">
       <div className="min-w-[220px] flex-1">
         <Input
-          placeholder="Buscar por key, nombre o descripcion..."
+          placeholder="Search by key, name, or description..."
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           leadingIcon={<IconSearch className="h-4 w-4" />}
@@ -39,14 +39,14 @@ export function ProjectsHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap" variant="primary">
             <IconPlus className="h-4 w-4" />
-            Nuevo proyecto
+            New Project
           </Button>
         ) : null}
       </div>

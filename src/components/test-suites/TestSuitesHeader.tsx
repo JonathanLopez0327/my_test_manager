@@ -25,7 +25,7 @@ export function TestSuitesHeader({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Gestión de suites de prueba
+          Test Suite Management
         </p>
         <h2 className="text-2xl font-semibold text-ink">Test Suites</h2>
       </div>
@@ -35,7 +35,7 @@ export function TestSuitesHeader({
             <IconSearch className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Buscar por nombre, plan o proyecto..."
+            placeholder="Search by name, plan, or project..."
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             className="pl-11"
@@ -48,14 +48,14 @@ export function TestSuitesHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            Nueva suite
+            New Suite
           </Button>
         ) : null}
       </div>

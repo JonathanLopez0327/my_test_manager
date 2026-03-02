@@ -25,7 +25,7 @@ export function TestPlansHeader({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Gestión de planes de prueba
+          Test Plan Management
         </p>
         <h2 className="text-2xl font-semibold text-ink">Test Plans</h2>
       </div>
@@ -35,7 +35,7 @@ export function TestPlansHeader({
             <IconSearch className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Buscar por nombre, descripción o proyecto..."
+            placeholder="Search by name, description, or project..."
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             className="pl-11"
@@ -48,14 +48,14 @@ export function TestPlansHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            Nuevo plan
+            New Plan
           </Button>
         ) : null}
       </div>
