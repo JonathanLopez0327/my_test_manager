@@ -7,10 +7,36 @@ Documentacion de endpoints expuestos en `src/app/api/**`.
 - Prefijo API: `/api`
 
 ## Autenticacion y autorizacion
-- Casi todos los endpoints usan `withAuth(...)` y requieren sesion valida (si no: `401`).
+- Casi todos los endpoints usan `withAuth(...)` y requieren sesion valida o API token Bearer (si no: `401`).
 - Los permisos se validan por RBAC global/organizacional/proyecto (si no: `403`).
 - Error comun de validacion: `400`.
 - Errores no controlados: `500`.
+
+### API Tokens (Bearer)
+- Header: `Authorization: Bearer <token>`.
+- Los tokens se almacenan hasheados (SHA-256) en DB.
+- El token en texto plano solo se entrega una vez al crearlo.
+- El contexto de permisos se resuelve con el usuario dueño del token + su organizacion asociada.
+- Si el token esta expirado, revocado o inactivo, la API responde `401`.
+
+### Ejemplos rapidos (integracion externa)
+
+Crear token (con sesion web activa):
+```bash
+curl -X POST http://localhost:3000/api/api-tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "CI - GitHub Actions",
+    "organizationId": "00000000-0000-0000-0000-000000000000",
+    "expiresAt": "2026-12-31T23:59:59.000Z"
+  }'
+```
+
+Consumir cualquier endpoint protegido con Bearer:
+```bash
+curl http://localhost:3000/api/projects \
+  -H "Authorization: Bearer tms_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
 
 ## Convenciones generales
 - Paginacion comun: `page`, `pageSize`.
@@ -22,6 +48,100 @@ Documentacion de endpoints expuestos en `src/app/api/**`.
 ### `GET|POST /api/auth/[...nextauth]`
 - Handler de NextAuth (login, callback, session, csrf, etc).
 - Implementado con `NextAuth(authOptions)`.
+
+## AI Assistant
+
+### `GET /api/ai/conversations?projectId=<uuid>`
+- Permiso: `PROJECT_LIST` + acceso al proyecto indicado.
+- Retorna hasta 5 conversaciones activas del usuario actual para ese proyecto.
+- Incluye mensajes completos en cada conversacion.
+
+### `POST /api/ai/conversations`
+- Permiso: `PROJECT_LIST` + acceso al proyecto indicado.
+- Body:
+```json
+{
+  "projectId": "550e8400-e29b-41d4-a716-446655440000",
+  "environment": "DEV"
+}
+```
+- Crea conversacion activa con titulo inicial `New conversation`.
+- Politica de retencion:
+  - maximo 5 conversaciones activas por `userId + projectId`.
+  - al exceder, las mas antiguas pasan a `archived`.
+
+### `POST /api/ai/chat`
+- Permiso: `PROJECT_LIST` + acceso al proyecto solicitado.
+- Body:
+```json
+{
+  "message": "Explain latest run failures",
+  "projectId": "550e8400-e29b-41d4-a716-446655440000",
+  "conversationId": "1a2b3c4d-1111-2222-3333-444455556666"
+}
+```
+- Reglas:
+  - `message` requerido (1..4000).
+  - `projectId` UUID requerido.
+  - `conversationId` UUID requerido y debe pertenecer al usuario/proyecto/organizacion activa.
+- Respuesta:
+  - `200` streaming `text/event-stream`.
+  - header `X-Thread-Id` con el thread activo.
+  - persiste mensajes `user` y `assistant` en DB.
+- Errores comunes:
+  - `400` payload invalido.
+  - `403` sin acceso al proyecto.
+  - `502` error de LangGraph.
+  - `504` timeout con LangGraph.
+
+## API Tokens
+
+### `GET /api/api-tokens`
+- Permiso: autenticado.
+- Lista tokens del usuario actual (sin exponer `tokenHash`).
+- Respuesta:
+```json
+{
+  "items": [
+    {
+      "id": "token_id",
+      "name": "CI GitHub",
+      "tokenPrefix": "tms_abcd1234",
+      "organizationId": "org_id",
+      "isActive": true,
+      "createdAt": "2026-03-02T00:00:00.000Z",
+      "expiresAt": "2026-12-31T23:59:59.000Z",
+      "lastUsedAt": null,
+      "revokedAt": null
+    }
+  ]
+}
+```
+
+### `POST /api/api-tokens`
+- Permiso: autenticado.
+- Body:
+```json
+{
+  "name": "CI GitHub",
+  "organizationId": "org_id",
+  "expiresAt": "2026-12-31T23:59:59.000Z"
+}
+```
+- `organizationId` es opcional para `super_admin`; para el resto usa `organizationId` o la organizacion activa.
+- Si no hay `organizationId` explicito, se usa la organizacion activa del contexto auth.
+- Retorna el token en texto plano solo una vez:
+```json
+{
+  "item": { "id": "token_id", "name": "CI GitHub", "tokenPrefix": "tms_abcd1234", "...": "..." },
+  "token": "tms_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+### `DELETE /api/api-tokens/{id}`
+- Permiso: autenticado.
+- Revoca (soft) un token del usuario actual.
+- Si el token ya estaba revocado, responde `200` con `{ "ok": true, "alreadyRevoked": true }`.
 
 ## Organizaciones
 
@@ -127,7 +247,7 @@ Documentacion de endpoints expuestos en `src/app/api/**`.
 
 ### `POST /api/projects`
 - Permiso: `PROJECT_CREATE`.
-- Requiere `activeOrganizationId` en sesion.
+- Requiere contexto de organizacion activa (sesion o API token).
 - Body:
 ```json
 {

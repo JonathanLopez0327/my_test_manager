@@ -24,6 +24,7 @@ import {
   TrashIcon,
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
+import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
 export const IconSearch = MagnifyingGlassIcon;
 export const IconBell = BellIcon;
@@ -49,3 +50,4 @@ export const IconOrganization = BuildingOffice2Icon;
 export const IconChevronUpDown = ChevronUpDownIcon;
 export const IconBug = BugAntIcon;
 export const IconMenu = Bars3Icon;
+export const IconSend = PaperAirplaneIcon;

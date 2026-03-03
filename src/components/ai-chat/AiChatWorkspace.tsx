@@ -4,27 +4,41 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "re
 import { useSession } from "next-auth/react";
 import {
   IconChevronRight,
-  IconChevronUp,
   IconClipboard,
   IconPlus,
   IconSearch,
+  IconSend,
   IconSpark,
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { MarkdownContent } from "@/components/ui/MarkdownContent";
 import { Modal } from "@/components/ui/Modal";
 import type { OrganizationsResponse } from "@/components/organizations/types";
 import type { ProjectsResponse } from "@/components/projects/types";
+import type {
+  AiConversationDto,
+  AiConversationsResponse,
+  AiConversationMessageDto,
+} from "@/components/ai-chat/types";
 import { cn } from "@/lib/utils";
 
 type MessageRole = "user" | "assistant";
+
+type AssistantMessageMetadata = {
+  type?: string;
+  sources?: string[];
+  suggestions?: string[];
+  [key: string]: unknown;
+};
 
 type ChatMessage = {
   id: string;
   role: MessageRole;
   content: string;
+  metadata?: AssistantMessageMetadata | null;
   createdAt: string;
 };
 
@@ -32,6 +46,8 @@ type Conversation = {
   id: string;
   title: string;
   createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
   scopeLabel?: string;
   environment?: string;
 };
@@ -106,64 +122,145 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
 ];
 
-const INITIAL_CONVERSATIONS: Conversation[] = [
-  {
-    id: "chat-1",
-    title: "Explain run #123 failures",
-    createdAt: new Date().toISOString(),
-    scopeLabel: "All projects",
-    environment: "DEV",
-  },
-  {
-    id: "chat-2",
-    title: "Generate test cases for login",
-    createdAt: new Date().toISOString(),
-    scopeLabel: "All projects",
-    environment: "DEV",
-  },
-  {
-    id: "chat-3",
-    title: "Create bug from failed test",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    scopeLabel: "All projects",
-    environment: "DEV",
-  },
-  {
-    id: "chat-4",
-    title: "Analyze flaky checkout suite",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    scopeLabel: "All projects",
-    environment: "DEV",
-  },
-];
-
-const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
-  "chat-1": [
-    {
-      id: "m-1",
-      role: "user",
-      content: "Explain run #123 failures.",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "m-2",
-      role: "assistant",
-      content:
-        "Run #123 failed due to 3 blocking tests in checkout. Primary issue appears in payment API timeout, plus one data setup failure. I recommend retrying in isolation, validating fixtures, and checking API latency in staging.",
-      createdAt: new Date().toISOString(),
-    },
-  ],
-};
-
 const ATTACHMENT_HELPERS = [
   { id: "attachment-summarize", label: "Summarize", prefix: "Summarize the attached evidence" },
   { id: "attachment-errors", label: "Extract errors", prefix: "Extract errors from the attached evidence" },
   { id: "attachment-next-steps", label: "Next steps", prefix: "Suggest next steps based on the attached evidence" },
 ] as const;
 
-function buildAssistantReply(prompt: string) {
-  const safePrompt = prompt.trim();
-  return `I can help with that. Based on your request: "${safePrompt}", here is a QA-oriented response with likely causes, impact, and next actions.`;
+function extractAssistantDelta(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+
+  const event = payload as Record<string, unknown>;
+  if (event.type === "AIMessageChunk") {
+    const content = event.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (typeof part === "string") return part;
+          if (!part || typeof part !== "object") return "";
+          const chunk = part as Record<string, unknown>;
+          if (typeof chunk.text === "string") return chunk.text;
+          return "";
+        })
+        .join("");
+    }
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.map((item) => extractAssistantDelta(item)).join("");
+  }
+
+  if (Array.isArray(event.content)) {
+    return event.content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (!part || typeof part !== "object") return "";
+        const chunk = part as Record<string, unknown>;
+        if (typeof chunk.text === "string") return chunk.text;
+        return "";
+      })
+      .join("");
+  }
+
+  return "";
+}
+
+function getOverlapSize(left: string, right: string): number {
+  const max = Math.min(left.length, right.length);
+  for (let size = max; size > 0; size -= 1) {
+    if (left.slice(-size) === right.slice(0, size)) return size;
+  }
+  return 0;
+}
+
+function mergeAssistantChunk(current: string, incoming: string): string {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  if (incoming === current) return current;
+  if (incoming.startsWith(current)) return incoming;
+  if (current.startsWith(incoming)) return current;
+  if (incoming.includes(current)) return incoming;
+  if (current.includes(incoming)) return current;
+
+  const overlap = getOverlapSize(current, incoming);
+  return current + incoming.slice(overlap);
+}
+
+function tryParseAssistantPayload(
+  raw: string,
+): { markdown: string; metadata: AssistantMessageMetadata | null } | null {
+  const parseCandidate = (value: string): { markdown: string; metadata: AssistantMessageMetadata | null } | null => {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (!parsed || typeof parsed !== "object") return null;
+      const payload = parsed as Record<string, unknown>;
+      if (typeof payload.markdown === "string") {
+        const metadata =
+          payload.metadata && typeof payload.metadata === "object"
+            ? (payload.metadata as AssistantMessageMetadata)
+            : null;
+        return { markdown: payload.markdown, metadata };
+      }
+      const structured = payload.structured_response;
+      if (structured && typeof structured === "object") {
+        const structuredPayload = structured as Record<string, unknown>;
+        if (typeof structuredPayload.markdown === "string") {
+          const metadata =
+            structuredPayload.metadata && typeof structuredPayload.metadata === "object"
+              ? (structuredPayload.metadata as AssistantMessageMetadata)
+              : null;
+          return { markdown: structuredPayload.markdown, metadata };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = parseCandidate(raw);
+  if (direct) return direct;
+
+  const objectStart = raw.indexOf("{");
+  if (objectStart >= 0) {
+    const fromObject = parseCandidate(raw.slice(objectStart));
+    if (fromObject) return fromObject;
+  }
+
+  const escapedStart = raw.indexOf('\\"markdown\\"');
+  if (escapedStart >= 0) {
+    const candidate = raw.slice(Math.max(0, escapedStart - 2));
+    const unescaped = candidate.replace(/\\"/g, '"');
+    const fromEscaped = parseCandidate(unescaped);
+    if (fromEscaped) return fromEscaped;
+  }
+
+  return null;
+}
+
+function normalizeAssistantContent(raw: string): string {
+  const content = raw.trim();
+  if (!content) return raw;
+  const parsed = tryParseAssistantPayload(content);
+  if (parsed?.markdown) {
+    return parsed.markdown
+      .replace(/\\r\\n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t");
+  }
+  if (content.includes('"structured_response"') || content.includes('"markdown"')) {
+    return "";
+  }
+  return raw.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+}
+
+function normalizeAssistantMetadata(raw: string): AssistantMessageMetadata | null {
+  const content = raw.trim();
+  if (!content) return null;
+  const parsed = tryParseAssistantPayload(content);
+  return parsed?.metadata ?? null;
 }
 
 function titleFromPrompt(prompt: string) {
@@ -204,6 +301,32 @@ function insertTemplate(currentDraft: string, template: string) {
   return `${base}\n${incoming}`;
 }
 
+function mapMessageDto(message: AiConversationMessageDto): ChatMessage {
+  const parsedMetadata = message.role === "assistant" ? normalizeAssistantMetadata(message.content) : null;
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.role === "assistant" ? normalizeAssistantContent(message.content) : message.content,
+    metadata: parsedMetadata,
+    createdAt: message.createdAt,
+  };
+}
+
+function mapConversationDto(
+  conversation: AiConversationDto,
+  scopeLabel: string,
+): Conversation {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+    lastMessageAt: conversation.lastMessageAt,
+    scopeLabel,
+    environment: conversation.environment,
+  };
+}
+
 function isSameLocalDate(left: Date, right: Date) {
   return (
     left.getFullYear() === right.getFullYear() &&
@@ -219,7 +342,7 @@ function groupConversationsByDate(conversations: Conversation[]) {
 
   return conversations.reduce(
     (acc, conversation) => {
-      const createdAt = new Date(conversation.createdAt);
+      const createdAt = new Date(conversation.lastMessageAt);
       if (Number.isNaN(createdAt.getTime())) {
         acc.yesterday.push(conversation);
         return acc;
@@ -240,8 +363,7 @@ function groupConversationsByDate(conversations: Conversation[]) {
 }
 
 /**
- * QA Assistant workspace with chat thread, context controls and QA-focused history.
- * UI-first implementation with optional backend hydration and safe fallbacks.
+ * QA Assistant workspace with chat thread, context controls, and SSE streaming responses.
  */
 export function AiChatWorkspace() {
   const { data: session } = useSession();
@@ -249,9 +371,9 @@ export function AiChatWorkspace() {
   const workspaceSelectRef = useRef<HTMLSelectElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
 
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [conversationMessages, setConversationMessages] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES);
-  const [selectedChatId, setSelectedChatId] = useState<string>(INITIAL_CONVERSATIONS[0]?.id ?? "");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationMessages, setConversationMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [selectedChatId, setSelectedChatId] = useState<string>("");
   const [historyQuery, setHistoryQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -366,6 +488,66 @@ export function AiChatWorkspace() {
     };
   }, [session?.user?.activeOrganizationId]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadConversations = async () => {
+      if (assistantContext.projectId === "all") {
+        if (!active) return;
+        setConversations([]);
+        setConversationMessages({});
+        setSelectedChatId("");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/ai/conversations?projectId=${encodeURIComponent(assistantContext.projectId)}`,
+        );
+
+        if (!response.ok) {
+          throw new Error("Could not load conversations.");
+        }
+
+        const payload = (await response.json()) as AiConversationsResponse;
+        if (!active) return;
+
+        const scopeLabel =
+          projectOptions.find((project) => project.id === assistantContext.projectId)?.label ??
+          "All projects";
+
+        const nextConversations = payload.items.map((item) =>
+          mapConversationDto(item, scopeLabel),
+        );
+        const nextMessages = payload.items.reduce<Record<string, ChatMessage[]>>((acc, item) => {
+          acc[item.id] = item.messages.map(mapMessageDto);
+          return acc;
+        }, {});
+
+        setError(null);
+        setConversations(nextConversations);
+        setConversationMessages(nextMessages);
+        setSelectedChatId((prev) =>
+          prev && nextConversations.some((conversation) => conversation.id === prev)
+            ? prev
+            : (nextConversations[0]?.id ?? ""),
+        );
+      } catch {
+        if (!active) return;
+        setError("Could not load conversation history.");
+        setConversations([]);
+        setConversationMessages({});
+        setSelectedChatId("");
+      }
+    };
+
+    void loadConversations();
+
+    return () => {
+      active = false;
+    };
+  }, [assistantContext.projectId, projectOptions]);
+
   const filteredConversations = useMemo(() => {
     const normalized = historyQuery.trim().toLowerCase();
     if (!normalized) return conversations;
@@ -387,21 +569,46 @@ export function AiChatWorkspace() {
     assistantContext.projectId !== contextDraft.projectId ||
     assistantContext.environment !== contextDraft.environment;
 
-  const handleCreateChat = () => {
-    const id = `chat-${Date.now()}`;
-    const now = new Date().toISOString();
-    const newConversation: Conversation = {
-      id,
-      title: "New conversation",
-      createdAt: now,
-      scopeLabel: selectedProjectLabel,
-      environment: assistantContext.environment,
-    };
-    setConversations((prev) => [newConversation, ...prev]);
-    setConversationMessages((prev) => ({ ...prev, [id]: [] }));
-    setSelectedChatId(id);
+  const createConversation = async (): Promise<string | null> => {
+    if (assistantContext.projectId === "all") {
+      setError("Select a specific project before creating a conversation.");
+      return null;
+    }
+
+    try {
+      const response = await fetch("/api/ai/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: assistantContext.projectId,
+          environment: assistantContext.environment,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || "Could not create conversation.");
+      }
+
+      const payload = (await response.json()) as { item: AiConversationDto };
+      const created = mapConversationDto(payload.item, selectedProjectLabel);
+      const createdMessages = payload.item.messages.map(mapMessageDto);
+
+      setConversations((prev) => [created, ...prev.filter((conversation) => conversation.id !== created.id)].slice(0, 5));
+      setConversationMessages((prev) => ({ ...prev, [created.id]: createdMessages }));
+      setSelectedChatId(created.id);
+      setError(null);
+      return created.id;
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Could not create conversation.");
+      return null;
+    }
+  };
+
+  const handleCreateChat = async () => {
+    const createdId = await createConversation();
+    if (!createdId) return;
     setDraft("");
-    setError(null);
     promptRef.current?.focus();
   };
 
@@ -440,7 +647,18 @@ export function AiChatWorkspace() {
   const handleSend = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || !selectedChatId || isSending) return;
+    if (!content || isSending) return;
+    if (assistantContext.projectId === "all") {
+      setError("Select a specific project before sending a message.");
+      return;
+    }
+
+    let chatId = selectedChatId;
+    if (!chatId) {
+      const createdId = await createConversation();
+      if (!createdId) return;
+      chatId = createdId;
+    }
 
     setError(null);
     setDraft("");
@@ -448,43 +666,105 @@ export function AiChatWorkspace() {
 
     const now = new Date().toISOString();
 
-    appendMessage(selectedChatId, {
+    appendMessage(chatId, {
       id: `u-${Date.now()}`,
       role: "user",
       content,
       createdAt: now,
     });
 
-    setConversations((prev) =>
-      prev.map((conversation) =>
-        conversation.id === selectedChatId
+    setConversations((prev) => {
+      const updated = prev.map((conversation) =>
+        conversation.id === chatId
           ? {
               ...conversation,
               title: titleFromPrompt(content),
-              createdAt: now,
+              lastMessageAt: now,
+              updatedAt: now,
               scopeLabel: selectedProjectLabel,
               environment: assistantContext.environment,
             }
           : conversation,
-      ),
-    );
+      );
+
+      const selected = updated.find((conversation) => conversation.id === chatId);
+      const others = updated.filter((conversation) => conversation.id !== chatId);
+      return selected ? [selected, ...others].slice(0, 5) : updated;
+    });
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      if (content.toLowerCase().includes("error")) {
-        throw new Error("We could not generate a response right now.");
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: content,
+          projectId: assistantContext.projectId,
+          conversationId: chatId,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || "We could not generate a response right now.");
       }
 
-      appendMessage(selectedChatId, {
-        id: `a-${Date.now()}`,
+      if (!response.body) {
+        throw new Error("The AI response stream is empty.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let pending = "";
+      let assistantRawContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        pending += decoder.decode(value, { stream: true });
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data) as unknown;
+            const delta = extractAssistantDelta(parsed);
+            if (!delta) continue;
+            assistantRawContent = mergeAssistantChunk(assistantRawContent, delta);
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      const formattedContent = normalizeAssistantContent(assistantRawContent).trim();
+      const assistantContent =
+        formattedContent || "No assistant content was returned for this request.";
+      const assistantMetadata = normalizeAssistantMetadata(assistantRawContent);
+
+      appendMessage(chatId, {
+        id: `a-${Date.now() + 1}`,
         role: "assistant",
-        content: buildAssistantReply(content),
+        content: assistantContent,
+        metadata: assistantMetadata,
         createdAt: new Date().toISOString(),
       });
     } catch (sendError) {
-      setError(
-        sendError instanceof Error ? sendError.message : "We could not generate a response right now.",
-      );
+      const nextError =
+        sendError instanceof Error ? sendError.message : "We could not generate a response right now.";
+      setError(nextError);
+      appendMessage(chatId, {
+        id: `a-${Date.now() + 1}`,
+        role: "assistant",
+        content: "Error communicating with the assistant.",
+        metadata: null,
+        createdAt: new Date().toISOString(),
+      });
     } finally {
       setIsSending(false);
     }
@@ -546,8 +826,8 @@ export function AiChatWorkspace() {
         </div>
       </Card>
 
-      <div className="grid min-h-[calc(100vh-17rem)] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="flex min-h-[620px] flex-col bg-surface p-4 sm:p-5">
+      <div className="grid h-[calc(100dvh-17rem)] min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Card className="flex h-full min-h-0 flex-col bg-surface p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between border-b border-stroke pb-3">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700">
@@ -560,7 +840,7 @@ export function AiChatWorkspace() {
             </div>
           </div>
 
-          <div className="flex-1 space-y-5 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
             {selectedMessages.length === 0 ? (
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-xl border border-dashed border-stroke bg-surface-muted/60 px-6 text-center">
                 <div>
@@ -591,7 +871,11 @@ export function AiChatWorkspace() {
                           : "border border-stroke bg-surface-muted text-ink",
                       )}
                     >
-                      {message.content}
+                      {message.role === "assistant" ? (
+                        <MarkdownContent content={message.content} className="text-ink" />
+                      ) : (
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      )}
                     </div>
                     <div className="flex items-center justify-between px-1">
                       <p className="text-[11px] text-ink-soft">{formatTime(message.createdAt)}</p>
@@ -621,7 +905,7 @@ export function AiChatWorkspace() {
             ) : null}
           </div>
 
-          <form onSubmit={handleSend} className="mt-4 rounded-2xl border border-stroke bg-surface-elevated p-3 sm:p-4">
+          <form onSubmit={handleSend} className="mt-3 rounded-2xl border border-stroke bg-surface-elevated p-3">
             {error ? (
               <div className="mb-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-3 py-2 text-xs font-medium text-danger-600">
                 {error}
@@ -692,7 +976,7 @@ export function AiChatWorkspace() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Ask about test runs, bugs, suites, or attach evidence..."
-              rows={4}
+              rows={2}
               className="w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft"
             />
 
@@ -719,17 +1003,17 @@ export function AiChatWorkspace() {
               <Button
                 type="submit"
                 size="sm"
-                className="h-9 w-9 rounded-xl p-0"
+                className="h-9 w-9 rounded-xl p-0 text-white"
                 disabled={isSending || draft.trim().length === 0}
                 aria-label="Send message"
               >
-                <IconChevronUp className="h-4 w-4" />
+                <IconSend className="h-5 w-5 shrink-0 text-white fill-white stroke-white" />
               </Button>
             </div>
           </form>
         </Card>
 
-        <Card className="flex min-h-[620px] flex-col bg-surface p-4">
+        <Card className="flex h-full min-h-0 flex-col bg-surface p-4">
           <Button type="button" className="w-full" onClick={handleCreateChat}>
             <IconPlus className="h-4 w-4" />
             New conversation
@@ -746,7 +1030,7 @@ export function AiChatWorkspace() {
             />
           </div>
 
-          <div className="mt-5 flex-1 space-y-5 overflow-y-auto">
+          <div className="mt-5 min-h-0 flex-1 space-y-5 overflow-y-auto">
             <section>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">Quick actions</p>
               <div className="space-y-1.5">
@@ -773,7 +1057,7 @@ export function AiChatWorkspace() {
                 {groupedConversations.today.map((conversation) => {
                   const scopeLabel = conversation.scopeLabel ?? "All projects";
                   const environment = conversation.environment ?? "DEV";
-                  const relativeTime = formatRelativeTime(conversation.createdAt);
+                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
 
                   return (
                     <button
@@ -808,7 +1092,7 @@ export function AiChatWorkspace() {
                 {groupedConversations.yesterday.map((conversation) => {
                   const scopeLabel = conversation.scopeLabel ?? "All projects";
                   const environment = conversation.environment ?? "DEV";
-                  const relativeTime = formatRelativeTime(conversation.createdAt);
+                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
 
                   return (
                     <button
@@ -918,3 +1202,4 @@ export function AiChatWorkspace() {
     </section>
   );
 }
+

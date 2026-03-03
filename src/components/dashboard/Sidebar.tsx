@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
@@ -17,6 +18,7 @@ import {
 import { Badge } from "../ui/Badge";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
+import mLogo from "../../../media/m_logo.svg";
 
 type NavItem = {
   label: string;
@@ -144,13 +146,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       <div className="flex items-center gap-2 px-1 pb-3">
         <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-sm font-bold tracking-wide text-white shadow-soft-xs">
-            TM
-          </div>
-          <div className={`min-w-0 ${collapsed ? "hidden" : ""}`}>
-            <p className="truncate text-base font-semibold text-ink">Test Manager</p>
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Quality workspace</p>
-          </div>
+          <Image
+            src={mLogo}
+            alt="Test Manager"
+            className={collapsed ? "h-11 w-11 rounded-md object-contain" : "h-12 w-12 rounded-md object-contain"}
+            priority
+          />
+          {!collapsed ? (
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-ink">mtm</p>
+            </div>
+          ) : null}
         </Link>
       </div>
 
