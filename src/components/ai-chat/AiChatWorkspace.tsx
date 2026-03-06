@@ -1569,7 +1569,7 @@ export function AiChatWorkspace() {
         onClose={() => setContextModalOpen(false)}
         title="Change assistant context"
         description="Select workspace scope and environment for QA analysis."
-        size="md"
+        size="lg"
         closeOnEsc
         trapFocus
         initialFocusRef={workspaceSelectRef}
