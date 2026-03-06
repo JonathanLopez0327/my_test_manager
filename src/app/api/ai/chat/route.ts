@@ -38,7 +38,7 @@ function extractAssistantDelta(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
 
   const event = payload as Record<string, unknown>;
-  if (event.type === "AIMessageChunk") {
+  if (event.type === "AIMessageChunk" || event.type === "ai") {
     const content = event.content;
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {

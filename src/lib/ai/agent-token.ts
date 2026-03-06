@@ -221,6 +221,7 @@ async function createFreshAgentToken(
   const encrypted = encryptToken(generated.token);
   const expiresAt = new Date(Date.now() + ttlDays * DAY_MS);
   const revokedAt = new Date();
+  const secretTimestamp = new Date();
 
   await prisma.$transaction(async (tx) => {
     const txClient = tx as unknown as PrismaLike;
@@ -238,10 +239,16 @@ async function createFreshAgentToken(
 
     await tx.$executeRaw`
       INSERT INTO agent_token_secrets (
-        api_token_id, ciphertext, iv, auth_tag, key_version
+        api_token_id, ciphertext, iv, auth_tag, key_version, created_at, updated_at
       )
       VALUES (
-        ${created.id}, ${encrypted.ciphertext}, ${encrypted.iv}, ${encrypted.authTag}, ${encrypted.keyVersion}
+        ${created.id},
+        ${encrypted.ciphertext},
+        ${encrypted.iv},
+        ${encrypted.authTag},
+        ${encrypted.keyVersion},
+        ${secretTimestamp},
+        ${secretTimestamp}
       )
     `;
   });

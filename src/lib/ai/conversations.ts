@@ -98,6 +98,7 @@ export function mapConversationDto(
     createdAt: conversation.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString(),
     lastMessageAt: conversation.lastMessageAt.toISOString(),
+    threadId: conversation.threadId,
     messages: conversation.messages.map((message) => ({
       id: message.id,
       role: message.role,

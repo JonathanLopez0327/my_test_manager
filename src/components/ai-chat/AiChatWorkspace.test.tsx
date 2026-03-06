@@ -147,6 +147,17 @@ describe("AiChatWorkspace", () => {
         return makeSseResponse(["Hello world"]);
       }
 
+      if (url.includes("/api/ai-chat/threads/") && url.endsWith("/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-123/generated.pdf",
+            filename: "generated.pdf",
+          }),
+        } as Response;
+      }
+
       return {
         ok: false,
         json: async () => ({}),
@@ -290,6 +301,17 @@ describe("AiChatWorkspace", () => {
         return makeSseResponse(["Hello world"]);
       }
 
+      if (url.includes("/api/ai-chat/threads/") && url.endsWith("/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-123/generated.pdf",
+            filename: "generated.pdf",
+          }),
+        } as Response;
+      }
+
       return { ok: false, json: async () => ({}) } as Response;
     }) as jest.Mock;
 
@@ -369,6 +391,17 @@ describe("AiChatWorkspace", () => {
         return makeSseResponse(["Hello world"], "thread-123");
       }
 
+      if (url.includes("/api/ai-chat/threads/") && url.endsWith("/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-123/generated.pdf",
+            filename: "generated.pdf",
+          }),
+        } as Response;
+      }
+
       return { ok: false, json: async () => ({}) } as Response;
     }) as jest.Mock;
 
@@ -394,6 +427,94 @@ describe("AiChatWorkspace", () => {
       message: "First message",
       projectId: "proj-1",
       conversationId: "chat-1",
+    });
+  });
+
+  it("renders signed thread PDF preview with open and download actions", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/organizations")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "org-1", name: "Software Sushi", slug: "software-sushi", isActive: true, createdAt: "", updatedAt: "", _count: { members: 1, projects: 2 } }],
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/projects")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "proj-1", key: "WEB", name: "Web App" }],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs")) {
+        return { ok: true, json: async () => ({ total: 8 }) } as Response;
+      }
+
+      if (url.includes("/api/bugs/stats")) {
+        return { ok: true, json: async () => ({ byStatus: { open: 3 } }) } as Response;
+      }
+
+      if (url.includes("/api/ai/conversations?") && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [makeConversation("chat-1", "Generate test cases", 1)],
+            total: 1,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/ai/chat")) {
+        return makeSseResponse(["Documento generado."], "thread-abc");
+      }
+
+      if (url.includes("/api/ai-chat/threads/thread-abc/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-abc/generated.pdf",
+            filename: "generated.pdf",
+          }),
+        } as Response;
+      }
+
+      return { ok: false, json: async () => ({}) } as Response;
+    }) as jest.Mock;
+
+    render(<AiChatWorkspace />);
+    await waitForHydration();
+    await applyProjectContext("proj-1");
+    await waitFor(() => {
+      expect(screen.getByTestId("conversation-row-chat-1")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("conversation-row-chat-1"));
+
+    fireEvent.change(screen.getByLabelText("Prompt message"), {
+      target: { value: "Generate thread PDF" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Thread document")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Abrir en nueva pestaña" })).toHaveAttribute(
+        "href",
+        "http://localhost:9000/test-documents/thread-abc/generated.pdf",
+      );
+      expect(screen.getByRole("link", { name: "Descargar" })).toHaveAttribute(
+        "href",
+        "http://localhost:9000/test-documents/thread-abc/generated.pdf",
+      );
+      expect(screen.getByTitle("Thread generated PDF preview")).toBeInTheDocument();
     });
   });
 
@@ -446,6 +567,17 @@ describe("AiChatWorkspace", () => {
         ]);
       }
 
+      if (url.includes("/api/ai-chat/threads/") && url.endsWith("/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-123/generated.pdf",
+            filename: "generated.pdf",
+          }),
+        } as Response;
+      }
+
       return { ok: false, json: async () => ({}) } as Response;
     }) as jest.Mock;
 
@@ -473,6 +605,96 @@ describe("AiChatWorkspace", () => {
     });
   });
 
+
+  it("renders generated PDF documents when stream payload includes document_versions", async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/organizations")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "org-1", name: "Software Sushi", slug: "software-sushi", isActive: true, createdAt: "", updatedAt: "", _count: { members: 1, projects: 2 } }],
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/projects")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "proj-1", key: "WEB", name: "Web App" }],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs")) {
+        return { ok: true, json: async () => ({ total: 8 }) } as Response;
+      }
+
+      if (url.includes("/api/bugs/stats")) {
+        return { ok: true, json: async () => ({ byStatus: { open: 3 } }) } as Response;
+      }
+
+      if (url.includes("/api/ai/conversations?") && (!init?.method || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [makeConversation("chat-1", "Generate test cases", 1)],
+            total: 1,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/ai/chat")) {
+        return makeSseResponse([
+          '{"structured_response":{"markdown":"## Test Cases\\n\\nGenerated suite for login.","metadata":{"type":"test_cases","sources":[],"suggestions":[]}},"document_versions":[{"version":1,"url":"http://localhost:9000/test-documents/proj-1/testcases_v1.pdf","generated_at":"2026-03-05T12:00:00+00:00","test_case_count":5,"change_summary":"Version 1 generated"}]}'
+        ]);
+      }
+
+      if (url.includes("/api/ai-chat/threads/") && url.endsWith("/document")) {
+        return {
+          ok: true,
+          json: async () => ({
+            status: "ready",
+            url: "http://localhost:9000/test-documents/thread-123/generated.pdf",
+            filename: "generated-v2.pdf",
+          }),
+        } as Response;
+      }
+
+      return { ok: false, json: async () => ({}) } as Response;
+    }) as jest.Mock;
+
+    render(<AiChatWorkspace />);
+    await waitForHydration();
+    await applyProjectContext("proj-1");
+    await waitFor(() => {
+      expect(screen.getByTestId("conversation-row-chat-1")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("conversation-row-chat-1"));
+
+    fireEvent.change(screen.getByLabelText("Prompt message"), {
+      target: { value: "Generate test cases for login" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Generated documents")).toBeInTheDocument();
+      expect(screen.getByText("Version 1")).toBeInTheDocument();
+      expect(screen.getByText("5 test cases")).toBeInTheDocument();
+      expect(screen.getByText("Version 1 generated")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Open PDF" })).toHaveAttribute(
+        "href",
+        "http://localhost:9000/test-documents/proj-1/testcases_v1.pdf",
+      );
+      expect(screen.getByTitle("PDF preview Version 1")).toBeInTheDocument();
+    });
+  });
+
   const applyProjectContext = async (projectId: string) => {
     fireEvent.click(screen.getByRole("button", { name: "Change context" }));
     fireEvent.change(screen.getByRole("combobox", { name: /Project/i }), { target: { value: projectId } });
@@ -483,4 +705,5 @@ describe("AiChatWorkspace", () => {
     await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(4));
   };
 });
+
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   IconChevronRight,
@@ -34,11 +34,21 @@ type AssistantMessageMetadata = {
   [key: string]: unknown;
 };
 
+type AssistantDocumentVersion = {
+  version?: number;
+  url: string;
+  generatedAt?: string;
+  testCaseCount?: number;
+  changeSummary?: string;
+};
+
 type ChatMessage = {
   id: string;
   role: MessageRole;
   content: string;
   metadata?: AssistantMessageMetadata | null;
+  documentVersions?: AssistantDocumentVersion[];
+  threadId?: string | null;
   createdAt: string;
 };
 
@@ -50,6 +60,7 @@ type Conversation = {
   lastMessageAt: string;
   scopeLabel?: string;
   environment?: string;
+  threadId?: string | null;
 };
 
 type AssistantContext = {
@@ -91,8 +102,44 @@ type AttachmentItem = {
   type: string;
 };
 
+type ThreadDocumentApiResponse =
+  | {
+      status: "missing";
+    }
+  | {
+      status: "pending";
+    }
+  | {
+      status: "ready";
+      url: string;
+      filename: string;
+    };
+
+type ThreadDocumentState =
+  | {
+      status: "missing";
+    }
+  | {
+      status: "pending";
+    }
+  | {
+      status: "ready";
+      url: string;
+      filename: string;
+    }
+  | {
+      status: "timeout";
+      message: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
 const FALLBACK_WORKSPACE = "Software Sushi";
 const ENV_OPTIONS = ["DEV", "STAGING", "PROD"];
+const DOCUMENT_POLL_INTERVAL_MS = 2500;
+const DOCUMENT_POLL_MAX_ATTEMPTS = 12;
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
@@ -132,7 +179,7 @@ function extractAssistantDelta(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
 
   const event = payload as Record<string, unknown>;
-  if (event.type === "AIMessageChunk") {
+  if (event.type === "AIMessageChunk" || event.type === "ai") {
     const content = event.content;
     if (typeof content === "string") return content;
     if (Array.isArray(content)) {
@@ -190,19 +237,54 @@ function mergeAssistantChunk(current: string, incoming: string): string {
 
 function tryParseAssistantPayload(
   raw: string,
-): { markdown: string; metadata: AssistantMessageMetadata | null } | null {
-  const parseCandidate = (value: string): { markdown: string; metadata: AssistantMessageMetadata | null } | null => {
+): {
+  markdown: string;
+  metadata: AssistantMessageMetadata | null;
+  documentVersions: AssistantDocumentVersion[];
+} | null {
+  const parseCandidate = (
+    value: string,
+  ):
+    | {
+        markdown: string;
+        metadata: AssistantMessageMetadata | null;
+        documentVersions: AssistantDocumentVersion[];
+      }
+    | null => {
     try {
       const parsed = JSON.parse(value) as unknown;
       if (!parsed || typeof parsed !== "object") return null;
       const payload = parsed as Record<string, unknown>;
+
+      const normalizeDocumentVersions = (candidate: unknown): AssistantDocumentVersion[] => {
+        if (!Array.isArray(candidate)) return [];
+
+        return candidate.reduce<AssistantDocumentVersion[]>((acc, item) => {
+          if (!item || typeof item !== "object") return acc;
+          const value = item as Record<string, unknown>;
+          if (typeof value.url !== "string" || !value.url.trim()) return acc;
+
+          acc.push({
+            version: typeof value.version === "number" ? value.version : undefined,
+            url: value.url,
+            generatedAt: typeof value.generated_at === "string" ? value.generated_at : undefined,
+            testCaseCount: typeof value.test_case_count === "number" ? value.test_case_count : undefined,
+            changeSummary: typeof value.change_summary === "string" ? value.change_summary : undefined,
+          });
+          return acc;
+        }, []);
+      };
+
+      const documentVersions = normalizeDocumentVersions(payload.document_versions);
+
       if (typeof payload.markdown === "string") {
         const metadata =
           payload.metadata && typeof payload.metadata === "object"
             ? (payload.metadata as AssistantMessageMetadata)
             : null;
-        return { markdown: payload.markdown, metadata };
+        return { markdown: payload.markdown, metadata, documentVersions };
       }
+
       const structured = payload.structured_response;
       if (structured && typeof structured === "object") {
         const structuredPayload = structured as Record<string, unknown>;
@@ -211,9 +293,10 @@ function tryParseAssistantPayload(
             structuredPayload.metadata && typeof structuredPayload.metadata === "object"
               ? (structuredPayload.metadata as AssistantMessageMetadata)
               : null;
-          return { markdown: structuredPayload.markdown, metadata };
+          return { markdown: structuredPayload.markdown, metadata, documentVersions };
         }
       }
+
       return null;
     } catch {
       return null;
@@ -239,7 +322,6 @@ function tryParseAssistantPayload(
 
   return null;
 }
-
 function normalizeAssistantContent(raw: string): string {
   const content = raw.trim();
   if (!content) return raw;
@@ -261,6 +343,13 @@ function normalizeAssistantMetadata(raw: string): AssistantMessageMetadata | nul
   if (!content) return null;
   const parsed = tryParseAssistantPayload(content);
   return parsed?.metadata ?? null;
+}
+
+function normalizeAssistantDocumentVersions(raw: string): AssistantDocumentVersion[] {
+  const content = raw.trim();
+  if (!content) return [];
+  const parsed = tryParseAssistantPayload(content);
+  return parsed?.documentVersions ?? [];
 }
 
 function titleFromPrompt(prompt: string) {
@@ -301,13 +390,25 @@ function insertTemplate(currentDraft: string, template: string) {
   return `${base}\n${incoming}`;
 }
 
-function mapMessageDto(message: AiConversationMessageDto): ChatMessage {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function mapMessageDto(
+  message: AiConversationMessageDto,
+  threadId?: string | null,
+): ChatMessage {
   const parsedMetadata = message.role === "assistant" ? normalizeAssistantMetadata(message.content) : null;
+  const parsedDocuments =
+    message.role === "assistant" ? normalizeAssistantDocumentVersions(message.content) : [];
+
   return {
     id: message.id,
     role: message.role,
     content: message.role === "assistant" ? normalizeAssistantContent(message.content) : message.content,
     metadata: parsedMetadata,
+    documentVersions: parsedDocuments,
+    threadId: message.role === "assistant" ? threadId ?? null : null,
     createdAt: message.createdAt,
   };
 }
@@ -324,6 +425,7 @@ function mapConversationDto(
     lastMessageAt: conversation.lastMessageAt,
     scopeLabel,
     environment: conversation.environment,
+    threadId: conversation.threadId ?? null,
   };
 }
 
@@ -362,6 +464,19 @@ function groupConversationsByDate(conversations: Conversation[]) {
   );
 }
 
+function formatDocumentGeneratedAt(timestamp?: string): string | null {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 /**
  * QA Assistant workspace with chat thread, context controls, and SSE streaming responses.
  */
@@ -370,6 +485,9 @@ export function AiChatWorkspace() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const workspaceSelectRef = useRef<HTMLSelectElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
+  const pollingThreadsRef = useRef<Set<string>>(new Set());
+  const unmountedRef = useRef(false);
+  const checkedThreadsRef = useRef<Set<string>>(new Set());
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationMessages, setConversationMessages] = useState<Record<string, ChatMessage[]>>({});
@@ -379,6 +497,7 @@ export function AiChatWorkspace() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
+  const [threadDocuments, setThreadDocuments] = useState<Record<string, ThreadDocumentState>>({});
 
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([
@@ -411,6 +530,13 @@ export function AiChatWorkspace() {
       environment: assistantContext.environment,
     });
   }, [assistantContext]);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -520,7 +646,7 @@ export function AiChatWorkspace() {
           mapConversationDto(item, scopeLabel),
         );
         const nextMessages = payload.items.reduce<Record<string, ChatMessage[]>>((acc, item) => {
-          acc[item.id] = item.messages.map(mapMessageDto);
+          acc[item.id] = item.messages.map((message) => mapMessageDto(message, item.threadId));
           return acc;
         }, {});
 
@@ -560,6 +686,8 @@ export function AiChatWorkspace() {
   );
 
   const selectedMessages = conversationMessages[selectedChatId] ?? [];
+  const selectedConversation = conversations.find((conversation) => conversation.id === selectedChatId);
+  const selectedThreadId = selectedConversation?.threadId?.trim() || "";
 
   const selectedProjectLabel =
     projectOptions.find((project) => project.id === assistantContext.projectId)?.label ?? "All projects";
@@ -592,7 +720,9 @@ export function AiChatWorkspace() {
 
       const payload = (await response.json()) as { item: AiConversationDto };
       const created = mapConversationDto(payload.item, selectedProjectLabel);
-      const createdMessages = payload.item.messages.map(mapMessageDto);
+      const createdMessages = payload.item.messages.map((message) =>
+        mapMessageDto(message, payload.item.threadId),
+      );
 
       setConversations((prev) => [created, ...prev.filter((conversation) => conversation.id !== created.id)].slice(0, 5));
       setConversationMessages((prev) => ({ ...prev, [created.id]: createdMessages }));
@@ -642,6 +772,127 @@ export function AiChatWorkspace() {
 
   const removeAttachment = (attachmentId: string) => {
     setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+  };
+
+  /** Single fetch — used when switching conversations. */
+  const checkThreadDocument = useCallback(async (threadId: string) => {
+    if (!threadId || checkedThreadsRef.current.has(threadId)) return;
+    checkedThreadsRef.current.add(threadId);
+
+    try {
+      const response = await fetch(`/api/ai-chat/threads/${encodeURIComponent(threadId)}/document`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        if (!unmountedRef.current) {
+          setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "missing" } }));
+        }
+        return;
+      }
+
+      const payload = (await response.json()) as ThreadDocumentApiResponse;
+      if (!unmountedRef.current) {
+        if (payload.status === "ready") {
+          setThreadDocuments((prev) => ({
+            ...prev,
+            [threadId]: { status: "ready", url: payload.url, filename: payload.filename },
+          }));
+        } else if (payload.status === "pending") {
+          setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "pending" } }));
+        } else {
+          setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "missing" } }));
+        }
+      }
+    } catch {
+      if (!unmountedRef.current) {
+        setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "missing" } }));
+      }
+    }
+  }, []);
+
+  /** Full retry loop (12 × 2.5 s) — used after handleSend stream ends. */
+  const pollThreadDocumentUntilReady = useCallback(async (threadId: string) => {
+    if (!threadId) return;
+    if (pollingThreadsRef.current.has(threadId)) return;
+
+    pollingThreadsRef.current.add(threadId);
+    checkedThreadsRef.current.add(threadId);
+
+    // Show spinner immediately
+    if (!unmountedRef.current) {
+      setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "pending" } }));
+    }
+
+    let sawPending = false;
+    try {
+      for (let attempt = 0; attempt < DOCUMENT_POLL_MAX_ATTEMPTS; attempt += 1) {
+        if (unmountedRef.current) return;
+
+        const response = await fetch(`/api/ai-chat/threads/${encodeURIComponent(threadId)}/document`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          const errPayload = (await response.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(errPayload?.message || "No se pudo consultar el documento generado.");
+        }
+
+        const payload = (await response.json()) as ThreadDocumentApiResponse;
+
+        if (payload.status === "ready") {
+          if (!unmountedRef.current) {
+            setThreadDocuments((prev) => ({
+              ...prev,
+              [threadId]: { status: "ready", url: payload.url, filename: payload.filename },
+            }));
+          }
+          return;
+        }
+
+        if (payload.status === "missing") {
+          if (!unmountedRef.current) {
+            setThreadDocuments((prev) => ({ ...prev, [threadId]: { status: "missing" } }));
+          }
+          return;
+        }
+
+        sawPending = true;
+        if (attempt < DOCUMENT_POLL_MAX_ATTEMPTS - 1) {
+          await sleep(DOCUMENT_POLL_INTERVAL_MS);
+        }
+      }
+    } catch (pollError) {
+      if (!unmountedRef.current) {
+        setThreadDocuments((prev) => ({
+          ...prev,
+          [threadId]: {
+            status: "error",
+            message: pollError instanceof Error ? pollError.message : "No se pudo obtener el documento generado.",
+          },
+        }));
+      }
+      return;
+    } finally {
+      pollingThreadsRef.current.delete(threadId);
+    }
+
+    if (!unmountedRef.current && sawPending) {
+      setThreadDocuments((prev) => ({
+        ...prev,
+        [threadId]: {
+          status: "timeout",
+          message: "El documento aun no esta listo. Puedes reintentar en unos segundos.",
+        },
+      }));
+    }
+  }, []);
+
+  const handleSelectConversation = (conversationId: string) => {
+    setSelectedChatId(conversationId);
+    const conv = conversations.find((c) => c.id === conversationId);
+    const tid = conv?.threadId?.trim();
+    if (tid) void checkThreadDocument(tid);
   };
 
   const handleSend = async (event: FormEvent<HTMLFormElement>) => {
@@ -712,6 +963,17 @@ export function AiChatWorkspace() {
         throw new Error("The AI response stream is empty.");
       }
 
+      const activeThreadId = response.headers.get("X-Thread-Id")?.trim() || null;
+      if (activeThreadId) {
+        setConversations((prev) =>
+          prev.map((conversation) =>
+            conversation.id === chatId
+              ? { ...conversation, threadId: activeThreadId }
+              : conversation,
+          ),
+        );
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let pending = "";
@@ -746,14 +1008,21 @@ export function AiChatWorkspace() {
       const assistantContent =
         formattedContent || "No assistant content was returned for this request.";
       const assistantMetadata = normalizeAssistantMetadata(assistantRawContent);
+      const assistantDocumentVersions = normalizeAssistantDocumentVersions(assistantRawContent);
 
       appendMessage(chatId, {
         id: `a-${Date.now() + 1}`,
         role: "assistant",
         content: assistantContent,
         metadata: assistantMetadata,
+        documentVersions: assistantDocumentVersions,
+        threadId: activeThreadId,
         createdAt: new Date().toISOString(),
       });
+
+      if (activeThreadId) {
+        void pollThreadDocumentUntilReady(activeThreadId);
+      }
     } catch (sendError) {
       const nextError =
         sendError instanceof Error ? sendError.message : "We could not generate a response right now.";
@@ -763,6 +1032,8 @@ export function AiChatWorkspace() {
         role: "assistant",
         content: "Error communicating with the assistant.",
         metadata: null,
+        documentVersions: [],
+        threadId: null,
         createdAt: new Date().toISOString(),
       });
     } finally {
@@ -851,7 +1122,14 @@ export function AiChatWorkspace() {
                 </div>
               </div>
             ) : (
-              selectedMessages.map((message) => (
+              selectedMessages.map((message, index) => {
+                const isLatestAssistantMessage =
+                  message.role === "assistant" &&
+                  !selectedMessages.slice(index + 1).some((candidate) => candidate.role === "assistant");
+                const activeThreadId = message.threadId?.trim() || "";
+                const threadDocumentState = activeThreadId ? threadDocuments[activeThreadId] : undefined;
+
+                return (
                 <article
                   key={message.id}
                   className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
@@ -876,6 +1154,128 @@ export function AiChatWorkspace() {
                       ) : (
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
+
+                      {message.role === "assistant" && (message.documentVersions?.length ?? 0) > 0 ? (
+                        <section className="mt-3 space-y-2 rounded-xl border border-stroke bg-surface p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                            Generated documents
+                          </p>
+                          <div className="space-y-3">
+                            {message.documentVersions?.map((documentVersion, index) => {
+                              const generatedAtLabel = formatDocumentGeneratedAt(documentVersion.generatedAt);
+                              const versionLabel =
+                                typeof documentVersion.version === "number"
+                                  ? `Version ${documentVersion.version}`
+                                  : `Version ${index + 1}`;
+
+                              return (
+                                <article
+                                  key={`${documentVersion.url}-${index}`}
+                                  className="space-y-2 rounded-lg border border-stroke bg-surface-elevated p-2.5"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-xs font-semibold text-ink">{versionLabel}</p>
+                                      <p className="text-[11px] text-ink-soft">
+                                        {generatedAtLabel ? `Generated ${generatedAtLabel}` : "Generated document"}
+                                      </p>
+                                    </div>
+                                    <a
+                                      href={documentVersion.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
+                                    >
+                                      Open PDF
+                                    </a>
+                                  </div>
+                                  <iframe
+                                    src={documentVersion.url}
+                                    title={`PDF preview ${versionLabel}`}
+                                    className="h-72 w-full rounded-md border border-stroke bg-white"
+                                    loading="lazy"
+                                  />
+                                  <p className="text-[11px] text-ink-soft">
+                                    {typeof documentVersion.testCaseCount === "number"
+                                      ? `${documentVersion.testCaseCount} test cases`
+                                      : "Test case count unavailable"}
+                                  </p>
+                                  {documentVersion.changeSummary ? (
+                                    <p className="text-[11px] text-ink-muted">{documentVersion.changeSummary}</p>
+                                  ) : null}
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      ) : null}
+
+                      {isLatestAssistantMessage && activeThreadId && threadDocumentState != null && threadDocumentState.status !== "missing" ? (
+                        <section className="mt-3 space-y-2 rounded-xl border border-stroke bg-surface p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                            Thread document
+                          </p>
+                          {threadDocumentState?.status === "ready" ? (
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs font-semibold text-ink">{threadDocumentState.filename}</p>
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={threadDocumentState.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
+                                  >
+                                    Abrir en nueva pestaña
+                                  </a>
+                                  <a
+                                    href={threadDocumentState.url}
+                                    download={threadDocumentState.filename}
+                                    className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
+                                  >
+                                    Descargar
+                                  </a>
+                                </div>
+                              </div>
+                              <iframe
+                                src={threadDocumentState.url}
+                                title="Thread generated PDF preview"
+                                className="h-72 w-full rounded-md border border-stroke bg-white"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : null}
+                          {!threadDocumentState || threadDocumentState.status === "pending" ? (
+                            <p className="text-xs text-ink-muted">Generando documento...</p>
+                          ) : null}
+                          {threadDocumentState?.status === "timeout" ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-ink-muted">{threadDocumentState.message}</p>
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="secondary"
+                                onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
+                              >
+                                Reintentar
+                              </Button>
+                            </div>
+                          ) : null}
+                          {threadDocumentState?.status === "error" ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-danger-600">{threadDocumentState.message}</p>
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="secondary"
+                                onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
+                              >
+                                Reintentar
+                              </Button>
+                            </div>
+                          ) : null}
+                        </section>
+                      ) : null}
                     </div>
                     <div className="flex items-center justify-between px-1">
                       <p className="text-[11px] text-ink-soft">{formatTime(message.createdAt)}</p>
@@ -894,7 +1294,8 @@ export function AiChatWorkspace() {
                     </div>
                   </div>
                 </article>
-              ))
+                );
+              })
             )}
 
             {isSending ? (
@@ -1064,7 +1465,7 @@ export function AiChatWorkspace() {
                       key={conversation.id}
                       type="button"
                       data-testid={`conversation-row-${conversation.id}`}
-                      onClick={() => setSelectedChatId(conversation.id)}
+                      onClick={() => handleSelectConversation(conversation.id)}
                       className={cn(
                         "w-full rounded-lg border-l-2 px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                         selectedChatId === conversation.id
@@ -1099,7 +1500,7 @@ export function AiChatWorkspace() {
                       key={conversation.id}
                       type="button"
                       data-testid={`conversation-row-${conversation.id}`}
-                      onClick={() => setSelectedChatId(conversation.id)}
+                      onClick={() => handleSelectConversation(conversation.id)}
                       className={cn(
                         "w-full rounded-lg border-l-2 px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
                         selectedChatId === conversation.id
@@ -1202,4 +1603,3 @@ export function AiChatWorkspace() {
     </section>
   );
 }
-

@@ -12,6 +12,7 @@ export type AiConversationDto = {
   title: string;
   projectId: string;
   environment: string;
+  threadId?: string | null;
   createdAt: string;
   updatedAt: string;
   lastMessageAt: string;
