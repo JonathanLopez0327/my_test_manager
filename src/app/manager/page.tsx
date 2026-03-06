@@ -7,7 +7,6 @@ import { TrendChart } from "@/components/dashboard/TrendChart";
 import { BugSeverityChart } from "@/components/dashboard/BugSeverityChart";
 import { TestStatusChart } from "@/components/dashboard/TestStatusChart";
 import { SuiteCard } from "@/components/dashboard/SuiteCard";
-import { ManagerShell } from "@/components/manager/ManagerShell";
 import { IconAlert, IconBug, IconCheck, IconFolder, IconSpark } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import type { GlobalRole, OrgRole, Prisma } from "@/generated/prisma/client";
@@ -259,7 +258,7 @@ export default async function ManagerPage() {
     }));
 
   return (
-    <ManagerShell>
+    <>
       {!activeOrganizationId ? (
         <section className="mb-5 rounded-2xl border border-warning-500/25 bg-warning-500/10 px-5 py-4 text-warning-500">
           <p className="text-sm font-semibold">No hay una organización activa.</p>
@@ -320,6 +319,6 @@ export default async function ManagerPage() {
         <ActivityCard runs={runItems} passRate={pipelinePassRate} />
         <SuiteCard suites={topSuiteData} />
       </section>
-    </ManagerShell>
+    </>
   );
 }

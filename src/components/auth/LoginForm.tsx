@@ -2,11 +2,13 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import completeLogo from "../../../media/comple_logo.svg";
 
 export function LoginForm() {
   const router = useRouter();
@@ -44,6 +46,12 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-md rounded-2xl border border-stroke bg-surface-elevated p-8 shadow-soft">
       <div>
+        <Image
+          src={completeLogo}
+          alt="Test Manager"
+          className="h-10 w-auto object-contain"
+          priority
+        />
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
           Test Manager
         </p>

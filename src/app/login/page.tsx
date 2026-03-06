@@ -1,4 +1,6 @@
 import { LoginForm } from "@/components/auth/LoginForm";
+import Image from "next/image";
+import completeLogo from "../../../media/comple_logo.svg";
 
 export default function LoginPage() {
   return (
@@ -7,6 +9,12 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-accent-500/15 blur-3xl" />
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-12 lg:flex-row">
         <div className="max-w-lg">
+          <Image
+            src={completeLogo}
+            alt="Test Manager"
+            className="h-12 w-auto object-contain"
+            priority
+          />
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
             QA Command Center
           </p>
