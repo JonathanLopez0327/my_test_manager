@@ -3,12 +3,17 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
-  IconChevronRight,
+  IconChevronDown,
+  IconChevronUp,
   IconClipboard,
+  IconDocument,
+  IconDownload,
+  IconExternalLink,
   IconPlus,
   IconSearch,
   IconSend,
   IconSpark,
+  IconAlert,
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -498,6 +503,7 @@ export function AiChatWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [threadDocuments, setThreadDocuments] = useState<Record<string, ThreadDocumentState>>({});
+  const [pdfExpanded, setPdfExpanded] = useState(false);
 
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([
@@ -1073,22 +1079,7 @@ export function AiChatWorkspace() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft">CONTEXT</p>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Workspace: {assistantContext.workspace}
-            </Badge>
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
               Project: {selectedProjectLabel}
-            </Badge>
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Env: {assistantContext.environment}
-            </Badge>
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Projects: {assistantContext.stats.projects}
-            </Badge>
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Runs: {assistantContext.stats.runs}
-            </Badge>
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Open Bugs: {assistantContext.stats.openBugs}
             </Badge>
             <Button size="xs" variant="secondary" onClick={() => setContextModalOpen(true)}>
               Change context
@@ -1211,67 +1202,129 @@ export function AiChatWorkspace() {
                       ) : null}
 
                       {isLatestAssistantMessage && activeThreadId && threadDocumentState != null && threadDocumentState.status !== "missing" ? (
-                        <section className="mt-3 space-y-2 rounded-xl border border-stroke bg-surface p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-                            Thread document
-                          </p>
+                        <section className="mt-3 overflow-hidden rounded-xl border border-stroke shadow-[var(--shadow-soft-xs)]">
+                          {/* Ready state */}
                           {threadDocumentState?.status === "ready" ? (
-                            <div className="space-y-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-xs font-semibold text-ink">{threadDocumentState.filename}</p>
-                                <div className="flex items-center gap-2">
-                                  <a
-                                    href={threadDocumentState.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
+                            <div className="border-l-4 border-l-brand-500 bg-surface-elevated">
+                              <div className="space-y-3 p-4">
+                                {/* Header row */}
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <IconDocument className="h-4 w-4 shrink-0 text-brand-600" />
+                                    <span className="text-sm font-semibold text-ink">{threadDocumentState.filename}</span>
+                                    <Badge tone="info" className="px-2 py-0.5 text-[10px]">PDF</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <a
+                                      href={threadDocumentState.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35 h-8"
+                                    >
+                                      <IconExternalLink className="h-3.5 w-3.5" />
+                                      Abrir
+                                    </a>
+                                    <a
+                                      href={threadDocumentState.url}
+                                      download={threadDocumentState.filename}
+                                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35 h-8"
+                                    >
+                                      <IconDownload className="h-3.5 w-3.5" />
+                                      Descargar
+                                    </a>
+                                  </div>
+                                </div>
+                                {/* PDF iframe preview */}
+                                <iframe
+                                  src={threadDocumentState.url}
+                                  title="Thread generated PDF preview"
+                                  className={cn(
+                                    "w-full rounded-lg border border-stroke bg-white transition-[height] duration-300",
+                                    pdfExpanded ? "h-[32rem]" : "h-72"
+                                  )}
+                                  loading="lazy"
+                                />
+                                {/* Expand / Collapse toggle */}
+                                <div className="flex justify-center">
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    onClick={() => setPdfExpanded((v) => !v)}
+                                    className="gap-1 text-[11px] text-ink-muted"
                                   >
-                                    Abrir en nueva pestaña
-                                  </a>
-                                  <a
-                                    href={threadDocumentState.url}
-                                    download={threadDocumentState.filename}
-                                    className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
-                                  >
-                                    Descargar
-                                  </a>
+                                    {pdfExpanded ? (
+                                      <>
+                                        <IconChevronUp className="h-3 w-3" />
+                                        Colapsar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <IconChevronDown className="h-3 w-3" />
+                                        Expandir
+                                      </>
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
-                              <iframe
-                                src={threadDocumentState.url}
-                                title="Thread generated PDF preview"
-                                className="h-72 w-full rounded-md border border-stroke bg-white"
-                                loading="lazy"
-                              />
                             </div>
                           ) : null}
+
+                          {/* Pending state — skeleton loader */}
                           {!threadDocumentState || threadDocumentState.status === "pending" ? (
-                            <p className="text-xs text-ink-muted">Generando documento...</p>
-                          ) : null}
-                          {threadDocumentState?.status === "timeout" ? (
-                            <div className="space-y-2">
-                              <p className="text-xs text-ink-muted">{threadDocumentState.message}</p>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="secondary"
-                                onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                              >
-                                Reintentar
-                              </Button>
+                            <div className="border-l-4 border-l-brand-500 bg-surface-elevated p-4">
+                              <div className="animate-pulse space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-4 w-4 rounded bg-surface-muted" />
+                                  <div className="h-4 w-32 rounded bg-surface-muted" />
+                                  <div className="h-4 w-10 rounded-full bg-surface-muted" />
+                                </div>
+                                <div className="h-48 w-full rounded-lg bg-surface-muted" />
+                              </div>
+                              <div className="mt-3 flex items-center gap-2">
+                                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                                <span className="text-xs text-ink-muted">Generando documento...</span>
+                              </div>
                             </div>
                           ) : null}
+
+                          {/* Timeout state */}
+                          {threadDocumentState?.status === "timeout" ? (
+                            <div className="border-l-4 border-l-warning-500 bg-surface-elevated p-4">
+                              <div className="flex items-start gap-2">
+                                <IconAlert className="h-4 w-4 shrink-0 text-warning-500" />
+                                <div className="space-y-2">
+                                  <p className="text-xs text-ink-muted">{threadDocumentState.message}</p>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="secondary"
+                                    onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
+                                  >
+                                    Reintentar
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Error state */}
                           {threadDocumentState?.status === "error" ? (
-                            <div className="space-y-2">
-                              <p className="text-xs text-danger-600">{threadDocumentState.message}</p>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="secondary"
-                                onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                              >
-                                Reintentar
-                              </Button>
+                            <div className="border-l-4 border-l-danger-500 bg-surface-elevated p-4">
+                              <div className="flex items-start gap-2">
+                                <IconAlert className="h-4 w-4 shrink-0 text-danger-500" />
+                                <div className="space-y-2">
+                                  <p className="text-xs text-danger-600">{threadDocumentState.message}</p>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="secondary"
+                                    onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
+                                  >
+                                    Reintentar
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           ) : null}
                         </section>
@@ -1432,26 +1485,6 @@ export function AiChatWorkspace() {
           </div>
 
           <div className="mt-5 min-h-0 flex-1 space-y-5 overflow-y-auto">
-            <section>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">Quick actions</p>
-              <div className="space-y-1.5">
-                {QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={`quick-${action.id}`}
-                    type="button"
-                    onClick={() => insertTemplateIntoDraft(action.template)}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
-                    <span className="flex-1 truncate">{action.label}</span>
-                    <IconChevronRight className="h-3.5 w-3.5 text-ink-soft" />
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <div className="border-t border-stroke pt-4" />
-
             <section>
               <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">Today</p>
               <div className="space-y-2">

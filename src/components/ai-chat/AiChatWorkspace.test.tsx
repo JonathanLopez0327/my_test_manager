@@ -179,7 +179,7 @@ describe("AiChatWorkspace", () => {
     jest.clearAllMocks();
   });
 
-  it("renders QA header/subtitle and context chips", async () => {
+  it("renders QA header/subtitle and project context", async () => {
     render(<AiChatWorkspace />);
 
     expect(screen.getByRole("heading", { name: "QA Assistant" })).toBeInTheDocument();
@@ -188,9 +188,7 @@ describe("AiChatWorkspace", () => {
     ).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("Workspace: Software Sushi")).toBeInTheDocument();
-      expect(screen.getByText("Runs: 8")).toBeInTheDocument();
-      expect(screen.getByText("Open Bugs: 3")).toBeInTheDocument();
+      expect(screen.getByText("Project: All projects")).toBeInTheDocument();
     });
   });
 

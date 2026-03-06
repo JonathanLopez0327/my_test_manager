@@ -23,6 +23,9 @@ import {
   Squares2X2Icon,
   TrashIcon,
   UserGroupIcon,
+  DocumentTextIcon,
+  ArrowDownTrayIcon,
+  ArrowTopRightOnSquareIcon,
 } from "@heroicons/react/24/outline";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
@@ -51,3 +54,6 @@ export const IconChevronUpDown = ChevronUpDownIcon;
 export const IconBug = BugAntIcon;
 export const IconMenu = Bars3Icon;
 export const IconSend = PaperAirplaneIcon;
+export const IconDocument = DocumentTextIcon;
+export const IconDownload = ArrowDownTrayIcon;
+export const IconExternalLink = ArrowTopRightOnSquareIcon;
