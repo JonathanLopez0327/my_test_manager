@@ -58,12 +58,15 @@ export function ViewContext() {
   }, [activeOrgId]);
 
   return (
-    <nav className="mb-4 flex items-center justify-end gap-1 py-1" aria-label="Breadcrumb">
-      <span className="text-sm font-medium text-ink-muted">
+    <nav
+      className="hidden items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs md:flex"
+      aria-label="Breadcrumb"
+    >
+      <span className="font-medium text-ink-muted dark:text-[#A7B0C5]">
         {orgName ?? "Sin organizacion"}
       </span>
-      <span className="text-sm text-ink-muted/50">/</span>
-      <span className="text-sm font-medium text-brand-400">
+      <span className="text-ink-muted/50 dark:text-[#7D879C]">/</span>
+      <span className="font-semibold text-ink dark:text-white">
         {sectionLabel}
       </span>
     </nav>

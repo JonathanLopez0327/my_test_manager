@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "../dashboard/Sidebar";
 import { Topbar } from "../dashboard/Topbar";
-import { ViewContext } from "../dashboard/ViewContext";
 import { WorkspaceShell } from "../ui/WorkspaceShell";
 
 type ManagerShellProps = {
@@ -40,7 +39,6 @@ export function ManagerShell({ children }: ManagerShellProps) {
         <Topbar onToggleSidebar={() => setCollapsed((prev) => !prev)} />
         <main className="flex-1 overflow-y-auto">
           <WorkspaceShell variant={variant}>
-            <ViewContext />
             {children}
           </WorkspaceShell>
         </main>

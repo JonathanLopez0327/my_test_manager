@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react";
 import { IconChevronDown, IconMenu } from "../icons";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { ViewContext } from "./ViewContext";
 import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
 import type { OrganizationRecord } from "../organizations/types";
 import { usePermissions } from "@/lib/auth/use-can";
@@ -36,7 +37,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-stroke bg-surface px-4 dark:bg-surface sm:px-6">
-      {/* Left side: toggle + org switcher */}
+      {/* Left side: toggle + org switcher + context */}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -52,10 +53,12 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             onCreateOrg={() => setCreateOrgOpen(true)}
           />
         )}
+
+        <ViewContext />
       </div>
 
       {/* Right side: theme + user menu */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <ThemeToggle />
 
         <div className="relative">

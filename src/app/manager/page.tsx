@@ -4,10 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityCard } from "@/components/dashboard/ActivityCard";
 import { TrendChart } from "@/components/dashboard/TrendChart";
-import { BugSeverityChart } from "@/components/dashboard/BugSeverityChart";
 import { TestStatusChart } from "@/components/dashboard/TestStatusChart";
-import { SuiteCard } from "@/components/dashboard/SuiteCard";
-import { IconAlert, IconBug, IconCheck, IconFolder, IconSpark } from "@/components/icons";
+import { IconBug, IconCheck, IconFolder } from "@/components/icons";
 import { prisma } from "@/lib/prisma";
 import type { GlobalRole, OrgRole, Prisma } from "@/generated/prisma/client";
 import { canSync } from "@/lib/auth/can-sync";
@@ -58,10 +56,6 @@ export default async function ManagerPage() {
     ? { run: { project: { organizationId: activeOrganizationId } } }
     : {};
 
-  const testCaseOrgFilter: Prisma.TestCaseWhereInput = activeOrganizationId
-    ? { suite: { testPlan: { project: { organizationId: activeOrganizationId } } } }
-    : {};
-
   const bugOrgFilter: Prisma.BugWhereInput = activeOrganizationId
     ? { project: { organizationId: activeOrganizationId } }
     : {};
@@ -71,8 +65,6 @@ export default async function ManagerPage() {
     activeProjects,
     executedCases,
     failedCases,
-    totalCases,
-    automatedCases,
     openBugs,
     criticalBugs,
   ] = await prisma.$transaction([
@@ -83,8 +75,6 @@ export default async function ManagerPage() {
     prisma.testRunItem.count({
       where: { status: "failed", ...runItemOrgFilter },
     }),
-    prisma.testCase.count({ where: testCaseOrgFilter }),
-    prisma.testCase.count({ where: { isAutomated: true, ...testCaseOrgFilter } }),
     prisma.bug.count({
       where: { status: "open", ...bugOrgFilter },
     }),
@@ -96,9 +86,6 @@ export default async function ManagerPage() {
       },
     }),
   ]);
-
-  const automationRate =
-    totalCases > 0 ? Math.round((automatedCases / totalCases) * 100) : 0;
 
   // ── Trend data (last 7 days) ──────────────────────────────
   const sevenDaysAgo = new Date();
@@ -135,37 +122,6 @@ export default async function ManagerPage() {
     day: dayNames[new Date(dateStr).getUTCDay()],
     ...counts,
   }));
-
-  // ── Bug severity distribution ─────────────────────────────
-  const bugsBySeverity = await prisma.bug.groupBy({
-    by: ["severity"],
-    where: { status: { notIn: ["closed", "verified"] }, ...bugOrgFilter },
-    _count: true,
-  });
-
-  const severityColors: Record<string, string> = {
-    critical: "#DC2626",
-    high: "#F97316",
-    medium: "#EAB308",
-    low: "#22C55E",
-  };
-  const severityLabels: Record<string, string> = {
-    critical: "Crítico",
-    high: "Alto",
-    medium: "Medio",
-    low: "Bajo",
-  };
-
-  const bugSeverityData = ["critical", "high", "medium", "low"].map((sev) => {
-    const found = bugsBySeverity.find((b) => b.severity === sev);
-    return {
-      name: severityLabels[sev] ?? sev,
-      value: found?._count ?? 0,
-      color: severityColors[sev] ?? "#94A3B8",
-    };
-  }).filter((d) => d.value > 0);
-
-  const totalBugsSeverity = bugSeverityData.reduce((sum, d) => sum + d.value, 0);
 
   // ── Test result distribution ──────────────────────────────
   const resultsByStatus = await prisma.testRunItem.groupBy({
@@ -223,40 +179,6 @@ export default async function ManagerPage() {
   const totalExecuted = executedCases || 1;
   const pipelinePassRate = Math.round(((totalExecuted - failedCases) / totalExecuted) * 100);
 
-  // ── Top suites ────────────────────────────────────────────
-  const topSuites = await prisma.testRunItem.groupBy({
-    by: ["testCaseId"],
-    where: { status: { not: "not_run" }, ...runItemOrgFilter },
-    _count: true,
-    orderBy: { _count: { testCaseId: "desc" } },
-    take: 20,
-  });
-
-  // resolve suite names from testCaseIds
-  const caseIds = topSuites.map((s) => s.testCaseId);
-  const casesWithSuites = caseIds.length > 0
-    ? await prisma.testCase.findMany({
-      where: { id: { in: caseIds } },
-      select: { id: true, suite: { select: { name: true } } },
-    })
-    : [];
-
-  const suiteCountMap = new Map<string, number>();
-  for (const ts of topSuites) {
-    const tc = casesWithSuites.find((c) => c.id === ts.testCaseId);
-    const suiteName = tc?.suite?.name ?? "Sin suite";
-    suiteCountMap.set(suiteName, (suiteCountMap.get(suiteName) ?? 0) + ts._count);
-  }
-
-  const topSuiteData = Array.from(suiteCountMap.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, count]) => ({
-      name,
-      cases: count,
-      trend: `${count}`,
-    }));
-
   return (
     <>
       {!activeOrganizationId ? (
@@ -269,7 +191,7 @@ export default async function ManagerPage() {
       ) : null}
 
       {/* ── Stat cards ─────────────────────────────────────── */}
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
           title="Proyectos activos"
           value={formatCount(activeProjects)}
@@ -285,18 +207,11 @@ export default async function ManagerPage() {
           accent="bg-success-500/10 text-success-500"
         />
         <StatCard
-          title="Fallos"
-          value={formatCount(failedCases)}
-          change="Total histórico"
-          icon={<IconAlert className="h-6 w-6 text-danger-500" />}
-          accent="bg-danger-100 text-danger-500"
-        />
-        <StatCard
-          title="Automatización"
-          value={`${automationRate}%`}
-          change={`Automatizados: ${formatCount(automatedCases)} / ${formatCount(totalCases)}`}
-          icon={<IconSpark className="h-6 w-6 text-accent-600" />}
-          accent="bg-brand-50 text-accent-600"
+          title="Salud de pipeline"
+          value={`${pipelinePassRate}%`}
+          change={`Fallidos: ${formatCount(failedCases)} / Ejecutados: ${formatCount(executedCases)}`}
+          icon={<IconCheck className="h-6 w-6 text-brand-700" />}
+          accent="bg-brand-50 text-brand-700"
         />
         <StatCard
           title="Bugs abiertos"
@@ -308,16 +223,14 @@ export default async function ManagerPage() {
       </section>
 
       {/* ── Charts row ─────────────────────────────────────── */}
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1.4fr_0.8fr_0.8fr]">
+      <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_1fr]">
         <TrendChart data={trendData} />
-        <BugSeverityChart data={bugSeverityData} total={totalBugsSeverity} />
         <TestStatusChart data={testStatusData} total={totalResultItems} />
       </section>
 
-      {/* ── Detail row ─────────────────────────────────────── */}
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1fr_1fr]">
+      {/* ── Operational row ─────────────────────────────────── */}
+      <section className="mt-6">
         <ActivityCard runs={runItems} passRate={pipelinePassRate} />
-        <SuiteCard suites={topSuiteData} />
       </section>
     </>
   );

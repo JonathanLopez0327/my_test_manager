@@ -282,7 +282,7 @@ function SidebarContent({
 
   return (
     <aside
-      className={`flex h-screen flex-col border-r border-stroke bg-surface px-3 py-4 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[74px]" : "w-[276px]"
+      className={`flex h-screen flex-col overflow-hidden rounded-br-2xl border-r border-stroke bg-surface px-3 py-4 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[74px]" : "w-[276px]"
         }`}
     >
       <div className="flex items-center gap-2 px-1 pb-3">
