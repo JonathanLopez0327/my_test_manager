@@ -2,13 +2,11 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
-import completeLogo from "../../../media/comple_logo.svg";
 
 export function LoginForm() {
   const router = useRouter();
@@ -44,23 +42,35 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-stroke bg-surface-elevated p-8 shadow-soft">
+    <div className="w-full max-w-md">
       <div>
-        <Image
-          src={completeLogo}
-          alt="Test Manager"
-          className="h-10 w-auto object-contain"
-          priority
-        />
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Test Manager
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold text-ink">
-          Bienvenido
-        </h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Inicia sesion para revisar ejecuciones y gestionar pruebas.
-        </p>
+        <h1 className="text-5xl font-semibold text-ink">Sign In</h1>
+        <p className="mt-2 text-base text-ink-muted">Enter your email and password to sign in!</p>
+      </div>
+
+      <div className="mt-8 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
+          aria-label="Sign in with Google"
+        >
+          <span aria-hidden="true">G</span>
+          Sign in with Google
+        </button>
+        <button
+          type="button"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
+          aria-label="Sign in with X"
+        >
+          <span aria-hidden="true">X</span>
+          Sign in with X
+        </button>
+      </div>
+
+      <div className="my-7 flex items-center gap-4">
+        <div className="h-px flex-1 bg-stroke" />
+        <span className="text-sm font-medium text-ink-soft">Or</span>
+        <div className="h-px flex-1 bg-stroke" />
       </div>
 
       <form className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -68,8 +78,8 @@ export function LoginForm() {
           type="email"
           name="email"
           autoComplete="email"
-          label="Correo"
-          placeholder="qa.lead@product.io"
+          label="Email *"
+          placeholder="info@gmail.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
@@ -77,34 +87,36 @@ export function LoginForm() {
           type="password"
           name="password"
           autoComplete="current-password"
-          label="Contrasena"
-          placeholder="********"
+          label="Password *"
+          placeholder="Enter your password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <div className="flex items-center justify-between text-xs text-ink-muted">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" className="h-4 w-4 accent-brand-600" aria-label="Recordarme" />
-            Recordarme
+        <div className="mt-1 flex items-center justify-between text-sm">
+          <label className="inline-flex items-center gap-2 text-ink">
+            <input type="checkbox" className="h-4 w-4 rounded border-stroke accent-brand-600" />
+            Keep me logged in
           </label>
-          <button type="button" className="font-semibold text-brand-700 hover:text-brand-600">
-            Olvide mi acceso
+          <button type="button" className="font-medium text-brand-600 hover:text-brand-700">
+            Forgot password?
           </button>
         </div>
         {error ? (
-          <p className="text-xs font-semibold text-danger-500">{error}</p>
+          <p className="text-xs font-semibold text-danger-500" aria-live="polite">
+            {error}
+          </p>
         ) : null}
-        <Button className="mt-2" disabled={isSubmitting}>
-          {isSubmitting ? "Ingresando..." : "Ingresar"}
+        <Button className="mt-2 h-12 rounded-xl text-base" disabled={isSubmitting}>
+          {isSubmitting ? "Signing in..." : "Sign in"}
         </Button>
       </form>
 
-      <div className="mt-8 rounded-lg border border-stroke bg-brand-50/60 px-5 py-4 text-xs text-ink-muted">
-        <p className="font-semibold text-ink">Acceso seguro activo</p>
-        <p className="mt-2">
-          El inicio de sesion esta integrado con NextAuth para cada organizacion.
-        </p>
-      </div>
+      <p className="mt-6 text-sm text-ink">
+        Don&apos;t have an account?{" "}
+        <button type="button" className="font-medium text-brand-600 hover:text-brand-700">
+          Sign Up
+        </button>
+      </p>
     </div>
   );
 }
