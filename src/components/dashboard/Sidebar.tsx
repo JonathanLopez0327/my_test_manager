@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState, type ComponentType } from "react";
@@ -14,9 +13,9 @@ import {
   IconSpark,
 } from "../icons";
 import { Badge } from "../ui/Badge";
+import { BrandLogo } from "../ui/BrandLogo";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
-import mLogo from "../../../media/m_logo.svg";
 
 type NavItem = {
   type: "item";
@@ -196,14 +195,19 @@ function SidebarContent({
   const visibleSections = useMemo(() => {
     return navSections
       .map((section) => {
-        const visibleNodes = section.nodes.flatMap((node) => {
+        const visibleNodes = section.nodes.reduce<NavNode[]>((acc, node) => {
           if (node.type === "item") {
-            return can(node.permission) ? [node] : [];
+            if (can(node.permission)) acc.push(node);
+            return acc;
           }
+
           const children = node.children.filter((child) => can(child.permission));
-          if (children.length === 0) return [];
-          return [{ ...node, children }];
-        });
+          if (children.length > 0) {
+            acc.push({ ...node, children });
+          }
+
+          return acc;
+        }, []);
         return { ...section, nodes: visibleNodes };
       })
       .filter((section) => section.nodes.length > 0);
@@ -287,10 +291,9 @@ function SidebarContent({
     >
       <div className="flex items-center gap-2 px-1 pb-3">
         <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-          <Image
-            src={mLogo}
-            alt="Test Manager"
-            className={collapsed ? "h-11 w-11 rounded-md object-contain" : "h-12 w-12 rounded-md object-contain"}
+          <BrandLogo
+            variant={collapsed ? "icon" : "full"}
+            className={collapsed ? "h-11 w-11 rounded-md object-contain" : "h-12 w-auto object-contain"}
             priority
           />
           {!collapsed ? (

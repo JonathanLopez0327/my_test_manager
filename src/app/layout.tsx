@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Test Manager",
   description: "Test management dashboard",
+  icons: {
+    icon: "/brand/icon_logo.png",
+    apple: "/brand/icon_logo.png",
+  },
 };
 
 export default function RootLayout({

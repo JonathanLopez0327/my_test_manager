@@ -1,6 +1,5 @@
 import { LoginForm } from "@/components/auth/LoginForm";
-import Image from "next/image";
-import completeLogo from "../../../media/comple_logo.svg";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export default function LoginPage() {
   return (
@@ -20,12 +19,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 px-10 py-12 text-center backdrop-blur-sm">
-          <Image
-            src={completeLogo}
-            alt="Test Manager"
-            className="h-14 w-auto object-contain brightness-0 invert"
-            priority
-          />
+          <BrandLogo variant="full" className="h-14 w-auto object-contain" priority />
           <h2 className="text-3xl font-semibold tracking-tight text-white">
             Test Manager
           </h2>
