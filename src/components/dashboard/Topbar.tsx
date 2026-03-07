@@ -35,13 +35,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   };
 
   return (
-    <header className="flex h-11 items-center justify-between border-b border-stroke bg-surface-elevated px-4 dark:bg-surface sm:px-6">
+    <header className="flex h-12 items-center justify-between border-b border-stroke bg-surface px-4 dark:bg-surface sm:px-6">
       {/* Left side: toggle + org switcher */}
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors duration-200 hover:bg-surface-muted hover:text-ink"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-muted transition-colors duration-200 hover:bg-surface-muted hover:text-ink"
           aria-label="Toggle sidebar"
         >
           <IconMenu className="h-4 w-4" />
@@ -64,7 +64,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             onClick={() => setMenuOpen((open) => !open)}
             className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors duration-200 hover:bg-surface-muted"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-[10px] font-semibold text-white">
               {initials}
             </div>
             <span className="hidden text-sm font-medium text-ink sm:inline">

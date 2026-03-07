@@ -282,28 +282,28 @@ export default async function ManagerPage() {
           value={formatCount(executedCases)}
           change="Total histórico"
           icon={<IconCheck className="h-6 w-6 text-success-500" />}
-          accent="bg-[#ECFDF5] text-success-500"
+          accent="bg-success-500/10 text-success-500"
         />
         <StatCard
           title="Fallos"
           value={formatCount(failedCases)}
           change="Total histórico"
           icon={<IconAlert className="h-6 w-6 text-danger-500" />}
-          accent="bg-[#FEF2F2] text-danger-500"
+          accent="bg-danger-100 text-danger-500"
         />
         <StatCard
           title="Automatización"
           value={`${automationRate}%`}
           change={`Automatizados: ${formatCount(automatedCases)} / ${formatCount(totalCases)}`}
           icon={<IconSpark className="h-6 w-6 text-accent-600" />}
-          accent="bg-[#EFF6FF] text-accent-600"
+          accent="bg-brand-50 text-accent-600"
         />
         <StatCard
           title="Bugs abiertos"
           value={formatCount(openBugs)}
           change={`${criticalBugs} críticos`}
           icon={<IconBug className="h-6 w-6 text-danger-500" />}
-          accent="bg-[#FEF2F2] text-danger-500"
+          accent="bg-danger-100 text-danger-500"
         />
       </section>
 

@@ -3,48 +3,48 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #F3F4F6;
-  --foreground: #111827;
+  --background: #F6F7FB;
+  --foreground: #131A2A;
   --surface: #FFFFFF;
-  --surface-muted: #EEF2F7;
-  --surface-elevated: #FFFFFF;
-  --stroke: #E5E7EB;
-  --stroke-strong: #D7DEEA;
-  --brand-50: #EAF2FB;
-  --brand-100: #DCE9F8;
-  --brand-300: rgba(37, 103, 175, 0.38);
-  --brand-500: #2567AF;
-  --brand-600: #1E4F9C;
-  --brand-700: #232B7A;
-  --accent-500: #2ABBCF;
-  --accent-600: #0990C0;
+  --surface-muted: #F1F3FA;
+  --surface-elevated: #FCFCFF;
+  --stroke: #E5E9F3;
+  --stroke-strong: #D9DEEC;
+  --brand-50: #F0EEFF;
+  --brand-100: #E4E0FF;
+  --brand-300: rgba(109, 89, 255, 0.36);
+  --brand-500: #6D59FF;
+  --brand-600: #5B48EE;
+  --brand-700: #4A3AD0;
+  --accent-500: #5AA8FF;
+  --accent-600: #3F8EF8;
   --success-500: #059669;
   --warning-500: #D97706;
-  --danger-100: #FEF2F2;
+  --danger-100: #FFF1F1;
   --danger-500: #DC2626;
   --danger-600: #C42020;
   --danger-700: #A71B1B;
-  --ink: #111827;
-  --ink-muted: #6B7280;
-  --ink-soft: #9CA3AF;
-  --focus-ring: rgba(37, 103, 175, 0.4);
+  --ink: #1A2338;
+  --ink-muted: #5F6B85;
+  --ink-soft: #8A93A9;
+  --focus-ring: rgba(109, 89, 255, 0.35);
 }
 
 .dark {
-  --background: #020d1a;
-  --foreground: #d1d5db;
-  --surface: #122031;
-  --surface-muted: #1F2A37;
-  --surface-elevated: #1F2A37;
-  --stroke: #27303E;
-  --stroke-strong: #374151;
-  --brand-50: rgba(37, 103, 175, 0.16);
-  --brand-100: rgba(37, 103, 175, 0.24);
-  --brand-300: rgba(37, 103, 175, 0.42);
-  --ink: #FFFFFF;
-  --ink-muted: #9CA3AF;
-  --ink-soft: #6B7280;
-  --focus-ring: rgba(42, 187, 207, 0.5);
+  --background: #0E1220;
+  --foreground: #DCE2F2;
+  --surface: #131A2D;
+  --surface-muted: #1A2238;
+  --surface-elevated: #161F33;
+  --stroke: #252F46;
+  --stroke-strong: #34405C;
+  --brand-50: rgba(109, 89, 255, 0.14);
+  --brand-100: rgba(109, 89, 255, 0.24);
+  --brand-300: rgba(142, 127, 255, 0.42);
+  --ink: #F3F6FF;
+  --ink-muted: #A0ABBF;
+  --ink-soft: #748099;
+  --focus-ring: rgba(142, 127, 255, 0.48);
 }
 
 @theme inline {
@@ -73,7 +73,7 @@
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-soft: var(--ink-soft);
-  --font-satoshi: "Satoshi", sans-serif;
+  --font-satoshi: "Inter", "Satoshi", sans-serif;
   --shadow-1: 0px 1px 2px 0px rgba(84, 87, 118, 0.12);
   --shadow-2: 0px 2px 4px 0px rgba(84, 87, 118, 0.12);
   --shadow-3: 0px 4px 12px 0px rgba(84, 87, 118, 0.16);
@@ -86,7 +86,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Satoshi", sans-serif;
+  font-family: "Inter", "Satoshi", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

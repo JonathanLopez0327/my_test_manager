@@ -141,7 +141,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className={`flex h-screen flex-col border-r border-stroke bg-surface-elevated px-3 py-3 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[72px]" : "w-[286px]"
+      className={`flex h-screen flex-col border-r border-stroke bg-surface px-3 py-4 transition-all duration-300 dark:bg-surface ${collapsed ? "w-[74px]" : "w-[276px]"
         }`}
     >
       <div className="flex items-center gap-2 px-1 pb-3">
@@ -160,13 +160,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </Link>
       </div>
 
-      <nav className="mt-4 flex flex-col gap-1.5">
+      <nav className="mt-3 flex flex-col gap-1.5">
         {visibleNavItems.map((item) => (
           <SidebarNavItem key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
         ))}
       </nav>
 
-      <div className="mt-5 space-y-3 overflow-y-auto pr-1">
+      <div className="mt-4 space-y-3 overflow-y-auto pr-1">
         {visibleGroupedNavItems.map((group) => (
           <div key={group.title} className="rounded-lg border border-transparent p-1">
             <p
@@ -184,7 +184,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         ))}
       </div>
 
-      <div className={`mt-auto rounded-lg border border-stroke bg-surface-elevated px-3 py-3 dark:bg-surface-muted ${collapsed ? "px-2" : ""}`}>
+      <div className={`mt-auto rounded-xl border border-stroke bg-surface-muted px-3 py-3 dark:bg-surface-muted ${collapsed ? "px-2" : ""}`}>
         <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] text-ink-soft ${collapsed ? "hidden" : ""}`}>
           Estado
         </p>
