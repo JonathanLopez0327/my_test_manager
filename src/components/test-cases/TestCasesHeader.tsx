@@ -1,6 +1,6 @@
 "use client";
 
-import { IconPlus } from "../icons";
+import { IconDownload, IconPlus } from "../icons";
 import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 
@@ -14,6 +14,8 @@ type TestCasesHeaderProps = {
   onTagChange: (value: string) => void;
   tagOptions: string[];
   onCreate: () => void;
+  onExportExcel: () => void;
+  onExportPdf: () => void;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
   canCreate?: boolean;
@@ -29,6 +31,8 @@ export function TestCasesHeader({
   onTagChange,
   tagOptions,
   onCreate,
+  onExportExcel,
+  onExportPdf,
   pageSize,
   onPageSizeChange,
   canCreate = true,
@@ -66,6 +70,14 @@ export function TestCasesHeader({
         ))}
       </select>
       <div className="ml-auto flex items-center gap-2">
+        <Button onClick={onExportExcel} size="sm" variant="secondary" className="whitespace-nowrap">
+          <IconDownload className="h-4 w-4" />
+          Export Excel
+        </Button>
+        <Button onClick={onExportPdf} size="sm" variant="secondary" className="whitespace-nowrap">
+          <IconDownload className="h-4 w-4" />
+          Export PDF
+        </Button>
         <select
           value={pageSize}
           onChange={(event) => onPageSizeChange(Number(event.target.value))}
