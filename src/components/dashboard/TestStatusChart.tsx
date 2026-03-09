@@ -1,78 +1,64 @@
 "use client";
 
-import {
-    PieChart,
-    Pie,
-    Cell,
-    ResponsiveContainer,
-    Tooltip,
-} from "recharts";
 import { Card } from "../ui/Card";
 
 type StatusSlice = {
-    name: string;
-    value: number;
-    color: string;
+  name: string;
+  value: number;
+  color: string;
+  percentage: number;
 };
 
 type TestStatusChartProps = {
-    data: StatusSlice[];
-    total: number;
+  data: StatusSlice[];
+  total: number;
+  passRate: number;
 };
 
-export function TestStatusChart({ data, total }: TestStatusChartProps) {
-    const passRate = total > 0
-        ? Math.round((data.find((d) => d.name === "Passed")?.value ?? 0) / total * 100)
-        : 0;
+export function TestStatusChart({ data, total, passRate }: TestStatusChartProps) {
+  return (
+    <Card className="flex h-full flex-col p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-ink">Resultado global</p>
+          <p className="mt-1 text-xs text-ink-muted">Distribución consolidada por estado</p>
+        </div>
+        <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
+          {total.toLocaleString("en-US")} casos
+        </span>
+      </div>
 
-    return (
-        <Card className="flex h-full flex-col p-6">
-            <div className="mb-1">
-                <p className="text-sm font-semibold text-ink">Resultado de ejecuciones</p>
-                <p className="mt-0.5 text-xs text-ink-muted">Distribución de resultados</p>
-            </div>
-            <div className="relative mt-2 flex flex-1 items-center justify-center" style={{ minHeight: 180 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            data={data}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={52}
-                            outerRadius={76}
-                            paddingAngle={3}
-                            dataKey="value"
-                            strokeWidth={0}
-                        >
-                            {data.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                        </Pie>
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: "var(--surface-elevated)",
-                                border: "1px solid var(--stroke)",
-                                borderRadius: 8,
-                                fontSize: 12,
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                            }}
-                            formatter={(value: number | undefined) => [`${value ?? 0} casos`, ""]}
-                        />
-                    </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-bold text-ink">{passRate}%</span>
-                    <span className="text-[10px] font-medium text-ink-muted">Pass rate</span>
-                </div>
-            </div>
-            <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
-                {data.map((entry) => (
-                    <span key={entry.name} className="flex items-center gap-1.5 text-[11px] text-ink-muted">
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                        {entry.name} ({entry.value})
-                    </span>
-                ))}
-            </div>
-        </Card>
-    );
+      <div className="mt-5">
+        <p className="text-[34px] font-semibold leading-none text-ink">{passRate}%</p>
+        <p className="mt-1 text-xs font-medium text-ink-muted">Pass rate general</p>
+      </div>
+
+      <div className="mt-5 h-3 overflow-hidden rounded-full bg-surface-muted">
+        <div className="flex h-full w-full">
+          {data.map((entry) => (
+            <div
+              key={entry.name}
+              className="h-full"
+              style={{ width: `${Math.max(entry.percentage, 1)}%`, backgroundColor: entry.color }}
+              aria-hidden
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {data.map((entry) => (
+          <div key={entry.name} className="flex items-center justify-between rounded-lg border border-stroke bg-surface-muted/50 px-3 py-2">
+            <span className="flex items-center gap-2 text-xs font-medium text-ink-muted">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              {entry.name}
+            </span>
+            <span className="text-xs font-semibold text-ink">
+              {entry.value.toLocaleString("en-US")} ({entry.percentage}%)
+            </span>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
 }
