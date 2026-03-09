@@ -33,7 +33,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, authCtx, rout
 
   if (!activeOrganizationId) {
     return NextResponse.json(
-      { message: "No tienes una organizacion activa." },
+      { message: "You do not have an active organization." },
       { status: 403 },
     );
   }
@@ -41,7 +41,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, authCtx, rout
   const normalizedThreadId = threadId?.trim();
   if (!normalizedThreadId) {
     return NextResponse.json(
-      { message: "Thread invalido." },
+      { message: "Invalid thread." },
       { status: 400 },
     );
   }
@@ -75,7 +75,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, authCtx, rout
 
   if (!hasAccess) {
     return NextResponse.json(
-      { message: "No tienes acceso al proyecto indicado." },
+      { message: "You do not have access to the specified project." },
       { status: 403 },
     );
   }
@@ -156,8 +156,10 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, authCtx, rout
     });
 
     return NextResponse.json(
-      { message: "No se pudo consultar el documento generado." },
+      { message: "Could not fetch the generated document." },
       { status: 502 },
     );
   }
 });
+
+

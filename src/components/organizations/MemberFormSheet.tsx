@@ -23,8 +23,8 @@ type MemberFormSheetProps = {
 const ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
   { value: "owner", label: "Propietario" },
   { value: "admin", label: "Admin" },
-  { value: "member", label: "Miembro" },
-  { value: "billing", label: "Facturación" },
+  { value: "member", label: "Member" },
+  { value: "billing", label: "Billing" },
 ];
 
 export function MemberFormSheet({
@@ -73,7 +73,7 @@ export function MemberFormSheet({
       onClose();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo guardar el miembro.",
+        err instanceof Error ? err.message : "Could not save the member.",
       );
     } finally {
       setSubmitting(false);
@@ -83,11 +83,11 @@ export function MemberFormSheet({
   return (
     <Sheet
       open={open}
-      title={isEdit ? "Editar miembro" : "Agregar miembro"}
+      title={isEdit ? "Edit member" : "Add member"}
       description={
         isEdit
-          ? "Cambia el rol de este miembro."
-          : "Selecciona un usuario y asígnale un rol."
+          ? "Change this member's role."
+          : "Select a user and assign a role."
       }
       onClose={onClose}
     >
@@ -95,13 +95,13 @@ export function MemberFormSheet({
         {isEdit && member ? (
           <div className="rounded-lg border border-stroke bg-surface-muted p-4">
             <p className="text-sm font-semibold text-ink">
-              {member.user.fullName ?? "Sin nombre"}
+              {member.user.fullName ?? "Unnamed"}
             </p>
             <p className="text-xs text-ink-muted">{member.user.email}</p>
           </div>
         ) : (
           <label className="text-sm font-semibold text-ink">
-            Usuario
+            User
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
@@ -118,7 +118,7 @@ export function MemberFormSheet({
         )}
 
         <label className="text-sm font-semibold text-ink">
-          Rol
+          Role
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value as OrgRole)}
@@ -140,20 +140,24 @@ export function MemberFormSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancelar
+            Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting || !selectedUserId}
           >
             {submitting
-              ? "Guardando..."
+              ? "Saving..."
               : isEdit
-                ? "Guardar cambios"
-                : "Agregar miembro"}
+                ? "Save changes"
+                : "Add member"}
           </Button>
         </div>
       </div>
     </Sheet>
   );
 }
+
+
+
+

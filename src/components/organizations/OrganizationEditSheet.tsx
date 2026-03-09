@@ -62,7 +62,7 @@ export function OrganizationEditSheet({
       setGlobalError(
         err instanceof Error
           ? err.message
-          : "No se pudo actualizar la organización.",
+          : "Could not update the organization.",
       );
     }
   };
@@ -70,8 +70,8 @@ export function OrganizationEditSheet({
   return (
     <Sheet
       open={open}
-      title="Editar organización"
-      description="Actualiza los datos de la organización."
+      title="Edit organization"
+      description="Update organization details."
       onClose={onClose}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
@@ -91,7 +91,7 @@ export function OrganizationEditSheet({
           )}
         </label>
         <label className="text-sm font-semibold text-ink">
-          Nombre
+          Name
           <Input
             {...register("name")}
             placeholder="Mi Empresa"
@@ -107,7 +107,7 @@ export function OrganizationEditSheet({
             {...register("isActive")}
             className="h-5 w-5 rounded border-stroke text-brand-600 focus:ring-brand-500"
           />
-          Organización activa
+          Organization activa
         </label>
 
         {globalError && (
@@ -118,13 +118,15 @@ export function OrganizationEditSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose} type="button">
-            Cancelar
+            Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
         </div>
       </form>
     </Sheet>
   );
 }
+
+

@@ -8,7 +8,7 @@ export const POST = withAuth(null, async (req, { userId }) => {
 
   if (!organizationId) {
     return NextResponse.json(
-      { message: "El ID de la organización es requerido." },
+      { message: "El ID de la organization es requerido." },
       { status: 400 },
     );
   }
@@ -27,14 +27,14 @@ export const POST = withAuth(null, async (req, { userId }) => {
 
   if (!membership) {
     return NextResponse.json(
-      { message: "No eres miembro de esta organización." },
+      { message: "You are not a member of this organization." },
       { status: 403 },
     );
   }
 
   if (!membership.organization.isActive) {
     return NextResponse.json(
-      { message: "Esta organización no está activa." },
+      { message: "This organization is not active." },
       { status: 403 },
     );
   }
@@ -47,3 +47,6 @@ export const POST = withAuth(null, async (req, { userId }) => {
     organization: membership.organization,
   });
 });
+
+
+

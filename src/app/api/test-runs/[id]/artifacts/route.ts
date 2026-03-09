@@ -47,7 +47,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
   if (searchParams.get("type") && !type) {
     return NextResponse.json(
-      { message: "Tipo de artefacto inválido." },
+      { message: "Invalid artifact type." },
       { status: 400 },
     );
   }
@@ -59,7 +59,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     });
     if (!belongs) {
       return NextResponse.json(
-        { message: "El item no pertenece al run." },
+        { message: "The item does not belong to this run." },
         { status: 400 },
       );
     }
@@ -161,7 +161,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!body.artifacts || body.artifacts.length === 0) {
       return NextResponse.json(
-        { message: "Se requiere al menos un artefacto." },
+        { message: "At least one artifact is required." },
         { status: 400 },
       );
     }
@@ -183,7 +183,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       const invalid = runItemIds.find((itemId) => !existingIds.has(itemId));
       if (invalid) {
         return NextResponse.json(
-          { message: "Uno o más items no pertenecen al run." },
+          { message: "One or more items do not belong to this run." },
           { status: 400 },
         );
       }
@@ -234,11 +234,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const message =
       error instanceof Error
         ? error.message
-        : "No se pudieron crear los artefactos.";
+        : "Could not create artifacts.";
     const errorMap: Record<string, string> = {
-      artifact_type_invalid: "Tipo de artefacto inválido.",
+      artifact_type_invalid: "Invalid artifact type.",
       artifact_url_required: "El artefacto requiere URL.",
-      artifact_size_invalid: "Tamaño de artefacto inválido.",
+      artifact_size_invalid: "Invalid artifact size.",
     };
 
     if (message in errorMap) {
@@ -246,8 +246,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     }
 
     return NextResponse.json(
-      { message: "No se pudieron crear los artefactos." },
+      { message: "Could not create artifacts." },
       { status: 500 },
     );
   }
 });
+
+

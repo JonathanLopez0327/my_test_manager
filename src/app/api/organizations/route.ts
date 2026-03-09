@@ -71,14 +71,14 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
 
     if (!slug || !name) {
       return NextResponse.json(
-        { message: "Slug y nombre son requeridos." },
+        { message: "Slug and name are required." },
         { status: 400 },
       );
     }
 
     if (slug.length < 3 || slug.length > 50) {
       return NextResponse.json(
-        { message: "El slug debe tener entre 3 y 50 caracteres." },
+        { message: "The slug must have between 3 and 50 characters." },
         { status: 400 },
       );
     }
@@ -115,13 +115,17 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe una organización con ese slug." },
+        { message: "An organization with that slug already exists." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo crear la organización." },
+      { message: "Could not create the organization." },
       { status: 500 },
     );
   }
 });
+
+
+
+

@@ -172,14 +172,14 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
 
     if (!email || !password) {
       return NextResponse.json(
-        { message: "Email y contraseña son requeridos." },
+        { message: "Email and password are required." },
         { status: 400 },
       );
     }
 
     if (password.length < 8) {
       return NextResponse.json(
-        { message: "La contraseña debe tener al menos 8 caracteres." },
+        { message: "Password must be at least 8 characters long." },
         { status: 400 },
       );
     }
@@ -224,7 +224,7 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe un usuario con ese email." },
+        { message: "Ya existe un user con ese email." },
         { status: 409 },
       );
     }
@@ -233,13 +233,17 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrgani
       error.code === "P2003"
     ) {
       return NextResponse.json(
-        { message: "Organización inválida." },
+        { message: "Invalid organization." },
         { status: 400 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo crear el usuario." },
+      { message: "Could not create the user." },
       { status: 500 },
     );
   }
 });
+
+
+
+

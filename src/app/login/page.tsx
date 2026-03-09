@@ -1,48 +1,33 @@
 import { LoginForm } from "@/components/auth/LoginForm";
-import Image from "next/image";
-import completeLogo from "../../../media/comple_logo.svg";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-6 py-12">
-      <div className="pointer-events-none absolute -left-20 -top-20 h-64 w-64 rounded-full bg-brand-100/65 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-accent-500/15 blur-3xl" />
-      <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-12 lg:flex-row">
-        <div className="max-w-lg">
-          <Image
-            src={completeLogo}
-            alt="Test Manager"
-            className="h-12 w-auto object-contain"
-            priority
-          />
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-            QA Command Center
-          </p>
-          <h2 className="mt-4 text-5xl font-semibold text-ink">
-            Visibilidad total para cada run y evidencia de calidad.
-          </h2>
-          <p className="mt-4 text-base text-ink-muted">
-            Centraliza ejecuciones manuales y automatizadas, detecta riesgo antes de release
-            y alinea equipos con una operacion QA clara.
-          </p>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {[
-              "Estado de runs en tiempo real",
-              "Repositorio de evidencias",
-              "Permisos por organizacion",
-              "Indicadores de release",
-            ].map((item) => (
-              <div
-                key={item}
-                className="rounded-xl border border-stroke bg-surface-elevated px-4 py-3 text-xs font-semibold text-ink shadow-soft-xs"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="min-h-screen bg-background md:grid md:grid-cols-2">
+      <section className="flex min-h-screen items-center justify-center px-6 py-12 sm:px-8">
         <LoginForm />
-      </div>
+      </section>
+
+      <aside className="relative hidden overflow-hidden border-l border-white/10 bg-[linear-gradient(145deg,#121d66_0%,#101755_52%,#151d73_100%)] md:flex md:items-center md:justify-center">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] bg-[size:56px_56px]" />
+          <div className="absolute inset-y-1/4 left-0 right-0 bg-[linear-gradient(to_bottom,transparent,rgba(255,255,255,0.14),transparent)]" />
+          <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-brand-500/35 blur-3xl" />
+          <div className="absolute -bottom-24 right-8 h-72 w-72 rounded-full bg-accent-500/30 blur-3xl" />
+          <div className="absolute left-16 top-24 h-16 w-16 rounded-md bg-white/10" />
+          <div className="absolute right-20 top-1/2 h-20 w-20 rounded-md bg-white/10" />
+        </div>
+
+        <div className="relative z-10 flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 px-10 py-12 text-center backdrop-blur-sm">
+          <BrandLogo variant="full" className="h-14 w-auto object-contain" priority />
+          <h2 className="text-3xl font-semibold tracking-tight text-white">
+            Test Manager
+          </h2>
+          <p className="text-sm text-white/90">
+            Free and open-source quality operations workspace for teams.
+          </p>
+        </div>
+      </aside>
     </div>
   );
 }

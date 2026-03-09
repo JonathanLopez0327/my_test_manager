@@ -206,7 +206,7 @@ async function createTokenRecord(
 
   const created = rows[0];
   if (!created) {
-    throw new Error("No se pudo crear api_tokens para el agente AI.");
+    throw new Error("Could not create API tokens for the AI agent.");
   }
 
   return created;

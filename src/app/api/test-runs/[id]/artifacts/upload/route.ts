@@ -44,14 +44,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!file || typeof file === "string") {
       return NextResponse.json(
-        { message: "Archivo requerido." },
+        { message: "File is required." },
         { status: 400 },
       );
     }
 
     if (!type) {
       return NextResponse.json(
-        { message: "Tipo de artefacto inválido." },
+        { message: "Invalid artifact type." },
         { status: 400 },
       );
     }
@@ -74,7 +74,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
       if (!belongs) {
         return NextResponse.json(
-          { message: "El item no pertenece al run." },
+          { message: "The item does not belong to this run." },
           { status: 400 },
         );
       }
@@ -132,8 +132,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     return NextResponse.json(record, { status: 201 });
   } catch (error) {
     return NextResponse.json(
-      { message: "No se pudo subir el artefacto." },
+      { message: "Could not upload the artifact." },
       { status: 500 },
     );
   }
 });
+
+

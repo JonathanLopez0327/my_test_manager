@@ -170,7 +170,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!body.items || body.items.length === 0) {
       return NextResponse.json(
-        { message: "Se requiere al menos un item." },
+        { message: "At least one item is required." },
         { status: 400 },
       );
     }
@@ -280,14 +280,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const message =
       error instanceof Error
         ? error.message
-        : "No se pudieron actualizar los items.";
+        : "Could not update items.";
     const errorMap: Record<string, string> = {
       test_case_required: "El testCaseId es requerido.",
-      duration_invalid: "Duración inválida.",
-      executed_at_invalid: "Fecha de ejecución inválida.",
-      artifact_type_invalid: "Tipo de artefacto inválido.",
+      duration_invalid: "Invalid duration.",
+      executed_at_invalid: "Invalid execution date.",
+      artifact_type_invalid: "Invalid artifact type.",
       artifact_url_required: "El artefacto requiere URL.",
-      artifact_size_invalid: "Tamaño de artefacto inválido.",
+      artifact_size_invalid: "Invalid artifact size.",
     };
 
     if (message in errorMap) {
@@ -295,8 +295,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     }
 
     return NextResponse.json(
-      { message: "No se pudieron actualizar los items." },
+      { message: "Could not update items." },
       { status: 500 },
     );
   }
 });
+
+

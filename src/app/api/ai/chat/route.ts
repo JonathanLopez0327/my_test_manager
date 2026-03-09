@@ -127,7 +127,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Payload invalido.", issues: parsed.error.flatten() },
+      { message: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -137,7 +137,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!activeOrganizationId) {
     return NextResponse.json(
-      { message: "No tienes una organizacion activa." },
+      { message: "You do not have an active organization." },
       { status: 403 },
     );
   }
@@ -151,7 +151,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!hasAccess) {
     return NextResponse.json(
-      { message: "No tienes acceso al proyecto indicado." },
+      { message: "You do not have access to the specified project." },
       { status: 403 },
     );
   }
@@ -174,7 +174,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!conversation) {
     return NextResponse.json(
-      { message: "No tienes acceso a la conversacion indicada." },
+      { message: "You do not have access to the specified conversation." },
       { status: 403 },
     );
   }
@@ -219,7 +219,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       if (!threadResponse.ok) {
         const details = await threadResponse.text();
         return NextResponse.json(
-          { message: "No se pudo crear el thread de AI.", details },
+          { message: "Could not create the AI thread.", details },
           { status: 502 },
         );
       }
@@ -228,7 +228,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       activeThreadId = threadData.thread_id ?? null;
       if (!activeThreadId) {
         return NextResponse.json(
-          { message: "Respuesta invalida al crear el thread." },
+          { message: "Invalid response when creating the thread." },
           { status: 502 },
         );
       }
@@ -278,7 +278,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
     if (!runResponse.body) {
       return NextResponse.json(
-        { message: "No se recibio stream desde LangGraph." },
+        { message: "No stream was received from LangGraph." },
         { status: 502 },
       );
     }
@@ -363,9 +363,13 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     });
 
     return NextResponse.json(
-      { message: "No se pudo procesar la solicitud del asistente." },
+      { message: "Could not process the assistant request." },
       { status: 502 },
     );
   }
 });
+
+
+
+
 

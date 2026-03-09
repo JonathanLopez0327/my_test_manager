@@ -18,14 +18,14 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
 
         if (!artifact) {
             return NextResponse.json(
-                { message: "Artefacto no encontrado." },
+                { message: "Artifact not found." },
                 { status: 404 },
             );
         }
 
         if (artifact.runId !== id) {
             return NextResponse.json(
-                { message: "El artefacto no pertenece a este run." },
+                { message: "The artifact does not belong to this run." },
                 { status: 400 },
             );
         }
@@ -56,8 +56,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
     } catch (error) {
         console.error("Error deleting artifact:", error);
         return NextResponse.json(
-            { message: "No se pudo eliminar el artefacto." },
+            { message: "Could not delete the artifact." },
             { status: 500 },
         );
     }
 });
+
+

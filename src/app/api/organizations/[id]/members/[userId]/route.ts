@@ -19,7 +19,7 @@ export const PUT = withAuth(null, async (req, authCtx, routeCtx) => {
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para gestionar miembros." },
+      { message: "You do not have permission to manage members." },
       { status: 403 },
     );
   }
@@ -28,7 +28,7 @@ export const PUT = withAuth(null, async (req, authCtx, routeCtx) => {
 
   if (!body.role || !VALID_ROLES.includes(body.role)) {
     return NextResponse.json(
-      { message: "Rol inválido." },
+      { message: "Invalid role." },
       { status: 400 },
     );
   }
@@ -44,7 +44,7 @@ export const PUT = withAuth(null, async (req, authCtx, routeCtx) => {
       });
       if (ownerCount <= 1) {
         return NextResponse.json(
-          { message: "No se puede cambiar el rol del último propietario." },
+          { message: "Cannot change the role of the last owner." },
           { status: 400 },
         );
       }
@@ -60,7 +60,7 @@ export const PUT = withAuth(null, async (req, authCtx, routeCtx) => {
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
-      { message: "No se pudo actualizar el miembro." },
+      { message: "Could not update the member." },
       { status: 500 },
     );
   }
@@ -78,7 +78,7 @@ export const DELETE = withAuth(null, async (_req, authCtx, routeCtx) => {
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para gestionar miembros." },
+      { message: "You do not have permission to manage members." },
       { status: 403 },
     );
   }
@@ -90,7 +90,7 @@ export const DELETE = withAuth(null, async (_req, authCtx, routeCtx) => {
 
   if (!existing) {
     return NextResponse.json(
-      { message: "Miembro no encontrado." },
+      { message: "Member not found." },
       { status: 404 },
     );
   }
@@ -101,7 +101,7 @@ export const DELETE = withAuth(null, async (_req, authCtx, routeCtx) => {
     });
     if (ownerCount <= 1) {
       return NextResponse.json(
-        { message: "No se puede eliminar al último propietario." },
+        { message: "Cannot remove the last owner." },
         { status: 400 },
       );
     }
@@ -114,8 +114,10 @@ export const DELETE = withAuth(null, async (_req, authCtx, routeCtx) => {
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(
-      { message: "No se pudo eliminar el miembro." },
+      { message: "Could not remove the member." },
       { status: 500 },
     );
   }
 });
+
+

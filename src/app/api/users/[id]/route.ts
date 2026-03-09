@@ -55,12 +55,12 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, route
       error.code === "P2003"
     ) {
       return NextResponse.json(
-        { message: "Organización inválida." },
+        { message: "Invalid organization." },
         { status: 400 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo actualizar el usuario." },
+      { message: "Could not update the user." },
       { status: 500 },
     );
   }

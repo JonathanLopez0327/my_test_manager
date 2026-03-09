@@ -299,6 +299,27 @@ export function TestCasesPage() {
     setPage(1);
   };
 
+  const buildExportUrl = (format: "xlsx" | "pdf") => {
+    const params = new URLSearchParams();
+    params.set("format", format);
+    if (query.trim()) params.set("query", query.trim());
+    if (suiteFilter) params.set("suiteId", suiteFilter);
+    if (tagFilter) params.set("tag", tagFilter);
+    if (sortBy && sortDir) {
+      params.set("sortBy", sortBy);
+      params.set("sortDir", sortDir);
+    }
+    return `/api/test-cases/export?${params.toString()}`;
+  };
+
+  const handleExportExcel = () => {
+    window.open(buildExportUrl("xlsx"), "_blank", "noopener,noreferrer");
+  };
+
+  const handleExportPdf = () => {
+    window.open(buildExportUrl("pdf"), "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="space-y-6">
       <DataWorkspace
@@ -319,6 +340,8 @@ export function TestCasesPage() {
             onTagChange={setTagFilter}
             tagOptions={tags}
             onCreate={handleCreate}
+            onExportExcel={handleExportExcel}
+            onExportPdf={handleExportPdf}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             canCreate={canManage}
@@ -411,3 +434,5 @@ export function TestCasesPage() {
     </div>
   );
 }
+
+

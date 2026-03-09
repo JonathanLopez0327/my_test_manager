@@ -53,13 +53,13 @@ export function OrganizationCreateSheet({
       });
       const body = await res.json();
       if (!res.ok) {
-        throw new Error(body.message || "No se pudo crear la organización.");
+        throw new Error(body.message || "Could not create the organization.");
       }
       onCreated(body as OrganizationRecord);
       onClose();
     } catch (err) {
       setGlobalError(
-        err instanceof Error ? err.message : "No se pudo crear la organización.",
+        err instanceof Error ? err.message : "Could not create the organization.",
       );
     }
   };
@@ -67,8 +67,8 @@ export function OrganizationCreateSheet({
   return (
     <Sheet
       open={open}
-      title="Nueva organización"
-      description="Crea una nueva organización. El slug debe ser único."
+      title="Nueva organization"
+      description="Create a new organization. The slug must be unique."
       onClose={onClose}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
@@ -88,7 +88,7 @@ export function OrganizationCreateSheet({
           )}
         </label>
         <label className="text-sm font-semibold text-ink">
-          Nombre
+          Name
           <Input
             {...register("name")}
             placeholder="Mi Empresa"
@@ -107,13 +107,15 @@ export function OrganizationCreateSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose} type="button">
-            Cancelar
+            Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creando..." : "Crear organización"}
+            {isSubmitting ? "Creating..." : "Create organization"}
           </Button>
         </div>
       </form>
     </Sheet>
   );
 }
+
+

@@ -45,7 +45,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Run no encontrado." },
+        { message: "Run not found." },
         { status: 404 },
       );
     }
@@ -77,7 +77,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
     if (!projectId || !runType) {
       return NextResponse.json(
-        { message: "Proyecto y tipo son requeridos." },
+        { message: "Project y tipo son requeridos." },
         { status: 400 },
       );
     }
@@ -89,28 +89,28 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
     if (!project) {
       return NextResponse.json(
-        { message: "Proyecto no encontrado." },
+        { message: "Project no encontrado." },
         { status: 404 },
       );
     }
 
     if (body.startedAt && !startedAt) {
       return NextResponse.json(
-        { message: "Fecha de inicio inválida." },
+        { message: "Invalid start date." },
         { status: 400 },
       );
     }
 
     if (body.finishedAt && !finishedAt) {
       return NextResponse.json(
-        { message: "Fecha de fin inválida." },
+        { message: "Invalid end date." },
         { status: 400 },
       );
     }
 
     if (startedAt && finishedAt && finishedAt < startedAt) {
       return NextResponse.json(
-        { message: "La fecha de fin debe ser posterior a la fecha de inicio." },
+        { message: "The end date must be after the start date." },
         { status: 400 },
       );
     }
@@ -144,13 +144,13 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       });
       if (!plan) {
         return NextResponse.json(
-          { message: "Plan no encontrado." },
+          { message: "Test plan not found." },
           { status: 404 },
         );
       }
       if (plan.projectId !== projectId) {
         return NextResponse.json(
-          { message: "El plan no pertenece al proyecto." },
+          { message: "El plan no pertenece al project." },
           { status: 400 },
         );
       }
@@ -167,19 +167,19 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       });
       if (!suite) {
         return NextResponse.json(
-          { message: "Suite no encontrada." },
+          { message: "Test suite not found." },
           { status: 404 },
         );
       }
       if (suite.testPlan.projectId !== projectId) {
         return NextResponse.json(
-          { message: "La suite no pertenece al proyecto." },
+          { message: "La suite no pertenece al project." },
           { status: 400 },
         );
       }
       if (resolvedPlanId && suite.testPlanId !== resolvedPlanId) {
         return NextResponse.json(
-          { message: "La suite no pertenece al plan seleccionado." },
+          { message: "The suite does not belong to the selected plan." },
           { status: 400 },
         );
       }
@@ -212,7 +212,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo actualizar el run." },
+      { message: "Could not update the run." },
       { status: 500 },
     );
   }
@@ -229,7 +229,7 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Run no encontrado." },
+        { message: "Run not found." },
         { status: 404 },
       );
     }
@@ -247,8 +247,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo eliminar el run." },
+      { message: "Could not delete the run." },
       { status: 500 },
     );
   }
 });
+
+

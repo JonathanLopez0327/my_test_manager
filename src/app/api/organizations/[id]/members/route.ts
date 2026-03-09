@@ -29,7 +29,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, organizatio
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes acceso a los miembros de esta organización." },
+      { message: "You do not have access to this organization's members list." },
       { status: 403 },
     );
   }
@@ -86,7 +86,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para gestionar miembros." },
+      { message: "You do not have permission to manage members." },
       { status: 403 },
     );
   }
@@ -102,7 +102,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
 
     if (!targetUserId) {
       return NextResponse.json(
-        { message: "El ID del usuario es requerido." },
+        { message: "El ID del user es requerido." },
         { status: 400 },
       );
     }
@@ -115,7 +115,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
 
     if (!targetUser) {
       return NextResponse.json(
-        { message: "Usuario no encontrado." },
+        { message: "User no encontrado." },
         { status: 404 },
       );
     }
@@ -135,13 +135,15 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "El usuario ya es miembro de esta organización." },
+        { message: "El user ya es member de esta organization." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo agregar el miembro." },
+      { message: "Could not add the member." },
       { status: 500 },
     );
   }
 });
+
+

@@ -36,7 +36,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Plan no encontrado." },
+        { message: "Test plan not found." },
         { status: 404 },
       );
     }
@@ -58,28 +58,28 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     if (!projectId || !name) {
       return NextResponse.json(
-        { message: "Proyecto y nombre son requeridos." },
+        { message: "Project y nombre son requeridos." },
         { status: 400 },
       );
     }
 
     if (body.startsOn && !startsOn) {
       return NextResponse.json(
-        { message: "Fecha de inicio inválida." },
+        { message: "Invalid start date." },
         { status: 400 },
       );
     }
 
     if (body.endsOn && !endsOn) {
       return NextResponse.json(
-        { message: "Fecha de fin inválida." },
+        { message: "Invalid end date." },
         { status: 400 },
       );
     }
 
     if (startsOn && endsOn && endsOn < startsOn) {
       return NextResponse.json(
-        { message: "La fecha de fin debe ser posterior a la fecha de inicio." },
+        { message: "The end date must be after the start date." },
         { status: 400 },
       );
     }
@@ -120,12 +120,12 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe un plan con ese nombre en el proyecto." },
+        { message: "Ya existe un plan con ese nombre en el project." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo actualizar el plan." },
+      { message: "Could not update the plan." },
       { status: 500 },
     );
   }
@@ -142,7 +142,7 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Plan no encontrado." },
+        { message: "Test plan not found." },
         { status: 404 },
       );
     }
@@ -158,8 +158,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo eliminar el plan." },
+      { message: "Could not delete the plan." },
       { status: 500 },
     );
   }
 });
+
+

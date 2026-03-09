@@ -4,16 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { OrganizationsResponse } from "../organizations/types";
+import { uiMessages } from "@/lib/ui/messages";
 
 function getSectionLabel(pathname: string) {
-  if (pathname === "/manager") return "Resumen";
-  if (pathname.startsWith("/manager/organizations")) return "Organizaciones";
-  if (pathname.startsWith("/manager/projects")) return "Proyectos";
-  if (pathname.startsWith("/manager/users")) return "Usuarios";
-  if (pathname.startsWith("/manager/test-plans")) return "Planes de prueba";
-  if (pathname.startsWith("/manager/test-suites")) return "Suites de prueba";
-  if (pathname.startsWith("/manager/test-runs")) return "Ejecuciones";
-  if (pathname.startsWith("/manager/test-cases")) return "Casos de prueba";
+  if (pathname === "/manager") return "Summary";
+  if (pathname.startsWith("/manager/organizations")) return "Organizations";
+  if (pathname.startsWith("/manager/projects")) return "Projects";
+  if (pathname.startsWith("/manager/users")) return "Users";
+  if (pathname.startsWith("/manager/test-plans")) return "Test Plans";
+  if (pathname.startsWith("/manager/test-suites")) return "Test Suites";
+  if (pathname.startsWith("/manager/test-runs")) return "Test Runs";
+  if (pathname.startsWith("/manager/test-cases")) return "Test Cases";
   return "Manager";
 }
 
@@ -58,14 +59,18 @@ export function ViewContext() {
   }, [activeOrgId]);
 
   return (
-    <nav className="mb-4 flex items-center justify-end gap-1 py-1" aria-label="Breadcrumb">
-      <span className="text-sm font-medium text-ink-muted">
-        {orgName ?? "Sin organizacion"}
+    <nav
+      className="hidden items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs md:flex"
+      aria-label="Breadcrumb"
+    >
+      <span className="font-medium text-ink-muted dark:text-[#A7B0C5]">
+        {orgName ?? uiMessages.common.noOrganization}
       </span>
-      <span className="text-sm text-ink-muted/50">/</span>
-      <span className="text-sm font-medium text-brand-400">
+      <span className="text-ink-muted/50 dark:text-[#7D879C]">/</span>
+      <span className="font-semibold text-ink dark:text-white">
         {sectionLabel}
       </span>
     </nav>
   );
 }
+

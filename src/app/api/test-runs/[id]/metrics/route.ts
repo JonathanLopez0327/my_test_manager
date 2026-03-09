@@ -42,8 +42,10 @@ export const POST = withAuth(null, async (_req, { userId, globalRoles, activeOrg
     return NextResponse.json(metrics);
   } catch (error) {
     return NextResponse.json(
-      { message: "No se pudieron recalcular las métricas." },
+      { message: "Could not recalculate metrics." },
       { status: 500 },
     );
   }
 });
+
+

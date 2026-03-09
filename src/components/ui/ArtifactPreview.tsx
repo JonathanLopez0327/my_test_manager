@@ -244,3 +244,4 @@ export function ArtifactPreview({
 
     return createPortal(portalContent, document.body);
 }
+

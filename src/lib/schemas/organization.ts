@@ -7,7 +7,7 @@ export const organizationCreateSchema = z.object({
     .max(50, "El slug no puede exceder los 50 caracteres")
     .regex(
       /^[a-z0-9-]+$/,
-      "El slug solo puede contener minúsculas, números y guiones",
+      "The slug can only contain lowercase letters, numbers, and hyphens",
     )
     .transform((val) => val.toLowerCase()),
   name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -24,7 +24,7 @@ export const organizationUpdateSchema = z.object({
     .max(50, "El slug no puede exceder los 50 caracteres")
     .regex(
       /^[a-z0-9-]+$/,
-      "El slug solo puede contener minúsculas, números y guiones",
+      "The slug can only contain lowercase letters, numbers, and hyphens",
     )
     .transform((val) => val.toLowerCase())
     .optional(),

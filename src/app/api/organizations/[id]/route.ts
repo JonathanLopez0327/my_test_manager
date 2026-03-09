@@ -18,7 +18,7 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, organizati
 
   if (!org) {
     return NextResponse.json(
-      { message: "Organización no encontrada." },
+      { message: "Organization not found." },
       { status: 404 },
     );
   }
@@ -38,7 +38,7 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, organizati
     });
     if (!membership) {
       return NextResponse.json(
-        { message: "No tienes acceso a esta organización." },
+        { message: "You do not have access to this organization." },
         { status: 403 },
       );
     }
@@ -59,7 +59,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para actualizar esta organización." },
+      { message: "You do not have permission to update this organization." },
       { status: 403 },
     );
   }
@@ -77,7 +77,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       const name = body.name.trim();
       if (!name) {
         return NextResponse.json(
-          { message: "El nombre no puede estar vacío." },
+          { message: "The name cannot be empty." },
           { status: 400 },
         );
       }
@@ -88,7 +88,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       const slug = body.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
       if (slug.length < 3 || slug.length > 50) {
         return NextResponse.json(
-          { message: "El slug debe tener entre 3 y 50 caracteres." },
+          { message: "The slug must have between 3 and 50 characters." },
           { status: 400 },
         );
       }
@@ -111,12 +111,12 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe una organización con ese slug." },
+        { message: "An organization with that slug already exists." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo actualizar la organización." },
+      { message: "Could not update the organization." },
       { status: 500 },
     );
   }
@@ -134,7 +134,7 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, organiz
 
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para eliminar esta organización." },
+      { message: "You do not have permission to delete this organization." },
       { status: 403 },
     );
   }
@@ -144,8 +144,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, organiz
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json(
-      { message: "No se pudo eliminar la organización." },
+      { message: "Could not delete the organization." },
       { status: 500 },
     );
   }
 });
+
+

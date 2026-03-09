@@ -29,7 +29,7 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
   try {
     return JSON.parse(text);
   } catch {
-    return { message: `Error inesperado (HTTP ${res.status})` };
+    return { message: `Unexpected error (HTTP ${res.status})` };
   }
 }
 
@@ -82,11 +82,11 @@ function ActiveOrgView() {
     if (!activeOrganizationId) return;
     try {
       const res = await fetch(`/api/organizations/${activeOrganizationId}`);
-      if (!res.ok) throw new Error("No se pudo cargar la organización.");
+      if (!res.ok) throw new Error("Could not load the organization.");
       const data = (await res.json()) as OrganizationDetail;
       setOrg(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar.");
+      setError(err instanceof Error ? err.message : "Error loading data.");
     }
   }, [activeOrganizationId]);
 
@@ -101,11 +101,11 @@ function ActiveOrgView() {
       const res = await fetch(
         `/api/organizations/${activeOrganizationId}/members${params.toString() ? `?${params.toString()}` : ""}`,
       );
-      if (!res.ok) throw new Error("No se pudieron cargar los miembros.");
+      if (!res.ok) throw new Error("Could not load members.");
       const data = (await res.json()) as MembersResponse;
       setMembers(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar miembros.");
+      setError(err instanceof Error ? err.message : "Error loading members.");
     }
   }, [activeOrganizationId, memberSortBy, memberSortDir]);
 
@@ -125,7 +125,7 @@ function ActiveOrgView() {
     });
     if (!res.ok) {
       const data = await safeJson(res);
-      throw new Error(data.message || "No se pudo actualizar la organización.");
+      throw new Error(data.message || "Could not update the organization.");
     }
     await fetchOrg();
   };
@@ -161,7 +161,7 @@ function ActiveOrgView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "No se pudo actualizar el miembro.");
+        throw new Error(data.message || "Could not update the member.");
       }
     } else {
       const res = await fetch(
@@ -174,7 +174,7 @@ function ActiveOrgView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "No se pudo agregar el miembro.");
+        throw new Error(data.message || "Could not add the member.");
       }
     }
     await Promise.all([fetchOrg(), fetchMembers()]);
@@ -193,13 +193,13 @@ function ActiveOrgView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "No se pudo eliminar el miembro.");
+        throw new Error(data.message || "Could not remove the member.");
       }
       await Promise.all([fetchOrg(), fetchMembers()]);
       setDeleteConfirmation({ open: false, member: null, isConfirming: false });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "No se pudo eliminar el miembro.",
+        err instanceof Error ? err.message : "Could not remove the member.",
       );
       setDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
@@ -222,8 +222,8 @@ function ActiveOrgView() {
     return (
       <Card className="p-6">
         <p className="text-sm text-ink-muted">
-          No tienes una organización activa. Selecciona o crea una desde el
-          menú lateral.
+          You do not have an active organization. Select or create one from the
+          sidebar menu.
         </p>
       </Card>
     );
@@ -240,7 +240,7 @@ function ActiveOrgView() {
       {loading ? (
         <Card className="flex items-center justify-center p-10">
           <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-          <span className="ml-3 text-sm text-ink-muted">Cargando...</span>
+          <span className="ml-3 text-sm text-ink-muted">Loading...</span>
         </Card>
       ) : org ? (
         <>
@@ -253,15 +253,15 @@ function ActiveOrgView() {
           <Card className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-ink">Miembros</p>
+                <p className="text-sm font-semibold text-ink">Members</p>
                 <p className="mt-1 text-xs text-ink-muted">
-                  {members.length} miembro{members.length !== 1 ? "s" : ""}
+                  {members.length} member{members.length !== 1 ? "s" : ""}
                 </p>
               </div>
               {canManageMembers && (
                 <Button size="sm" onClick={handleAddMember}>
                   <IconPlus className="h-4 w-4" />
-                  Agregar miembro
+                  Add member
                 </Button>
               )}
             </div>
@@ -301,9 +301,9 @@ function ActiveOrgView() {
 
       <ConfirmationDialog
         open={deleteConfirmation.open}
-        title={`¿Eliminar a "${deleteConfirmation.member?.user.fullName ?? deleteConfirmation.member?.user.email ?? ""}"?`}
-        description="El usuario será removido de la organización. Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        title={`Delete "${deleteConfirmation.member?.user.fullName ?? deleteConfirmation.member?.user.email ?? ""}"?`}
+        description="The user will be removed from the organization. This action cannot be undone."
+        confirmText="Delete"
         onConfirm={handleConfirmRemove}
         onCancel={() =>
           setDeleteConfirmation({
@@ -317,3 +317,7 @@ function ActiveOrgView() {
     </div>
   );
 }
+
+
+
+

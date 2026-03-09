@@ -12,12 +12,10 @@ import {
   IconPlus,
   IconSearch,
   IconSend,
-  IconSpark,
   IconAlert,
 } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
 import { Modal } from "@/components/ui/Modal";
@@ -139,7 +137,15 @@ type ThreadDocumentState =
   | {
       status: "error";
       message: string;
-    };
+  };
+
+type ConversationGeneratedAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  source: "thread" | "message";
+  createdAt?: string;
+};
 
 const FALLBACK_WORKSPACE = "Software Sushi";
 const ENV_OPTIONS = ["DEV", "STAGING", "PROD"];
@@ -503,7 +509,8 @@ export function AiChatWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [threadDocuments, setThreadDocuments] = useState<Record<string, ThreadDocumentState>>({});
-  const [pdfExpanded, setPdfExpanded] = useState(false);
+  const [expandedAttachmentId, setExpandedAttachmentId] = useState<string | null>(null);
+  const [attachmentsPanelOpen, setAttachmentsPanelOpen] = useState(false);
 
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([
@@ -691,9 +698,21 @@ export function AiChatWorkspace() {
     [filteredConversations],
   );
 
-  const selectedMessages = conversationMessages[selectedChatId] ?? [];
+  const selectedMessages = useMemo(
+    () => conversationMessages[selectedChatId] ?? [],
+    [conversationMessages, selectedChatId],
+  );
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedChatId);
   const selectedThreadId = selectedConversation?.threadId?.trim() || "";
+  const selectedThreadDocumentState = selectedThreadId
+    ? threadDocuments[selectedThreadId]
+    : undefined;
+  const userInitials = (session?.user?.name ?? "You")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   const selectedProjectLabel =
     projectOptions.find((project) => project.id === assistantContext.projectId)?.label ?? "All projects";
@@ -702,6 +721,76 @@ export function AiChatWorkspace() {
     assistantContext.workspace !== contextDraft.workspace ||
     assistantContext.projectId !== contextDraft.projectId ||
     assistantContext.environment !== contextDraft.environment;
+
+  const conversationGeneratedAttachments = useMemo<ConversationGeneratedAttachment[]>(() => {
+    const fromMessages: ConversationGeneratedAttachment[] = [];
+
+    for (const message of selectedMessages) {
+      if (message.role !== "assistant" || (message.documentVersions?.length ?? 0) === 0) continue;
+
+      message.documentVersions?.forEach((version, index) => {
+        if (!version?.url?.trim()) return;
+        const fallbackName = (() => {
+          try {
+            const pathname = new URL(version.url).pathname;
+            const name = pathname.split("/").pop()?.trim();
+            return name || `document-version-${index + 1}.pdf`;
+          } catch {
+            return `document-version-${index + 1}.pdf`;
+          }
+        })();
+
+        fromMessages.push({
+          id: `msg-${message.id}-${index}`,
+          filename: fallbackName,
+          url: version.url,
+          source: "message",
+          createdAt: version.generatedAt,
+        });
+      });
+    }
+
+    const threadAttachment =
+      selectedThreadId && selectedThreadDocumentState?.status === "ready"
+        ? ({
+            id: `thread-${selectedThreadId}`,
+            filename: selectedThreadDocumentState.filename,
+            url: selectedThreadDocumentState.url,
+            source: "thread",
+          } satisfies ConversationGeneratedAttachment)
+        : null;
+
+    const seen = new Set<string>();
+    const deduped: ConversationGeneratedAttachment[] = [];
+    const ordered = threadAttachment ? [threadAttachment, ...fromMessages] : fromMessages;
+
+    for (const attachment of ordered) {
+      const key = `${attachment.url}::${attachment.filename}`.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(attachment);
+    }
+
+    return deduped;
+  }, [selectedMessages, selectedThreadId, selectedThreadDocumentState]);
+
+  useEffect(() => {
+    if (!conversationGeneratedAttachments.some((attachment) => attachment.id === expandedAttachmentId)) {
+      setExpandedAttachmentId(conversationGeneratedAttachments[0]?.id ?? null);
+    }
+  }, [conversationGeneratedAttachments, expandedAttachmentId]);
+
+  useEffect(() => {
+    const hasVisibleState =
+      conversationGeneratedAttachments.length > 0 ||
+      selectedThreadDocumentState?.status === "pending" ||
+      selectedThreadDocumentState?.status === "timeout" ||
+      selectedThreadDocumentState?.status === "error";
+
+    if (hasVisibleState) {
+      setAttachmentsPanelOpen(true);
+    }
+  }, [conversationGeneratedAttachments.length, selectedThreadDocumentState?.status]);
 
   const createConversation = async (): Promise<string | null> => {
     if (assistantContext.projectId === "all") {
@@ -817,6 +906,11 @@ export function AiChatWorkspace() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    void checkThreadDocument(selectedThreadId);
+  }, [selectedThreadId, checkThreadDocument]);
+
   /** Full retry loop (12 × 2.5 s) — used after handleSend stream ends. */
   const pollThreadDocumentUntilReady = useCallback(async (threadId: string) => {
     if (!threadId) return;
@@ -841,7 +935,7 @@ export function AiChatWorkspace() {
 
         if (!response.ok) {
           const errPayload = (await response.json().catch(() => null)) as { message?: string } | null;
-          throw new Error(errPayload?.message || "No se pudo consultar el documento generado.");
+          throw new Error(errPayload?.message || "Could not fetch the generated document.");
         }
 
         const payload = (await response.json()) as ThreadDocumentApiResponse;
@@ -874,7 +968,7 @@ export function AiChatWorkspace() {
           ...prev,
           [threadId]: {
             status: "error",
-            message: pollError instanceof Error ? pollError.message : "No se pudo obtener el documento generado.",
+            message: pollError instanceof Error ? pollError.message : "Could not get the generated document.",
           },
         }));
       }
@@ -888,7 +982,7 @@ export function AiChatWorkspace() {
         ...prev,
         [threadId]: {
           status: "timeout",
-          message: "El documento aun no esta listo. Puedes reintentar en unos segundos.",
+          message: "The document is not ready yet. You can retry in a few seconds.",
         },
       }));
     }
@@ -1067,42 +1161,119 @@ export function AiChatWorkspace() {
   };
 
   return (
-    <section className="space-y-5">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">QA Workspace</p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">QA Assistant</h1>
-        <p className="mt-1 text-sm text-ink-muted">Ask about test runs, bugs, suites and reports.</p>
-      </header>
-
-      <Card className="border border-stroke bg-surface p-3 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-soft">CONTEXT</p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Project: {selectedProjectLabel}
-            </Badge>
-            <Button size="xs" variant="secondary" onClick={() => setContextModalOpen(true)}>
-              Change context
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid h-[calc(100dvh-17rem)] min-h-[620px] gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="flex h-full min-h-0 flex-col bg-surface p-4 sm:p-5">
-          <div className="mb-4 flex items-center justify-between border-b border-stroke pb-3">
+    <section className="h-[calc(100dvh-9.5rem)] min-h-[640px] overflow-hidden rounded-2xl border border-stroke bg-surface-elevated">
+      <div className="grid h-full min-h-0 md:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col border-b border-stroke bg-surface md:border-b-0 md:border-r">
+          <div className="flex items-center justify-between border-b border-stroke px-4 py-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-brand-700">
-                <IconSpark className="h-4 w-4" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
+                #
               </span>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">QA Assistant</p>
-                <p className="text-xs text-ink-soft">Grounded on workspace data</p>
+                <p className="text-base font-semibold text-ink">QA Assistant</p>
+                <p className="text-[11px] text-ink-soft">{assistantContext.workspace}</p>
               </div>
             </div>
+            <Button type="button" size="xs" variant="secondary" onClick={handleCreateChat} aria-label="New conversation">
+              <IconPlus className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+          <div className="border-b border-stroke px-4 py-3">
+            <Input
+              type="search"
+              value={historyQuery}
+              onChange={(event) => setHistoryQuery(event.target.value)}
+              placeholder="Search conversations..."
+              leadingIcon={<IconSearch className="h-4 w-4" />}
+              aria-label="Search conversation history"
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-3">
+            <section>
+              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Today</p>
+              <div className="space-y-1.5">
+                {groupedConversations.today.map((conversation) => {
+                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      data-testid={`conversation-row-${conversation.id}`}
+                      onClick={() => handleSelectConversation(conversation.id)}
+                      className={cn(
+                        "w-full rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                        selectedChatId === conversation.id
+                          ? "bg-brand-50 text-brand-700 dark:bg-brand-500/25 dark:text-brand-100"
+                          : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                      )}
+                      title={conversation.title}
+                    >
+                      <span className="block truncate text-sm font-medium">{conversation.title}</span>
+                      <span className="mt-0.5 block truncate text-[11px] opacity-80">{relativeTime}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section>
+              <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Yesterday</p>
+              <div className="space-y-1.5">
+                {groupedConversations.yesterday.map((conversation) => {
+                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      data-testid={`conversation-row-${conversation.id}`}
+                      onClick={() => handleSelectConversation(conversation.id)}
+                      className={cn(
+                        "w-full rounded-xl px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+                        selectedChatId === conversation.id
+                          ? "bg-brand-50 text-brand-700 dark:bg-brand-500/25 dark:text-brand-100"
+                          : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                      )}
+                      title={conversation.title}
+                    >
+                      <span className="block truncate text-sm font-medium">{conversation.title}</span>
+                      <span className="mt-0.5 block truncate text-[11px] opacity-80">{relativeTime}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {filteredConversations.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-stroke px-3 py-4 text-sm text-ink-muted">
+                No QA conversations match this search yet.
+              </p>
+            ) : null}
+          </div>
+        </aside>
+
+        <div className="flex min-h-0 flex-col bg-surface">
+          <header className="flex items-center justify-between border-b border-stroke px-4 py-3 sm:px-5">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">
+                {selectedConversation?.title ?? "New conversation"}
+              </p>
+              <p className="truncate text-xs text-ink-soft">
+                {assistantContext.workspace} / {selectedProjectLabel} / {assistantContext.environment}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted">
+                Project: {selectedProjectLabel}
+              </Badge>
+              <Button size="xs" variant="secondary" onClick={() => setContextModalOpen(true)}>
+                Change context
+              </Button>
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4 sm:px-5">
             {selectedMessages.length === 0 ? (
               <div className="flex h-full min-h-[280px] items-center justify-center rounded-xl border border-dashed border-stroke bg-surface-muted/60 px-6 text-center">
                 <div>
@@ -1117,236 +1288,62 @@ export function AiChatWorkspace() {
                 const isLatestAssistantMessage =
                   message.role === "assistant" &&
                   !selectedMessages.slice(index + 1).some((candidate) => candidate.role === "assistant");
-                const activeThreadId = message.threadId?.trim() || "";
-                const threadDocumentState = activeThreadId ? threadDocuments[activeThreadId] : undefined;
 
                 return (
-                <article
-                  key={message.id}
-                  className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}
-                >
-                  <div className="group max-w-[88%] space-y-2.5">
+                  <article
+                    key={message.id}
+                    className={cn("flex items-start gap-3", message.role === "user" ? "justify-end" : "justify-start")}
+                  >
                     {message.role === "assistant" ? (
-                      <div className="px-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">QA Assistant</p>
-                        <p className="text-[11px] text-ink-soft">Grounded on workspace data</p>
-                      </div>
+                      <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/25 dark:text-brand-100">
+                        AI
+                      </span>
                     ) : null}
-                    <div
-                      className={cn(
-                        "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                        message.role === "user"
-                          ? "bg-brand-100 text-brand-700"
-                          : "border border-stroke bg-surface-muted text-ink",
-                      )}
-                    >
-                      {message.role === "assistant" ? (
-                        <MarkdownContent content={message.content} className="text-ink" />
-                      ) : (
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      )}
+                    <div className="group max-w-[88%] space-y-2.5">
+                      <div
+                        className={cn(
+                          "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                          message.role === "user"
+                            ? "bg-brand-600 text-white"
+                            : "border border-stroke bg-surface-muted text-ink",
+                        )}
+                      >
+                        {message.role === "assistant" ? (
+                          <MarkdownContent content={message.content} className="text-ink" />
+                        ) : (
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                        )}
 
-                      {message.role === "assistant" && (message.documentVersions?.length ?? 0) > 0 ? (
-                        <section className="mt-3 space-y-2 rounded-xl border border-stroke bg-surface p-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-                            Generated documents
-                          </p>
-                          <div className="space-y-3">
-                            {message.documentVersions?.map((documentVersion, index) => {
-                              const generatedAtLabel = formatDocumentGeneratedAt(documentVersion.generatedAt);
-                              const versionLabel =
-                                typeof documentVersion.version === "number"
-                                  ? `Version ${documentVersion.version}`
-                                  : `Version ${index + 1}`;
-
-                              return (
-                                <article
-                                  key={`${documentVersion.url}-${index}`}
-                                  className="space-y-2 rounded-lg border border-stroke bg-surface-elevated p-2.5"
-                                >
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div>
-                                      <p className="text-xs font-semibold text-ink">{versionLabel}</p>
-                                      <p className="text-[11px] text-ink-soft">
-                                        {generatedAtLabel ? `Generated ${generatedAtLabel}` : "Generated document"}
-                                      </p>
-                                    </div>
-                                    <a
-                                      href={documentVersion.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
-                                    >
-                                      Open PDF
-                                    </a>
-                                  </div>
-                                  <iframe
-                                    src={documentVersion.url}
-                                    title={`PDF preview ${versionLabel}`}
-                                    className="h-72 w-full rounded-md border border-stroke bg-white"
-                                    loading="lazy"
-                                  />
-                                  <p className="text-[11px] text-ink-soft">
-                                    {typeof documentVersion.testCaseCount === "number"
-                                      ? `${documentVersion.testCaseCount} test cases`
-                                      : "Test case count unavailable"}
-                                  </p>
-                                  {documentVersion.changeSummary ? (
-                                    <p className="text-[11px] text-ink-muted">{documentVersion.changeSummary}</p>
-                                  ) : null}
-                                </article>
-                              );
-                            })}
-                          </div>
-                        </section>
-                      ) : null}
-
-                      {isLatestAssistantMessage && activeThreadId && threadDocumentState != null && threadDocumentState.status !== "missing" ? (
-                        <section className="mt-3 overflow-hidden rounded-xl border border-stroke shadow-[var(--shadow-soft-xs)]">
-                          {/* Ready state */}
-                          {threadDocumentState?.status === "ready" ? (
-                            <div className="border-l-4 border-l-brand-500 bg-surface-elevated">
-                              <div className="space-y-3 p-4">
-                                {/* Header row */}
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <IconDocument className="h-4 w-4 shrink-0 text-brand-600" />
-                                    <span className="text-sm font-semibold text-ink">{threadDocumentState.filename}</span>
-                                    <Badge tone="info" className="px-2 py-0.5 text-[10px]">PDF</Badge>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <a
-                                      href={threadDocumentState.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35 h-8"
-                                    >
-                                      <IconExternalLink className="h-3.5 w-3.5" />
-                                      Abrir
-                                    </a>
-                                    <a
-                                      href={threadDocumentState.url}
-                                      download={threadDocumentState.filename}
-                                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35 h-8"
-                                    >
-                                      <IconDownload className="h-3.5 w-3.5" />
-                                      Descargar
-                                    </a>
-                                  </div>
-                                </div>
-                                {/* PDF iframe preview */}
-                                <iframe
-                                  src={threadDocumentState.url}
-                                  title="Thread generated PDF preview"
-                                  className={cn(
-                                    "w-full rounded-lg border border-stroke bg-white transition-[height] duration-300",
-                                    pdfExpanded ? "h-[32rem]" : "h-72"
-                                  )}
-                                  loading="lazy"
-                                />
-                                {/* Expand / Collapse toggle */}
-                                <div className="flex justify-center">
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    onClick={() => setPdfExpanded((v) => !v)}
-                                    className="gap-1 text-[11px] text-ink-muted"
-                                  >
-                                    {pdfExpanded ? (
-                                      <>
-                                        <IconChevronUp className="h-3 w-3" />
-                                        Colapsar
-                                      </>
-                                    ) : (
-                                      <>
-                                        <IconChevronDown className="h-3 w-3" />
-                                        Expandir
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {/* Pending state — skeleton loader */}
-                          {!threadDocumentState || threadDocumentState.status === "pending" ? (
-                            <div className="border-l-4 border-l-brand-500 bg-surface-elevated p-4">
-                              <div className="animate-pulse space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="h-4 w-4 rounded bg-surface-muted" />
-                                  <div className="h-4 w-32 rounded bg-surface-muted" />
-                                  <div className="h-4 w-10 rounded-full bg-surface-muted" />
-                                </div>
-                                <div className="h-48 w-full rounded-lg bg-surface-muted" />
-                              </div>
-                              <div className="mt-3 flex items-center gap-2">
-                                <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-                                <span className="text-xs text-ink-muted">Generando documento...</span>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {/* Timeout state */}
-                          {threadDocumentState?.status === "timeout" ? (
-                            <div className="border-l-4 border-l-warning-500 bg-surface-elevated p-4">
-                              <div className="flex items-start gap-2">
-                                <IconAlert className="h-4 w-4 shrink-0 text-warning-500" />
-                                <div className="space-y-2">
-                                  <p className="text-xs text-ink-muted">{threadDocumentState.message}</p>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="secondary"
-                                    onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                                  >
-                                    Reintentar
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {/* Error state */}
-                          {threadDocumentState?.status === "error" ? (
-                            <div className="border-l-4 border-l-danger-500 bg-surface-elevated p-4">
-                              <div className="flex items-start gap-2">
-                                <IconAlert className="h-4 w-4 shrink-0 text-danger-500" />
-                                <div className="space-y-2">
-                                  <p className="text-xs text-danger-600">{threadDocumentState.message}</p>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="secondary"
-                                    onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                                  >
-                                    Reintentar
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </section>
-                      ) : null}
+                        {message.role === "assistant" && isLatestAssistantMessage && conversationGeneratedAttachments.length > 0 ? (
+                          <section className="mt-3 rounded-xl border border-stroke bg-surface p-2.5">
+                            <p className="text-[11px] text-ink-muted">
+                              Generated PDF available in the attachments section.
+                            </p>
+                          </section>
+                        ) : null}
+                      </div>
+                      <div className={cn("flex items-center gap-2 px-1", message.role === "user" ? "justify-end" : "justify-between")}>
+                        <p className="text-[11px] text-ink-soft">{formatTime(message.createdAt)}</p>
+                        {message.role === "assistant" ? (
+                          <Button
+                            size="xs"
+                            variant="quiet"
+                            className="rounded-full border border-stroke bg-surface-elevated px-3 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                            onClick={() => handleCopy(message.content)}
+                            aria-label="Copy assistant message"
+                          >
+                            <IconClipboard className="h-3.5 w-3.5" />
+                            Copy
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between px-1">
-                      <p className="text-[11px] text-ink-soft">{formatTime(message.createdAt)}</p>
-                      {message.role === "assistant" ? (
-                        <Button
-                          size="xs"
-                          variant="quiet"
-                          className="rounded-full border border-stroke bg-surface-elevated px-3 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                          onClick={() => handleCopy(message.content)}
-                          aria-label="Copy assistant message"
-                        >
-                          <IconClipboard className="h-3.5 w-3.5" />
-                          Copy
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
+                    {message.role === "user" ? (
+                      <span className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-semibold text-white">
+                        {userInitials}
+                      </span>
+                    ) : null}
+                  </article>
                 );
               })
             )}
@@ -1359,7 +1356,187 @@ export function AiChatWorkspace() {
             ) : null}
           </div>
 
-          <form onSubmit={handleSend} className="mt-3 rounded-2xl border border-stroke bg-surface-elevated p-3">
+          <section className="border-t border-stroke bg-surface-elevated px-4 py-3 sm:px-5">
+            <div className="space-y-3 rounded-xl border border-stroke bg-surface p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <IconDocument className="h-4 w-4 text-brand-600" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Attachments</p>
+                  {conversationGeneratedAttachments.length > 0 ? (
+                    <Badge className="px-2 py-0.5 text-[10px]">{conversationGeneratedAttachments.length}</Badge>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setAttachmentsPanelOpen((value) => !value)}
+                  aria-label={attachmentsPanelOpen ? "Collapse attachmentss" : "Expand attachments"}
+                  className="gap-1 text-[11px] text-ink-muted"
+                >
+                  {attachmentsPanelOpen ? (
+                    <>
+                      <IconChevronUp className="h-3 w-3" />
+                      Colapsar
+                    </>
+                  ) : (
+                    <>
+                      <IconChevronDown className="h-3 w-3" />
+                      Expandir
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {!attachmentsPanelOpen ? (
+                <p className="text-xs text-ink-muted">
+                  {conversationGeneratedAttachments.length > 0
+                    ? `${conversationGeneratedAttachments.length} PDF available.`
+                    : "No PDFs were generated in this conversation."}
+                </p>
+              ) : null}
+
+              {attachmentsPanelOpen && !selectedThreadId ? (
+                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+              ) : null}
+
+              {attachmentsPanelOpen && selectedThreadDocumentState?.status === "pending" ? (
+                <div className="rounded-lg border border-stroke bg-surface-elevated p-3">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-4 w-40 rounded bg-surface-muted" />
+                    <div className="h-20 w-full rounded bg-surface-muted" />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                    <span className="text-xs text-ink-muted">Generando documento...</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen &&
+              (selectedThreadDocumentState?.status === "timeout" || selectedThreadDocumentState?.status === "error") &&
+              selectedThreadId ? (
+                <div className="rounded-lg border border-stroke bg-surface-elevated p-3">
+                  <div className="flex items-start gap-2">
+                    <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-500" />
+                    <div className="space-y-2">
+                      <p className="text-xs text-ink-muted">{selectedThreadDocumentState.message}</p>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="secondary"
+                        onClick={() => {
+                          checkedThreadsRef.current.delete(selectedThreadId);
+                          pollingThreadsRef.current.delete(selectedThreadId);
+                          void pollThreadDocumentUntilReady(selectedThreadId);
+                        }}
+                      >
+                        Reintentar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen && conversationGeneratedAttachments.length > 0 ? (
+                <div className="space-y-3">
+                  {conversationGeneratedAttachments.map((attachment) => {
+                    const isExpanded = expandedAttachmentId === attachment.id;
+                    const generatedAtLabel = formatDocumentGeneratedAt(attachment.createdAt);
+                    return (
+                      <article
+                        key={attachment.id}
+                        className="space-y-2 rounded-lg border border-stroke bg-surface-elevated p-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <IconDocument className="h-4 w-4 shrink-0 text-brand-600" />
+                            <span className="truncate text-sm font-semibold text-ink">{attachment.filename}</span>
+                            <Badge tone="info" className="px-2 py-0.5 text-[10px]">
+                              PDF
+                            </Badge>
+                            <Badge className="px-2 py-0.5 text-[10px]">
+                              {attachment.source === "thread" ? "Último" : "Histórico"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Abrir ${attachment.filename}`}
+                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                            >
+                              <IconExternalLink className="h-3.5 w-3.5" />
+                              Open
+                            </a>
+                            <a
+                              href={attachment.url}
+                              download={attachment.filename}
+                              aria-label={`Descargar ${attachment.filename}`}
+                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                            >
+                              <IconDownload className="h-3.5 w-3.5" />
+                              Download
+                            </a>
+                          </div>
+                        </div>
+
+                        {generatedAtLabel ? (
+                          <p className="text-[11px] text-ink-soft">Generado {generatedAtLabel}</p>
+                        ) : null}
+
+                        {isExpanded ? (
+                          <iframe
+                            src={attachment.url}
+                            title={`Adjunto PDF ${attachment.filename}`}
+                            className="h-72 w-full rounded-lg border border-stroke bg-white"
+                            loading="lazy"
+                          />
+                        ) : null}
+
+                        <div className="flex justify-center">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() =>
+                              setExpandedAttachmentId((current) =>
+                                current === attachment.id ? null : attachment.id,
+                              )
+                            }
+                            className="gap-1 text-[11px] text-ink-muted"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <IconChevronUp className="h-3 w-3" />
+                                Colapsar
+                              </>
+                            ) : (
+                              <>
+                                <IconChevronDown className="h-3 w-3" />
+                                Expandir
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen &&
+              selectedThreadId &&
+              conversationGeneratedAttachments.length === 0 &&
+              (!selectedThreadDocumentState ||
+                selectedThreadDocumentState.status === "missing") ? (
+                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+              ) : null}
+            </div>
+          </section>
+
+          <form onSubmit={handleSend} className="border-t border-stroke bg-surface-elevated px-4 py-3 sm:px-5">
             {error ? (
               <div className="mb-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-3 py-2 text-xs font-medium text-danger-600">
                 {error}
@@ -1374,13 +1551,12 @@ export function AiChatWorkspace() {
                   size="xs"
                   variant="quiet"
                   onClick={() => insertTemplateIntoDraft(action.template)}
-                  className="h-7 rounded-full border border-stroke bg-surface px-2.5 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className="h-7 rounded-full border border-stroke bg-surface px-2.5 text-[11px] font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   {action.label}
                 </Button>
               ))}
             </div>
-            <p className="mb-3 text-xs text-ink-soft">Tip: Use #runId or paste a failed test title.</p>
 
             {attachments.length > 0 ? (
               <div className="mb-3 space-y-2">
@@ -1424,36 +1600,26 @@ export function AiChatWorkspace() {
             <label htmlFor="ai-prompt" className="sr-only">
               Prompt message
             </label>
-            <textarea
-              id="ai-prompt"
-              ref={promptRef}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Ask about test runs, bugs, suites, or attach evidence..."
-              rows={2}
-              className="w-full resize-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft"
-            />
-
-            <input
-              ref={evidenceInputRef}
-              type="file"
-              multiple
-              className="sr-only"
-              aria-label="Attach evidence files"
-              onChange={handleEvidenceSelected}
-            />
-
-            <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-end gap-2 rounded-xl border border-stroke bg-surface px-3 py-2.5">
               <Button
                 type="button"
                 variant="quiet"
                 size="sm"
-                className="px-0 text-ink-muted hover:bg-transparent hover:text-ink"
+                className="h-8 w-8 rounded-full p-0"
                 onClick={() => evidenceInputRef.current?.click()}
+                aria-label="Attach evidence"
               >
                 <IconPlus className="h-4 w-4" />
-                Attach evidence
               </Button>
+              <textarea
+                id="ai-prompt"
+                ref={promptRef}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Ask about test runs, bugs, suites, or attach evidence..."
+                rows={1}
+                className="max-h-40 w-full resize-y bg-transparent text-sm text-ink outline-none placeholder:text-ink-soft"
+              />
               <Button
                 type="submit"
                 size="sm"
@@ -1464,106 +1630,18 @@ export function AiChatWorkspace() {
                 <IconSend className="h-5 w-5 shrink-0 text-white fill-white stroke-white" />
               </Button>
             </div>
-          </form>
-        </Card>
 
-        <Card className="flex h-full min-h-0 flex-col bg-surface p-4">
-          <Button type="button" className="w-full" onClick={handleCreateChat}>
-            <IconPlus className="h-4 w-4" />
-            New conversation
-          </Button>
-
-          <div className="mt-4">
-            <Input
-              type="search"
-              value={historyQuery}
-              onChange={(event) => setHistoryQuery(event.target.value)}
-              placeholder="Search conversations..."
-              leadingIcon={<IconSearch className="h-4 w-4" />}
-              aria-label="Search conversation history"
+            <input
+              ref={evidenceInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              aria-label="Attach evidence files"
+              onChange={handleEvidenceSelected}
             />
-          </div>
-
-          <div className="mt-5 min-h-0 flex-1 space-y-5 overflow-y-auto">
-            <section>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">Today</p>
-              <div className="space-y-2">
-                {groupedConversations.today.map((conversation) => {
-                  const scopeLabel = conversation.scopeLabel ?? "All projects";
-                  const environment = conversation.environment ?? "DEV";
-                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
-
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      data-testid={`conversation-row-${conversation.id}`}
-                      onClick={() => handleSelectConversation(conversation.id)}
-                      className={cn(
-                        "w-full rounded-lg border-l-2 px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                        selectedChatId === conversation.id
-                          ? "border-brand-400 bg-brand-50/60"
-                          : "border-transparent text-ink-muted hover:bg-surface-muted hover:text-ink",
-                      )}
-                      title={conversation.title}
-                    >
-                      <span className="block truncate text-sm text-ink">{conversation.title}</span>
-                      <span
-                        data-testid={`conversation-meta-${conversation.id}`}
-                        className="mt-0.5 block truncate text-xs text-ink-soft"
-                      >
-                        {environment} · {scopeLabel} · {relativeTime}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-soft">Yesterday</p>
-              <div className="space-y-2">
-                {groupedConversations.yesterday.map((conversation) => {
-                  const scopeLabel = conversation.scopeLabel ?? "All projects";
-                  const environment = conversation.environment ?? "DEV";
-                  const relativeTime = formatRelativeTime(conversation.lastMessageAt);
-
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      data-testid={`conversation-row-${conversation.id}`}
-                      onClick={() => handleSelectConversation(conversation.id)}
-                      className={cn(
-                        "w-full rounded-lg border-l-2 px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
-                        selectedChatId === conversation.id
-                          ? "border-brand-400 bg-brand-50/60"
-                          : "border-transparent text-ink-muted hover:bg-surface-muted hover:text-ink",
-                      )}
-                      title={conversation.title}
-                    >
-                      <span className="block truncate text-sm text-ink">{conversation.title}</span>
-                      <span
-                        data-testid={`conversation-meta-${conversation.id}`}
-                        className="mt-0.5 block truncate text-xs text-ink-soft"
-                      >
-                        {environment} · {scopeLabel} · {relativeTime}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {filteredConversations.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-stroke px-3 py-4 text-sm text-ink-muted">
-                No QA conversations match this search yet.
-              </p>
-            ) : null}
-          </div>
-        </Card>
+          </form>
+        </div>
       </div>
-
       <Modal
         open={contextModalOpen}
         onClose={() => setContextModalOpen(false)}
@@ -1636,3 +1714,7 @@ export function AiChatWorkspace() {
     </section>
   );
 }
+
+
+
+

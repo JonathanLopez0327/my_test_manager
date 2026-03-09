@@ -49,7 +49,7 @@ export const GET = withAuth(PERMISSIONS.TEST_SUITE_LIST, async (req, { userId, g
     });
     if (!allowed) {
       return NextResponse.json(
-        { message: "No tienes acceso a este proyecto." },
+        { message: "You do not have acceso a este project." },
         { status: 403 },
       );
     }
@@ -173,7 +173,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!testPlanId || !name) {
       return NextResponse.json(
-        { message: "Plan y nombre son requeridos." },
+        { message: "Plan and name are required." },
         { status: 400 },
       );
     }
@@ -185,7 +185,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!plan) {
       return NextResponse.json(
-        { message: "Plan no encontrado." },
+        { message: "Test plan not found." },
         { status: 404 },
       );
     }
@@ -205,7 +205,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       });
       if (!parent || parent.testPlanId !== testPlanId) {
         return NextResponse.json(
-          { message: "Suite padre inválida." },
+          { message: "Invalid parent suite." },
           { status: 400 },
         );
       }
@@ -229,13 +229,16 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe una suite con ese nombre en el plan." },
+        { message: "A suite with that name already exists in the plan." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo crear la suite." },
+      { message: "Could not create the suite." },
       { status: 500 },
     );
   }
 });
+
+
+

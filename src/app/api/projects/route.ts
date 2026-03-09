@@ -93,14 +93,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   });
   if (!allowed) {
     return NextResponse.json(
-      { message: "No tienes permisos para crear proyectos." },
+      { message: "You do not have permission to create projects." },
       { status: 403 },
     );
   }
 
   if (!activeOrganizationId) {
     return NextResponse.json(
-      { message: "Debes tener una organización activa para crear proyectos." },
+      { message: "You must have an active organization to create projects." },
       { status: 400 },
     );
   }
@@ -119,7 +119,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!key || !name) {
       return NextResponse.json(
-        { message: "Key y nombre son requeridos." },
+        { message: "Key and name are required." },
         { status: 400 },
       );
     }
@@ -155,13 +155,17 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe un proyecto con ese key." },
+        { message: "Ya existe un project con ese key." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo crear el proyecto." },
+      { message: "Could not create the project." },
       { status: 500 },
     );
   }
 });
+
+
+
+
