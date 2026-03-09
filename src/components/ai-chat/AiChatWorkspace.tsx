@@ -137,7 +137,15 @@ type ThreadDocumentState =
   | {
       status: "error";
       message: string;
-    };
+  };
+
+type ConversationGeneratedAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  source: "thread" | "message";
+  createdAt?: string;
+};
 
 const FALLBACK_WORKSPACE = "Software Sushi";
 const ENV_OPTIONS = ["DEV", "STAGING", "PROD"];
@@ -501,7 +509,8 @@ export function AiChatWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [threadDocuments, setThreadDocuments] = useState<Record<string, ThreadDocumentState>>({});
-  const [pdfExpanded, setPdfExpanded] = useState(false);
+  const [expandedAttachmentId, setExpandedAttachmentId] = useState<string | null>(null);
+  const [attachmentsPanelOpen, setAttachmentsPanelOpen] = useState(false);
 
   const [contextModalOpen, setContextModalOpen] = useState(false);
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([
@@ -689,8 +698,15 @@ export function AiChatWorkspace() {
     [filteredConversations],
   );
 
-  const selectedMessages = conversationMessages[selectedChatId] ?? [];
+  const selectedMessages = useMemo(
+    () => conversationMessages[selectedChatId] ?? [],
+    [conversationMessages, selectedChatId],
+  );
   const selectedConversation = conversations.find((conversation) => conversation.id === selectedChatId);
+  const selectedThreadId = selectedConversation?.threadId?.trim() || "";
+  const selectedThreadDocumentState = selectedThreadId
+    ? threadDocuments[selectedThreadId]
+    : undefined;
   const userInitials = (session?.user?.name ?? "You")
     .split(" ")
     .map((part) => part[0])
@@ -705,6 +721,76 @@ export function AiChatWorkspace() {
     assistantContext.workspace !== contextDraft.workspace ||
     assistantContext.projectId !== contextDraft.projectId ||
     assistantContext.environment !== contextDraft.environment;
+
+  const conversationGeneratedAttachments = useMemo<ConversationGeneratedAttachment[]>(() => {
+    const fromMessages: ConversationGeneratedAttachment[] = [];
+
+    for (const message of selectedMessages) {
+      if (message.role !== "assistant" || (message.documentVersions?.length ?? 0) === 0) continue;
+
+      message.documentVersions?.forEach((version, index) => {
+        if (!version?.url?.trim()) return;
+        const fallbackName = (() => {
+          try {
+            const pathname = new URL(version.url).pathname;
+            const name = pathname.split("/").pop()?.trim();
+            return name || `document-version-${index + 1}.pdf`;
+          } catch {
+            return `document-version-${index + 1}.pdf`;
+          }
+        })();
+
+        fromMessages.push({
+          id: `msg-${message.id}-${index}`,
+          filename: fallbackName,
+          url: version.url,
+          source: "message",
+          createdAt: version.generatedAt,
+        });
+      });
+    }
+
+    const threadAttachment =
+      selectedThreadId && selectedThreadDocumentState?.status === "ready"
+        ? ({
+            id: `thread-${selectedThreadId}`,
+            filename: selectedThreadDocumentState.filename,
+            url: selectedThreadDocumentState.url,
+            source: "thread",
+          } satisfies ConversationGeneratedAttachment)
+        : null;
+
+    const seen = new Set<string>();
+    const deduped: ConversationGeneratedAttachment[] = [];
+    const ordered = threadAttachment ? [threadAttachment, ...fromMessages] : fromMessages;
+
+    for (const attachment of ordered) {
+      const key = `${attachment.url}::${attachment.filename}`.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(attachment);
+    }
+
+    return deduped;
+  }, [selectedMessages, selectedThreadId, selectedThreadDocumentState]);
+
+  useEffect(() => {
+    if (!conversationGeneratedAttachments.some((attachment) => attachment.id === expandedAttachmentId)) {
+      setExpandedAttachmentId(conversationGeneratedAttachments[0]?.id ?? null);
+    }
+  }, [conversationGeneratedAttachments, expandedAttachmentId]);
+
+  useEffect(() => {
+    const hasVisibleState =
+      conversationGeneratedAttachments.length > 0 ||
+      selectedThreadDocumentState?.status === "pending" ||
+      selectedThreadDocumentState?.status === "timeout" ||
+      selectedThreadDocumentState?.status === "error";
+
+    if (hasVisibleState) {
+      setAttachmentsPanelOpen(true);
+    }
+  }, [conversationGeneratedAttachments.length, selectedThreadDocumentState?.status]);
 
   const createConversation = async (): Promise<string | null> => {
     if (assistantContext.projectId === "all") {
@@ -819,6 +905,11 @@ export function AiChatWorkspace() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    void checkThreadDocument(selectedThreadId);
+  }, [selectedThreadId, checkThreadDocument]);
 
   /** Full retry loop (12 × 2.5 s) — used after handleSend stream ends. */
   const pollThreadDocumentUntilReady = useCallback(async (threadId: string) => {
@@ -1083,7 +1174,7 @@ export function AiChatWorkspace() {
                 <p className="text-[11px] text-ink-soft">{assistantContext.workspace}</p>
               </div>
             </div>
-            <Button type="button" size="xs" variant="secondary" onClick={handleCreateChat}>
+            <Button type="button" size="xs" variant="secondary" onClick={handleCreateChat} aria-label="New conversation">
               <IconPlus className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -1197,8 +1288,6 @@ export function AiChatWorkspace() {
                 const isLatestAssistantMessage =
                   message.role === "assistant" &&
                   !selectedMessages.slice(index + 1).some((candidate) => candidate.role === "assistant");
-                const activeThreadId = message.threadId?.trim() || "";
-                const threadDocumentState = activeThreadId ? threadDocuments[activeThreadId] : undefined;
 
                 return (
                   <article
@@ -1225,180 +1314,11 @@ export function AiChatWorkspace() {
                           <p className="whitespace-pre-wrap">{message.content}</p>
                         )}
 
-                        {message.role === "assistant" && (message.documentVersions?.length ?? 0) > 0 ? (
-                          <section className="mt-3 space-y-2 rounded-xl border border-stroke bg-surface p-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-                              Generated documents
+                        {message.role === "assistant" && isLatestAssistantMessage && conversationGeneratedAttachments.length > 0 ? (
+                          <section className="mt-3 rounded-xl border border-stroke bg-surface p-2.5">
+                            <p className="text-[11px] text-ink-muted">
+                              PDF generado disponible en la sección de adjuntos.
                             </p>
-                            <div className="space-y-3">
-                              {message.documentVersions?.map((documentVersion, index) => {
-                                const generatedAtLabel = formatDocumentGeneratedAt(documentVersion.generatedAt);
-                                const versionLabel =
-                                  typeof documentVersion.version === "number"
-                                    ? `Version ${documentVersion.version}`
-                                    : `Version ${index + 1}`;
-
-                                return (
-                                  <article
-                                    key={`${documentVersion.url}-${index}`}
-                                    className="space-y-2 rounded-lg border border-stroke bg-surface-elevated p-2.5"
-                                  >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div>
-                                        <p className="text-xs font-semibold text-ink">{versionLabel}</p>
-                                        <p className="text-[11px] text-ink-soft">
-                                          {generatedAtLabel ? `Generated ${generatedAtLabel}` : "Generated document"}
-                                        </p>
-                                      </div>
-                                      <a
-                                        href={documentVersion.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-xs font-semibold text-brand-700 underline-offset-2 hover:underline"
-                                      >
-                                        Open PDF
-                                      </a>
-                                    </div>
-                                    <iframe
-                                      src={documentVersion.url}
-                                      title={`PDF preview ${versionLabel}`}
-                                      className="h-72 w-full rounded-md border border-stroke bg-white"
-                                      loading="lazy"
-                                    />
-                                    <p className="text-[11px] text-ink-soft">
-                                      {typeof documentVersion.testCaseCount === "number"
-                                        ? `${documentVersion.testCaseCount} test cases`
-                                        : "Test case count unavailable"}
-                                    </p>
-                                    {documentVersion.changeSummary ? (
-                                      <p className="text-[11px] text-ink-muted">{documentVersion.changeSummary}</p>
-                                    ) : null}
-                                  </article>
-                                );
-                              })}
-                            </div>
-                          </section>
-                        ) : null}
-
-                        {isLatestAssistantMessage && activeThreadId && threadDocumentState != null && threadDocumentState.status !== "missing" ? (
-                          <section className="mt-3 overflow-hidden rounded-xl border border-stroke shadow-[var(--shadow-soft-xs)]">
-                            {threadDocumentState?.status === "ready" ? (
-                              <div className="border-l-4 border-l-brand-500 bg-surface-elevated">
-                                <div className="space-y-3 p-4">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <IconDocument className="h-4 w-4 shrink-0 text-brand-600" />
-                                      <span className="text-sm font-semibold text-ink">{threadDocumentState.filename}</span>
-                                      <Badge tone="info" className="px-2 py-0.5 text-[10px]">PDF</Badge>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <a
-                                        href={threadDocumentState.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
-                                      >
-                                        <IconExternalLink className="h-3.5 w-3.5" />
-                                        Abrir
-                                      </a>
-                                      <a
-                                        href={threadDocumentState.url}
-                                        download={threadDocumentState.filename}
-                                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
-                                      >
-                                        <IconDownload className="h-3.5 w-3.5" />
-                                        Descargar
-                                      </a>
-                                    </div>
-                                  </div>
-                                  <iframe
-                                    src={threadDocumentState.url}
-                                    title="Thread generated PDF preview"
-                                    className={cn(
-                                      "w-full rounded-lg border border-stroke bg-white transition-[height] duration-300",
-                                      pdfExpanded ? "h-[32rem]" : "h-72"
-                                    )}
-                                    loading="lazy"
-                                  />
-                                  <div className="flex justify-center">
-                                    <Button
-                                      type="button"
-                                      size="xs"
-                                      variant="ghost"
-                                      onClick={() => setPdfExpanded((v) => !v)}
-                                      className="gap-1 text-[11px] text-ink-muted"
-                                    >
-                                      {pdfExpanded ? (
-                                        <>
-                                          <IconChevronUp className="h-3 w-3" />
-                                          Colapsar
-                                        </>
-                                      ) : (
-                                        <>
-                                          <IconChevronDown className="h-3 w-3" />
-                                          Expandir
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {!threadDocumentState || threadDocumentState.status === "pending" ? (
-                              <div className="border-l-4 border-l-brand-500 bg-surface-elevated p-4">
-                                <div className="animate-pulse space-y-3">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-4 w-4 rounded bg-surface-muted" />
-                                    <div className="h-4 w-32 rounded bg-surface-muted" />
-                                    <div className="h-4 w-10 rounded-full bg-surface-muted" />
-                                  </div>
-                                  <div className="h-48 w-full rounded-lg bg-surface-muted" />
-                                </div>
-                                <div className="mt-3 flex items-center gap-2">
-                                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-                                  <span className="text-xs text-ink-muted">Generando documento...</span>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {threadDocumentState?.status === "timeout" ? (
-                              <div className="border-l-4 border-l-warning-500 bg-surface-elevated p-4">
-                                <div className="flex items-start gap-2">
-                                  <IconAlert className="h-4 w-4 shrink-0 text-warning-500" />
-                                  <div className="space-y-2">
-                                    <p className="text-xs text-ink-muted">{threadDocumentState.message}</p>
-                                    <Button
-                                      type="button"
-                                      size="xs"
-                                      variant="secondary"
-                                      onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                                    >
-                                      Reintentar
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {threadDocumentState?.status === "error" ? (
-                              <div className="border-l-4 border-l-danger-500 bg-surface-elevated p-4">
-                                <div className="flex items-start gap-2">
-                                  <IconAlert className="h-4 w-4 shrink-0 text-danger-500" />
-                                  <div className="space-y-2">
-                                    <p className="text-xs text-danger-600">{threadDocumentState.message}</p>
-                                    <Button
-                                      type="button"
-                                      size="xs"
-                                      variant="secondary"
-                                      onClick={() => { checkedThreadsRef.current.delete(activeThreadId); pollingThreadsRef.current.delete(activeThreadId); void pollThreadDocumentUntilReady(activeThreadId); }}
-                                    >
-                                      Reintentar
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            ) : null}
                           </section>
                         ) : null}
                       </div>
@@ -1435,6 +1355,186 @@ export function AiChatWorkspace() {
               </div>
             ) : null}
           </div>
+
+          <section className="border-t border-stroke bg-surface-elevated px-4 py-3 sm:px-5">
+            <div className="space-y-3 rounded-xl border border-stroke bg-surface p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <IconDocument className="h-4 w-4 text-brand-600" />
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Adjuntos</p>
+                  {conversationGeneratedAttachments.length > 0 ? (
+                    <Badge className="px-2 py-0.5 text-[10px]">{conversationGeneratedAttachments.length}</Badge>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setAttachmentsPanelOpen((value) => !value)}
+                  aria-label={attachmentsPanelOpen ? "Colapsar adjuntos" : "Expandir adjuntos"}
+                  className="gap-1 text-[11px] text-ink-muted"
+                >
+                  {attachmentsPanelOpen ? (
+                    <>
+                      <IconChevronUp className="h-3 w-3" />
+                      Colapsar
+                    </>
+                  ) : (
+                    <>
+                      <IconChevronDown className="h-3 w-3" />
+                      Expandir
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {!attachmentsPanelOpen ? (
+                <p className="text-xs text-ink-muted">
+                  {conversationGeneratedAttachments.length > 0
+                    ? `${conversationGeneratedAttachments.length} PDF(s) disponible(s).`
+                    : "No hay PDFs generados en esta conversación."}
+                </p>
+              ) : null}
+
+              {attachmentsPanelOpen && !selectedThreadId ? (
+                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+              ) : null}
+
+              {attachmentsPanelOpen && selectedThreadDocumentState?.status === "pending" ? (
+                <div className="rounded-lg border border-stroke bg-surface-elevated p-3">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-4 w-40 rounded bg-surface-muted" />
+                    <div className="h-20 w-full rounded bg-surface-muted" />
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                    <span className="text-xs text-ink-muted">Generando documento...</span>
+                  </div>
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen &&
+              (selectedThreadDocumentState?.status === "timeout" || selectedThreadDocumentState?.status === "error") &&
+              selectedThreadId ? (
+                <div className="rounded-lg border border-stroke bg-surface-elevated p-3">
+                  <div className="flex items-start gap-2">
+                    <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-500" />
+                    <div className="space-y-2">
+                      <p className="text-xs text-ink-muted">{selectedThreadDocumentState.message}</p>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="secondary"
+                        onClick={() => {
+                          checkedThreadsRef.current.delete(selectedThreadId);
+                          pollingThreadsRef.current.delete(selectedThreadId);
+                          void pollThreadDocumentUntilReady(selectedThreadId);
+                        }}
+                      >
+                        Reintentar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen && conversationGeneratedAttachments.length > 0 ? (
+                <div className="space-y-3">
+                  {conversationGeneratedAttachments.map((attachment) => {
+                    const isExpanded = expandedAttachmentId === attachment.id;
+                    const generatedAtLabel = formatDocumentGeneratedAt(attachment.createdAt);
+                    return (
+                      <article
+                        key={attachment.id}
+                        className="space-y-2 rounded-lg border border-stroke bg-surface-elevated p-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <IconDocument className="h-4 w-4 shrink-0 text-brand-600" />
+                            <span className="truncate text-sm font-semibold text-ink">{attachment.filename}</span>
+                            <Badge tone="info" className="px-2 py-0.5 text-[10px]">
+                              PDF
+                            </Badge>
+                            <Badge className="px-2 py-0.5 text-[10px]">
+                              {attachment.source === "thread" ? "Último" : "Histórico"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={attachment.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Abrir ${attachment.filename}`}
+                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                            >
+                              <IconExternalLink className="h-3.5 w-3.5" />
+                              Abrir
+                            </a>
+                            <a
+                              href={attachment.url}
+                              download={attachment.filename}
+                              aria-label={`Descargar ${attachment.filename}`}
+                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                            >
+                              <IconDownload className="h-3.5 w-3.5" />
+                              Descargar
+                            </a>
+                          </div>
+                        </div>
+
+                        {generatedAtLabel ? (
+                          <p className="text-[11px] text-ink-soft">Generado {generatedAtLabel}</p>
+                        ) : null}
+
+                        {isExpanded ? (
+                          <iframe
+                            src={attachment.url}
+                            title={`Adjunto PDF ${attachment.filename}`}
+                            className="h-72 w-full rounded-lg border border-stroke bg-white"
+                            loading="lazy"
+                          />
+                        ) : null}
+
+                        <div className="flex justify-center">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() =>
+                              setExpandedAttachmentId((current) =>
+                                current === attachment.id ? null : attachment.id,
+                              )
+                            }
+                            className="gap-1 text-[11px] text-ink-muted"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <IconChevronUp className="h-3 w-3" />
+                                Colapsar
+                              </>
+                            ) : (
+                              <>
+                                <IconChevronDown className="h-3 w-3" />
+                                Expandir
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {attachmentsPanelOpen &&
+              selectedThreadId &&
+              conversationGeneratedAttachments.length === 0 &&
+              (!selectedThreadDocumentState ||
+                selectedThreadDocumentState.status === "missing") ? (
+                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+              ) : null}
+            </div>
+          </section>
 
           <form onSubmit={handleSend} className="border-t border-stroke bg-surface-elevated px-4 py-3 sm:px-5">
             {error ? (
