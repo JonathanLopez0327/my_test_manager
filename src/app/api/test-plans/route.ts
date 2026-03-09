@@ -67,7 +67,7 @@ export const GET = withAuth(PERMISSIONS.TEST_PLAN_LIST, async (req, { userId, gl
     });
     if (!allowed) {
       return NextResponse.json(
-        { message: "No tienes acceso a este proyecto." },
+        { message: "You do not have acceso a este project." },
         { status: 403 },
       );
     }
@@ -172,28 +172,28 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!projectId || !name) {
       return NextResponse.json(
-        { message: "Proyecto y nombre son requeridos." },
+        { message: "Project y nombre son requeridos." },
         { status: 400 },
       );
     }
 
     if (body.startsOn && !startsOn) {
       return NextResponse.json(
-        { message: "Fecha de inicio inválida." },
+        { message: "Invalid start date." },
         { status: 400 },
       );
     }
 
     if (body.endsOn && !endsOn) {
       return NextResponse.json(
-        { message: "Fecha de fin inválida." },
+        { message: "Invalid end date." },
         { status: 400 },
       );
     }
 
     if (startsOn && endsOn && endsOn < startsOn) {
       return NextResponse.json(
-        { message: "La fecha de fin debe ser posterior a la fecha de inicio." },
+        { message: "The end date must be after the start date." },
         { status: 400 },
       );
     }
@@ -226,13 +226,16 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe un plan con ese nombre en el proyecto." },
+        { message: "Ya existe un plan con ese nombre en el project." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo crear el plan." },
+      { message: "Could not create the plan." },
       { status: 500 },
     );
   }
 });
+
+
+

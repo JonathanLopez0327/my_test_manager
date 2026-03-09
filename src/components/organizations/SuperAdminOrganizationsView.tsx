@@ -23,7 +23,7 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
   try {
     return JSON.parse(text);
   } catch {
-    return { message: `Error inesperado (HTTP ${res.status})` };
+    return { message: `Unexpected error (HTTP ${res.status})` };
   }
 }
 
@@ -54,11 +54,11 @@ export function SuperAdminOrganizationsView() {
         params.set("sortDir", sortDir);
       }
       const res = await fetch(`/api/organizations${params.toString() ? `?${params.toString()}` : ""}`);
-      if (!res.ok) throw new Error("No se pudieron cargar las organizaciones.");
+      if (!res.ok) throw new Error("Could not cargar las organizations.");
       const data = (await res.json()) as OrganizationsResponse;
       setOrgs(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar.");
+      setError(err instanceof Error ? err.message : "Error loading data.");
     } finally {
       setLoading(false);
     }
@@ -78,11 +78,11 @@ export function SuperAdminOrganizationsView() {
       });
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "No se pudo actualizar la organización.");
+        throw new Error(data.message || "Could not update the organization.");
       }
       await fetchOrgs();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al actualizar.");
+      setError(err instanceof Error ? err.message : "Error updating data.");
     }
   };
 
@@ -100,7 +100,7 @@ export function SuperAdminOrganizationsView() {
     });
     if (!res.ok) {
       const data = await safeJson(res);
-      throw new Error(data.message || "No se pudo actualizar la organización.");
+      throw new Error(data.message || "Could not update the organization.");
     }
     await fetchOrgs();
   };
@@ -126,14 +126,14 @@ export function SuperAdminOrganizationsView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink">Organizaciones</h2>
+          <h2 className="text-lg font-semibold text-ink">Organizations</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Gestiona todas las organizaciones del sistema.
+            Manage all organizations in the system.
           </p>
         </div>
         <Button size="sm" onClick={() => setCreateOrgOpen(true)}>
           <IconPlus className="h-4 w-4" />
-          Nueva organizaci&oacute;n
+          New organization
         </Button>
       </div>
 
@@ -146,12 +146,12 @@ export function SuperAdminOrganizationsView() {
       {loading ? (
         <Card className="flex items-center justify-center p-10">
           <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-          <span className="ml-3 text-sm text-ink-muted">Cargando...</span>
+          <span className="ml-3 text-sm text-ink-muted">Loading...</span>
         </Card>
       ) : orgs.length === 0 ? (
         <Card className="p-6">
           <p className="text-sm text-ink-muted">
-            No hay organizaciones registradas.
+            No organizations registered.
           </p>
         </Card>
       ) : (
@@ -161,7 +161,7 @@ export function SuperAdminOrganizationsView() {
               <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
                 <tr className="bg-surface-muted/50 text-ink-muted">
                   <SortableHeaderCell
-                    label="Nombre"
+                    label="Name"
                     sortKey="name"
                     activeSortBy={sortBy}
                     activeSortDir={sortDir}
@@ -177,7 +177,7 @@ export function SuperAdminOrganizationsView() {
                     className="px-4 py-3 font-semibold text-ink-muted"
                   />
                   <SortableHeaderCell
-                    label="Miembros"
+                    label="Members"
                     sortKey="members"
                     activeSortBy={sortBy}
                     activeSortDir={sortDir}
@@ -185,7 +185,7 @@ export function SuperAdminOrganizationsView() {
                     className="px-4 py-3 font-semibold text-ink-muted text-center"
                   />
                   <SortableHeaderCell
-                    label="Proyectos"
+                    label="Projects"
                     sortKey="projects"
                     activeSortBy={sortBy}
                     activeSortDir={sortDir}
@@ -193,14 +193,14 @@ export function SuperAdminOrganizationsView() {
                     className="px-4 py-3 font-semibold text-ink-muted text-center"
                   />
                   <SortableHeaderCell
-                    label="Estado"
+                    label="Status"
                     sortKey="isActive"
                     activeSortBy={sortBy}
                     activeSortDir={sortDir}
                     onSort={handleSort}
                     className="px-4 py-3 font-semibold text-ink-muted text-center"
                   />
-                  <th className="px-4 py-3 font-semibold text-ink-muted text-right">Acciones</th>
+                  <th className="px-4 py-3 font-semibold text-ink-muted text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -219,7 +219,7 @@ export function SuperAdminOrganizationsView() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge tone={org.isActive ? "success" : "danger"}>
-                        {org.isActive ? "Activa" : "Inactiva"}
+                        {org.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -230,14 +230,14 @@ export function SuperAdminOrganizationsView() {
                           onClick={() => handleEditClick(org)}
                         >
                           <IconEdit className="h-4 w-4" />
-                          Editar
+                          Edit
                         </Button>
                         <Button
                           variant={org.isActive ? "danger" : "secondary"}
                           size="sm"
                           onClick={() => handleToggleActive(org)}
                         >
-                          {org.isActive ? "Desactivar" : "Activar"}
+                          {org.isActive ? "Deactivate" : "Activate"}
                         </Button>
                       </div>
                     </td>
@@ -267,3 +267,6 @@ export function SuperAdminOrganizationsView() {
     </div>
   );
 }
+
+
+

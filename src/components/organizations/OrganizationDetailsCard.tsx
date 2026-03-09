@@ -26,12 +26,12 @@ export function OrganizationDetailsCard({
         </div>
         <div className="flex items-center gap-3">
           <Badge tone={org.isActive ? "success" : "neutral"}>
-            {org.isActive ? "Activa" : "Inactiva"}
+            {org.isActive ? "Active" : "Inactive"}
           </Badge>
           {canEdit && (
             <Button variant="secondary" size="sm" onClick={onEdit}>
               <IconEdit className="h-4 w-4" />
-              Editar
+              Edit
             </Button>
           )}
         </div>
@@ -40,27 +40,27 @@ export function OrganizationDetailsCard({
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Miembros
+            Members
           </p>
           <p className="mt-1 text-lg font-semibold text-ink">{org._count.members}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Proyectos
+            Projects
           </p>
           <p className="mt-1 text-lg font-semibold text-ink">{org._count.projects}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Creada
+            Created
           </p>
           <p className="mt-1 text-sm text-ink">
-            {new Date(org.createdAt).toLocaleDateString("es")}
+            {new Date(org.createdAt).toLocaleDateString("en-US")}
           </p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Creada por
+            Created by
           </p>
           <p className="mt-1 text-sm text-ink">
             {org.createdBy?.fullName ?? org.createdBy?.email ?? "—"}

@@ -43,7 +43,7 @@ export function UserFormSheet({
     const [error, setError] = useState<string | null>(null);
 
     const title = useMemo(
-        () => (user ? "Editar usuario" : "Nuevo usuario"),
+        () => (user ? "Edit user" : "New user"),
         [user],
     );
 
@@ -86,7 +86,7 @@ export function UserFormSheet({
             setError(
                 submitError instanceof Error
                     ? submitError.message
-                    : "No se pudo crear el usuario.",
+                    : "Could not create the user.",
             );
         } finally {
             setSubmitting(false);
@@ -147,7 +147,7 @@ export function UserFormSheet({
         <Sheet
             open={open}
             title={title}
-            description="Define el acceso del usuario a las organizaciones."
+            description="Define el acceso del user a las organizations."
             onClose={onClose}
         >
             <div className="grid gap-4">
@@ -168,18 +168,18 @@ export function UserFormSheet({
                     />
                 </label>
                 <label className="text-sm font-semibold text-ink">
-                    Nombre
+                    Name
                     <Input
                         value={form.fullName ?? ""}
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, fullName: event.target.value }))
                         }
-                        placeholder="Nombre completo"
+                        placeholder="Name completo"
                         className="mt-2"
                     />
                 </label>
                 <label className="text-sm font-semibold text-ink">
-                    Contraseña
+                    Password
                     <Input
                         value={form.password}
                         onChange={(event) =>
@@ -187,7 +187,7 @@ export function UserFormSheet({
                         }
                         type="password"
                         placeholder={
-                            user ? "Dejar vacío para mantener" : "Mínimo 8 caracteres"
+                            user ? "Leave empty to keep current value" : "Minimum 8 characters"
                         }
                         className="mt-2"
                     />
@@ -195,7 +195,7 @@ export function UserFormSheet({
 
                 <div>
                     <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-ink">Organizaciones</span>
+                        <span className="text-sm font-semibold text-ink">Organizations</span>
                         <Button
                             variant="secondary"
                             size="sm"
@@ -213,7 +213,7 @@ export function UserFormSheet({
                             >
                                 <div className="flex-1 space-y-1">
                                     <div className="text-[10px] font-medium uppercase tracking-wider text-ink-muted">
-                                        Organización
+                                        Organization
                                     </div>
                                     <select
                                         value={membership.organizationId}
@@ -232,7 +232,7 @@ export function UserFormSheet({
 
                                 <div className="flex items-end gap-2 sm:w-1/3 sm:flex-col sm:items-stretch sm:gap-1">
                                     <div className="hidden text-[10px] font-medium uppercase tracking-wider text-ink-muted sm:block">
-                                        Rol
+                                        Role
                                     </div>
                                     <select
                                         value={membership.role}
@@ -249,7 +249,7 @@ export function UserFormSheet({
                                     <button
                                         onClick={() => handleRemoveMembership(index)}
                                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-muted transition hover:bg-danger-50 hover:text-danger-500 sm:absolute sm:-right-2 sm:-top-2 sm:h-6 sm:w-6 sm:rounded-full sm:bg-surface-elevated sm:dark:bg-surface-muted sm:border-stroke sm:shadow-sm"
-                                        aria-label="Quitar organización"
+                                        aria-label="Quitar organization"
                                     >
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
@@ -272,7 +272,7 @@ export function UserFormSheet({
                         {form.memberships.length === 0 && (
                             <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-stroke py-8 text-center">
                                 <p className="text-sm text-ink-muted">
-                                    Este usuario no tiene organizaciones asignadas.
+                                    Este user no tiene organizations asignadas.
                                 </p>
                                 <Button
                                     variant="ghost"
@@ -281,7 +281,7 @@ export function UserFormSheet({
                                     className="mt-2 text-brand-600 hover:text-brand-700"
                                     disabled={!organizations.length}
                                 >
-                                    Asignar organización
+                                    Asignar organization
                                 </Button>
                             </div>
                         )}
@@ -297,7 +297,7 @@ export function UserFormSheet({
                         }
                         className="h-5 w-5 rounded border-stroke text-brand-600 focus:ring-brand-500"
                     />
-                    Usuario activo
+                    User activo
                 </label>
                 {error ? (
                     <p className="rounded-lg bg-danger-500/10 px-4 py-2 text-sm text-danger-500">
@@ -306,19 +306,22 @@ export function UserFormSheet({
                 ) : null}
                 <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                     <Button variant="ghost" onClick={onClose}>
-                        Cancelar
+                        Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={submitting || !isValid}>
                         {submitting
                             ? user
-                                ? "Guardando..."
-                                : "Creando..."
+                                ? "Saving..."
+                                : "Creating..."
                             : user
-                                ? "Guardar cambios"
-                                : "Crear usuario"}
+                                ? "Save changes"
+                                : "Create user"}
                     </Button>
                 </div>
             </div>
         </Sheet>
     );
 }
+
+
+

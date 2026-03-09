@@ -27,7 +27,7 @@ export async function requireRunPermission(
     if (!run) {
         return {
             error: NextResponse.json(
-                { message: "Run no encontrado." },
+                { message: "Run not found." },
                 { status: 404 },
             ),
         };
@@ -44,7 +44,7 @@ export async function requireRunPermission(
     if (!allowed) {
         return {
             error: NextResponse.json(
-                { message: "No tienes permisos en este proyecto." },
+                { message: "You do not have permission in this project." },
                 { status: 403 },
             ),
         };
@@ -52,3 +52,5 @@ export async function requireRunPermission(
 
     return { run };
 }
+
+

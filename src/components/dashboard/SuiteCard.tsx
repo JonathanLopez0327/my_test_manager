@@ -14,12 +14,12 @@ export function SuiteCard({ suites }: SuiteCardProps) {
   return (
     <Card className="flex h-full flex-col p-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-ink">Suites con más actividad</p>
+        <p className="text-sm font-semibold text-ink">Most active suites</p>
         <span className="text-xs text-ink-muted">Este mes</span>
       </div>
       <div className="mt-5 flex flex-col gap-4">
         {suites.length === 0 ? (
-          <p className="py-4 text-center text-sm text-ink-muted">Sin actividad reciente</p>
+          <p className="py-4 text-center text-sm text-ink-muted">No recent activity</p>
         ) : (
           suites.map((suite) => (
             <div key={suite.name} className="flex items-center justify-between">
@@ -37,3 +37,4 @@ export function SuiteCard({ suites }: SuiteCardProps) {
     </Card>
   );
 }
+

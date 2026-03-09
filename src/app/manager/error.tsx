@@ -14,13 +14,13 @@ export default function ManagerError({ error, reset }: ManagerErrorProps) {
         Dashboard unavailable
       </p>
       <h2 className="mt-2 text-2xl font-semibold text-ink">
-        No se pudieron cargar las métricas principales
+        Could not load key metrics
       </h2>
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-        Intenta recargar el panel. Si el problema persiste, revisa la conexión a base de datos y los servicios de ejecución.
+        Try reloading the dashboard. If the problem persists, check the database connection and execution services.
       </p>
       <p className="mt-2 text-xs text-ink-soft">
-        Detalle técnico: {error.message || "Error desconocido"}
+        Technical detail: {error.message || "Unknown error"}
       </p>
       <div className="mt-5">
         <Button variant="danger" onClick={reset}>

@@ -25,7 +25,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Suite no encontrada." },
+        { message: "Test suite not found." },
         { status: 404 },
       );
     }
@@ -44,14 +44,14 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     if (!testPlanId || !name) {
       return NextResponse.json(
-        { message: "Plan y nombre son requeridos." },
+        { message: "Plan and name are required." },
         { status: 400 },
       );
     }
 
     if (parentSuiteId === id) {
       return NextResponse.json(
-        { message: "La suite no puede ser su propio padre." },
+        { message: "A suite cannot be its own parent." },
         { status: 400 },
       );
     }
@@ -66,7 +66,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
 
     if (!targetPlan) {
       return NextResponse.json(
-        { message: "Plan no encontrado." },
+        { message: "Test plan not found." },
         { status: 404 },
       );
     }
@@ -94,7 +94,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
       });
       if (!parent || parent.testPlanId !== testPlanId) {
         return NextResponse.json(
-          { message: "Suite padre inválida." },
+          { message: "Invalid parent suite." },
           { status: 400 },
         );
       }
@@ -119,12 +119,12 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe una suite con ese nombre en el plan." },
+        { message: "A suite with that name already exists in the plan." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo actualizar la suite." },
+      { message: "Could not update the suite." },
       { status: 500 },
     );
   }
@@ -143,7 +143,7 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
 
     if (!existing) {
       return NextResponse.json(
-        { message: "Suite no encontrada." },
+        { message: "Test suite not found." },
         { status: 404 },
       );
     }
@@ -159,8 +159,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo eliminar la suite." },
+      { message: "Could not delete the suite." },
       { status: 500 },
     );
   }
 });
+
+

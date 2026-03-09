@@ -35,26 +35,26 @@ export function TrendChart({
   data,
   period = "weekly",
   summary,
-  subtitle = "Actividad de los últimos días",
+  subtitle = "Activity over the last days",
   failedPeak,
 }: TrendChartProps) {
   return (
     <Card className="flex h-full flex-col p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-ink">Tendencia de ejecuciones</p>
+          <p className="text-sm font-semibold text-ink">Execution trends</p>
           <p className="mt-1 text-xs text-ink-muted">{subtitle}</p>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-stroke bg-surface-muted/70 p-1 text-[11px] font-semibold">
           <span
             className={`rounded-md px-2.5 py-1 transition-colors ${period === "weekly" ? "bg-surface-elevated text-ink shadow-soft-xs" : "text-ink-soft"}`}
           >
-            Semanal
+            Weekly
           </span>
           <span
             className={`rounded-md px-2.5 py-1 transition-colors ${period === "monthly" ? "bg-surface-elevated text-ink shadow-soft-xs" : "text-ink-soft"}`}
           >
-            Mensual
+            Monthly
           </span>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function TrendChart({
           </span>
         ) : (
           <span className="rounded-full bg-success-500/10 px-3 py-1 text-xs font-semibold text-success-500">
-            Sin anomalías de fallos
+            No failure anomalies
           </span>
         )}
       </div>
@@ -112,7 +112,7 @@ export function TrendChart({
             <Area
               type="monotone"
               dataKey="passed"
-              name="Exitosos"
+              name="Passed"
               stroke="#059669"
               strokeWidth={2.2}
               fill="url(#trendPassed)"
@@ -121,7 +121,7 @@ export function TrendChart({
             <Area
               type="monotone"
               dataKey="failed"
-              name="Fallidos"
+              name="Failed"
               stroke="#DC2626"
               strokeWidth={2.2}
               fill="url(#trendFailed)"

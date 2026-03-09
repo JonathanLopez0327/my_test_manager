@@ -23,3 +23,5 @@ export type AiConversationsResponse = {
   items: AiConversationDto[];
   total: number;
 };
+
+

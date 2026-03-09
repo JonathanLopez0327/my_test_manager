@@ -5,7 +5,7 @@ export const projectSchema = z.object({
         .string()
         .min(2, "El key debe tener al menos 2 caracteres")
         .max(10, "El key no puede exceder los 10 caracteres")
-        .regex(/^[A-Z0-9_-]+$/, "El key solo puede contener mayúsculas, números y guiones")
+        .regex(/^[A-Z0-9_-]+$/, "The key can only contain uppercase letters, numbers, and hyphens")
         .transform((val) => val.toUpperCase()),
     name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
     description: z.string().optional().nullable(),

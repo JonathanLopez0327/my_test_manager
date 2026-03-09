@@ -844,7 +844,7 @@ export function AiChatWorkspace() {
 
         if (!response.ok) {
           const errPayload = (await response.json().catch(() => null)) as { message?: string } | null;
-          throw new Error(errPayload?.message || "No se pudo consultar el documento generado.");
+          throw new Error(errPayload?.message || "Could not fetch the generated document.");
         }
 
         const payload = (await response.json()) as ThreadDocumentApiResponse;
@@ -877,7 +877,7 @@ export function AiChatWorkspace() {
           ...prev,
           [threadId]: {
             status: "error",
-            message: pollError instanceof Error ? pollError.message : "No se pudo obtener el documento generado.",
+            message: pollError instanceof Error ? pollError.message : "Could not get the generated document.",
           },
         }));
       }
@@ -891,7 +891,7 @@ export function AiChatWorkspace() {
         ...prev,
         [threadId]: {
           status: "timeout",
-          message: "El documento aun no esta listo. Puedes reintentar en unos segundos.",
+          message: "The document is not ready yet. You can retry in a few seconds.",
         },
       }));
     }
@@ -1614,4 +1614,7 @@ export function AiChatWorkspace() {
     </section>
   );
 }
+
+
+
 

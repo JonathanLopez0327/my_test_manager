@@ -31,14 +31,14 @@ export function ActivityCard({ runs, passRate }: ActivityCardProps) {
     <Card className="flex h-full flex-col p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-ink">Últimas ejecuciones</p>
-          <p className="mt-1 text-xs text-ink-muted">Actividad operativa, {today}</p>
+          <p className="text-sm font-semibold text-ink">Latest runs</p>
+          <p className="mt-1 text-xs text-ink-muted">Operational activity, {today}</p>
         </div>
         <Badge tone="info">Live</Badge>
       </div>
       <div className="mt-5 flex flex-col gap-3">
         {runs.length === 0 ? (
-          <p className="py-4 text-center text-sm text-ink-muted">Sin ejecuciones recientes</p>
+          <p className="py-4 text-center text-sm text-ink-muted">No recent runs</p>
         ) : (
           runs.map((item) => (
             <div
@@ -69,7 +69,7 @@ export function ActivityCard({ runs, passRate }: ActivityCardProps) {
           <p className="text-xs uppercase tracking-[0.2em] text-white/70">
             Salud del pipeline
           </p>
-          <p className="mt-2 text-lg font-semibold">{passRate}% tasa de éxito</p>
+          <p className="mt-2 text-lg font-semibold">{passRate}% success rate</p>
         </div>
       </div>
     </Card>

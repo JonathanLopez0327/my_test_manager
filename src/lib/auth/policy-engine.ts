@@ -36,7 +36,7 @@ export class AuthorizationError extends Error {
     constructor(permission: Permission, message?: string) {
         super(
             message ??
-            `No tienes permisos para realizar esta acción (${permission}).`,
+            `You do not have permission to perform this action (${permission}).`,
         );
         this.name = "AuthorizationError";
     }
@@ -136,3 +136,7 @@ async function getProjectRole(
     });
     return membership?.role ?? null;
 }
+
+
+
+

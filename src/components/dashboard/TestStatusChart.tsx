@@ -20,11 +20,11 @@ export function TestStatusChart({ data, total, passRate }: TestStatusChartProps)
     <Card className="flex h-full flex-col p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-ink">Resultado global</p>
-          <p className="mt-1 text-xs text-ink-muted">Distribución consolidada por estado</p>
+          <p className="text-sm font-semibold text-ink">Global Result</p>
+          <p className="mt-1 text-xs text-ink-muted">Consolidated distribution by status</p>
         </div>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-          {total.toLocaleString("en-US")} casos
+          {total.toLocaleString("en-US")} cases
         </span>
       </div>
 

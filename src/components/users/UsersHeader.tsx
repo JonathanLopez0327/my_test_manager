@@ -3,6 +3,7 @@
 import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
+import { uiMessages } from "@/lib/ui/messages";
 
 type UsersHeaderProps = {
   query: string;
@@ -25,13 +26,13 @@ export function UsersHeader({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          Gestión de usuarios
+          User management
         </p>
         <h2 className="text-2xl font-semibold text-ink">User Manager</h2>
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:flex-1">
         <SearchInput
-          placeholder="Buscar por email o nombre..."
+          placeholder={uiMessages.users.searchPlaceholder}
           value={query}
           onChange={onQueryChange}
           containerClassName="w-full min-w-[220px] flex-1 sm:max-w-sm"
@@ -43,17 +44,18 @@ export function UsersHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} por página
+              {size} per page
             </option>
           ))}
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            Nuevo usuario
+            New user
           </Button>
         ) : null}
       </div>
     </div>
   );
 }
+

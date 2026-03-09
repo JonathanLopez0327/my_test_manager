@@ -76,7 +76,7 @@ export function UsersPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "No se pudieron cargar los usuarios.");
+        throw new Error(data.message || "Could not cargar los users.");
       }
       setItems(data.items);
       setTotal(data.total);
@@ -84,7 +84,7 @@ export function UsersPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "No se pudieron cargar los usuarios.",
+          : "Could not cargar los users.",
       );
     } finally {
       setLoading(false);
@@ -157,8 +157,8 @@ export function UsersPage() {
       throw new Error(
         data.message ||
         (isEditing
-          ? "No se pudo actualizar el usuario."
-          : "No se pudo crear el usuario."),
+          ? "Could not update the user."
+          : "Could not create the user."),
       );
     }
     await fetchUsers();
@@ -193,7 +193,7 @@ export function UsersPage() {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-ink">Listado de usuarios</p>
+            <p className="text-sm font-semibold text-ink">Listado de users</p>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-soft">
             {loading ? "Actualizando..." : `Total: ${total}`}
@@ -240,3 +240,7 @@ export function UsersPage() {
     </div>
   );
 }
+
+
+
+

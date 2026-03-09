@@ -16,7 +16,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     });
     if (project && project.organizationId !== activeOrganizationId) {
       return NextResponse.json(
-        { message: "El proyecto no pertenece a la organización activa." },
+        { message: "The project does not belong to the active organization." },
         { status: 403 },
       );
     }
@@ -44,7 +44,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
     if (!key || !name) {
       return NextResponse.json(
-        { message: "Key y nombre son requeridos." },
+        { message: "Key and name are required." },
         { status: 400 },
       );
     }
@@ -68,12 +68,12 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       error.code === "P2002"
     ) {
       return NextResponse.json(
-        { message: "Ya existe un proyecto con ese key." },
+        { message: "Ya existe un project con ese key." },
         { status: 409 },
       );
     }
     return NextResponse.json(
-      { message: "No se pudo actualizar el proyecto." },
+      { message: "Could not update the project." },
       { status: 500 },
     );
   }
@@ -90,7 +90,7 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
     });
     if (project && project.organizationId !== activeOrganizationId) {
       return NextResponse.json(
-        { message: "El proyecto no pertenece a la organización activa." },
+        { message: "The project does not belong to the active organization." },
         { status: 403 },
       );
     }
@@ -110,8 +110,10 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo eliminar el proyecto." },
+      { message: "Could not delete the project." },
       { status: 500 },
     );
   }
 });
+
+

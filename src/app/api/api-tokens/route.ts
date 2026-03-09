@@ -42,7 +42,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   const parsed = createApiTokenSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Payload invalido.", issues: parsed.error.flatten() },
+      { message: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -53,7 +53,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
   if (!isSuperAdmin && !targetOrganizationId) {
     return NextResponse.json(
-      { message: "Debes indicar organizationId o tener una organizacion activa." },
+      { message: "You must provide an organizationId or have an active organization." },
       { status: 400 },
     );
   }
@@ -66,14 +66,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!organization) {
       return NextResponse.json(
-        { message: "Organizacion no encontrada." },
+        { message: "Organization not found." },
         { status: 404 },
       );
     }
 
     if (!organization.isActive) {
       return NextResponse.json(
-        { message: "La organizacion no esta activa." },
+        { message: "The organization is not active." },
         { status: 403 },
       );
     }
@@ -91,7 +91,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
       if (!membership) {
         return NextResponse.json(
-          { message: "No puedes emitir tokens para esta organizacion." },
+          { message: "You cannot issue tokens for this organization." },
           { status: 403 },
         );
       }
@@ -101,7 +101,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   const expiresAt = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
   if (expiresAt && expiresAt <= new Date()) {
     return NextResponse.json(
-      { message: "expiresAt debe ser una fecha futura." },
+      { message: "expiresAt must be a future date." },
       { status: 400 },
     );
   }
@@ -137,3 +137,6 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     { status: 201 },
   );
 });
+
+
+

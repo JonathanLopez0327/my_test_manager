@@ -83,7 +83,7 @@ export const GET = withAuth(PERMISSIONS.TEST_RUN_LIST, async (req, { userId, glo
     });
     if (!allowed) {
       return NextResponse.json(
-        { message: "No tienes acceso a este proyecto." },
+        { message: "You do not have acceso a este project." },
         { status: 403 },
       );
     }
@@ -259,7 +259,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!projectId || !runType) {
       return NextResponse.json(
-        { message: "Proyecto y tipo son requeridos." },
+        { message: "Project y tipo son requeridos." },
         { status: 400 },
       );
     }
@@ -271,7 +271,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (!project) {
       return NextResponse.json(
-        { message: "Proyecto no encontrado." },
+        { message: "Project no encontrado." },
         { status: 404 },
       );
     }
@@ -286,21 +286,21 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     if (body.startedAt && !startedAt) {
       return NextResponse.json(
-        { message: "Fecha de inicio inválida." },
+        { message: "Invalid start date." },
         { status: 400 },
       );
     }
 
     if (body.finishedAt && !finishedAt) {
       return NextResponse.json(
-        { message: "Fecha de fin inválida." },
+        { message: "Invalid end date." },
         { status: 400 },
       );
     }
 
     if (startedAt && finishedAt && finishedAt < startedAt) {
       return NextResponse.json(
-        { message: "La fecha de fin debe ser posterior a la fecha de inicio." },
+        { message: "The end date must be after the start date." },
         { status: 400 },
       );
     }
@@ -314,13 +314,13 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       });
       if (!plan) {
         return NextResponse.json(
-          { message: "Plan no encontrado." },
+          { message: "Test plan not found." },
           { status: 404 },
         );
       }
       if (plan.projectId !== projectId) {
         return NextResponse.json(
-          { message: "El plan no pertenece al proyecto." },
+          { message: "El plan no pertenece al project." },
           { status: 400 },
         );
       }
@@ -337,19 +337,19 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       });
       if (!suite) {
         return NextResponse.json(
-          { message: "Suite no encontrada." },
+          { message: "Test suite not found." },
           { status: 404 },
         );
       }
       if (suite.testPlan.projectId !== projectId) {
         return NextResponse.json(
-          { message: "La suite no pertenece al proyecto." },
+          { message: "La suite no pertenece al project." },
           { status: 400 },
         );
       }
       if (resolvedPlanId && suite.testPlanId !== resolvedPlanId) {
         return NextResponse.json(
-          { message: "La suite no pertenece al plan seleccionado." },
+          { message: "The suite does not belong to the selected plan." },
           { status: 400 },
         );
       }
@@ -411,8 +411,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "No se pudo crear el run." },
+      { message: "Could not create the run." },
       { status: 500 },
     );
   }
 });
+
+
+

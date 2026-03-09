@@ -20,8 +20,8 @@ type MembersTableProps = {
 const ROLE_LABELS: Record<OrgRole, string> = {
   owner: "Propietario",
   admin: "Admin",
-  member: "Miembro",
-  billing: "Facturación",
+  member: "Member",
+  billing: "Billing",
 };
 
 const ROLE_TONES: Record<OrgRole, "warning" | "success" | "neutral"> = {
@@ -45,7 +45,7 @@ export function MembersTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
         <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando miembros...
+        Loading members...
       </div>
     );
   }
@@ -53,7 +53,7 @@ export function MembersTable({
   if (!items.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay miembros para mostrar.
+        No members to display.
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function MembersTable({
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Nombre"
+                label="Name"
                 sortKey="name"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
@@ -80,7 +80,7 @@ export function MembersTable({
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Rol"
+                label="Role"
                 sortKey="role"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
@@ -102,7 +102,7 @@ export function MembersTable({
             {items.map((member) => (
               <tr key={member.userId}>
                 <td className="px-3 py-2.5 font-semibold text-ink">
-                  {member.user.fullName ?? "Sin nombre"}
+                  {member.user.fullName ?? "Unnamed"}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">{member.user.email}</td>
                 <td className="px-3 py-2.5">
@@ -112,7 +112,7 @@ export function MembersTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <Badge tone={member.user.isActive ? "success" : "neutral"}>
-                    {member.user.isActive ? "Activo" : "Inactivo"}
+                    {member.user.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
@@ -121,14 +121,14 @@ export function MembersTable({
                       <button
                         onClick={() => onEdit?.(member)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Editar miembro"
+                        aria-label="Edit member"
                       >
                         <IconEdit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => onRemove?.(member)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-danger-50 hover:text-danger-500"
-                        aria-label="Eliminar miembro"
+                        aria-label="Delete member"
                       >
                         <IconTrash className="h-4 w-4" />
                       </button>
@@ -149,7 +149,7 @@ export function MembersTable({
             className="rounded-lg bg-surface-elevated p-5 shadow-sm dark:bg-surface-muted"
           >
             <p className="text-sm font-semibold text-ink">
-              {member.user.fullName ?? "Sin nombre"}
+              {member.user.fullName ?? "Unnamed"}
             </p>
             <p className="text-xs text-ink-soft">{member.user.email}</p>
             <div className="mt-3 flex items-center gap-2">
@@ -157,7 +157,7 @@ export function MembersTable({
                 {ROLE_LABELS[member.role] ?? member.role}
               </Badge>
               <Badge tone={member.user.isActive ? "success" : "neutral"}>
-                {member.user.isActive ? "Activo" : "Inactivo"}
+                {member.user.isActive ? "Active" : "Inactive"}
               </Badge>
             </div>
             {canManage && (
@@ -165,14 +165,14 @@ export function MembersTable({
                 <button
                   onClick={() => onEdit?.(member)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Editar miembro"
+                  aria-label="Edit member"
                 >
                   <IconEdit className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => onRemove?.(member)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-danger-50 hover:text-danger-500"
-                  aria-label="Eliminar miembro"
+                  aria-label="Delete member"
                 >
                   <IconTrash className="h-4 w-4" />
                 </button>
@@ -184,3 +184,6 @@ export function MembersTable({
     </>
   );
 }
+
+
+

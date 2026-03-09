@@ -38,13 +38,13 @@ export function NeedsAttentionCard({ items }: NeedsAttentionCardProps) {
     <Card className="flex h-full flex-col p-6">
       <div>
         <p className="text-sm font-semibold text-ink">Needs attention</p>
-        <p className="mt-1 text-xs text-ink-muted">Señales que requieren revisión prioritaria</p>
+        <p className="mt-1 text-xs text-ink-muted">Signals that require priority review</p>
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
         {items.length === 0 ? (
           <div className="rounded-xl border border-success-500/30 bg-success-500/10 px-4 py-3">
-            <p className="text-sm font-semibold text-success-500">Sin alertas críticas</p>
+            <p className="text-sm font-semibold text-success-500">No critical alerts</p>
             <p className="mt-1 text-xs text-ink-muted">
               El comportamiento reciente del pipeline se mantiene estable.
             </p>

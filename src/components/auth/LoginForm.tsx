@@ -33,7 +33,7 @@ export function LoginForm() {
     setIsSubmitting(false);
 
     if (result?.error) {
-      setError("Credenciales inválidas. Intenta nuevamente.");
+      setError("Invalid credentials. Please try again.");
       return;
     }
 

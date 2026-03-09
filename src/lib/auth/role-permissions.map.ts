@@ -197,3 +197,6 @@ export function anyGlobalRoleHasPermission(
 ): boolean {
     return roles.some((role) => globalRoleHasPermission(role, permission));
 }
+
+
+

@@ -16,7 +16,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   const { activeOrganizationId, userId, organizationRole } = authCtx;
   if (!activeOrganizationId) {
     return NextResponse.json(
-      { message: "No tienes una organizacion activa." },
+      { message: "You do not have an active organization." },
       { status: 403 },
     );
   }
@@ -28,7 +28,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Payload invalido.", issues: parsed.error.flatten() },
+      { message: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -44,7 +44,7 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!hasAccess) {
     return NextResponse.json(
-      { message: "No tienes acceso al proyecto indicado." },
+      { message: "You do not have access to the specified project." },
       { status: 403 },
     );
   }
@@ -61,7 +61,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   const { activeOrganizationId, userId, organizationRole } = authCtx;
   if (!activeOrganizationId) {
     return NextResponse.json(
-      { message: "No tienes una organizacion activa." },
+      { message: "You do not have an active organization." },
       { status: 403 },
     );
   }
@@ -71,7 +71,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Payload invalido.", issues: parsed.error.flatten() },
+      { message: "Invalid payload.", issues: parsed.error.flatten() },
       { status: 400 },
     );
   }
@@ -87,7 +87,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   if (!hasAccess) {
     return NextResponse.json(
-      { message: "No tienes acceso al proyecto indicado." },
+      { message: "You do not have access to the specified project." },
       { status: 403 },
     );
   }
@@ -114,3 +114,6 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   return NextResponse.json({ item: mapConversationDto(created) }, { status: 201 });
 });
+
+
+

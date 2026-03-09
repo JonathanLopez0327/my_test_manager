@@ -42,7 +42,7 @@ function statusLabel(s: string): string {
   const labels: Record<string, string> = {
     completed: "Completado",
     failed: "Fallido",
-    running: "En curso",
+    running: "In progress",
     queued: "En cola",
     canceled: "Cancelado",
   };
@@ -75,7 +75,7 @@ function formatDuration(durationMs?: number | bigint | null, startedAt?: Date | 
     ms = Math.max(0, finishedAt.getTime() - startedAt.getTime());
   }
 
-  if (!ms) return "Sin duración";
+  if (!ms) return "No duration";
 
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -221,7 +221,7 @@ export default async function ManagerPage() {
     }),
   ]);
 
-  const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const trendMap = new Map<string, { passed: number; failed: number }>();
   for (let i = 0; i < 7; i++) {
     const d = new Date(sevenDaysAgo);
@@ -327,9 +327,9 @@ export default async function ManagerPage() {
   if (passRateDelta < 0) {
     attentionItems.push({
       id: "pass-rate-drop",
-      title: "Caída del pass rate semanal",
-      detail: `${Math.abs(passRateDelta)}% por debajo de la semana anterior (${thisWeekPassRate}% actual).`,
-      cta: "Revisar runs fallidos recientes y cambios de entorno.",
+      title: "Weekly pass rate drop",
+      detail: `${Math.abs(passRateDelta)}% below the previous week (${thisWeekPassRate}% current).`,
+      cta: "Review recent failed runs and environment changes.",
       tone: "danger",
     });
   }
@@ -337,9 +337,9 @@ export default async function ManagerPage() {
   if (criticalBugs > 0) {
     attentionItems.push({
       id: "critical-bugs",
-      title: "Bugs críticos abiertos",
-      detail: `${formatCount(criticalBugs)} incidencias críticas pendientes de cierre.`,
-      cta: "Priorizar triage y asignaciones del backlog crítico.",
+      title: "Open critical bugs",
+      detail: `${formatCount(criticalBugs)} critical issues pending closure.`,
+      cta: "Prioritize triage and assignments for the critical backlog.",
       tone: "danger",
     });
   }
@@ -347,8 +347,8 @@ export default async function ManagerPage() {
   if (topUnstableSuite && topUnstableSuite[1] >= 2) {
     attentionItems.push({
       id: "unstable-suite",
-      title: "Suite inestable detectada",
-      detail: `${topUnstableSuite[0]} acumuló ${topUnstableSuite[1]} fallos en los últimos 7 días.`,
+      title: "Unstable suite detected",
+      detail: `${topUnstableSuite[0]} accumulated ${topUnstableSuite[1]} failures in the last 7 days.`,
       cta: "Analizar flaky tests y dependencias de la suite.",
       tone: "warning",
     });
@@ -357,30 +357,30 @@ export default async function ManagerPage() {
   if (runningRuns > 0) {
     attentionItems.push({
       id: "active-runs",
-      title: "Ejecuciones activas en progreso",
-      detail: `${runningRuns} ejecución(es) están corriendo en este momento.`,
-      cta: "Monitorear duración y estabilidad de pipelines activos.",
+      title: "Active executions in progress",
+      detail: `${runningRuns} run(s) are currently running.`,
+      cta: "Monitor duration and stability of active pipelines.",
       tone: "info",
     });
   }
 
   const runItems = latestRuns.map((run) => {
     const title = run.name?.trim() || run.testPlan?.name || `Run ${run.id.slice(0, 6)}`;
-    const suite = run.suite?.name || "Suite no definida";
+    const suite = run.suite?.name || "Undefined suite";
     const metrics = run.metrics;
     const tests = metrics
       ? `${metrics.total} tests`
-      : "Sin métricas";
+      : "No metrics";
     const runPassRate = metrics ? Math.round(toNumber(metrics.passRate)) : null;
     const outcome = metrics
       ? `${metrics.passed}/${metrics.total} passed${metrics.failed > 0 ? ` · ${metrics.failed} failed` : ""}${runPassRate !== null ? ` · ${runPassRate}%` : ""}`
-      : "Sin resultados consolidados";
+      : "No consolidated results";
 
     return {
       id: run.id,
       title,
       suite,
-      environment: run.environment || "Sin entorno",
+      environment: run.environment || "No environment",
       when: formatRelativeTime(run.startedAt ?? run.createdAt),
       duration: formatDuration(metrics?.durationMs ?? null, run.startedAt, run.finishedAt),
       tests,
@@ -390,15 +390,15 @@ export default async function ManagerPage() {
     };
   });
 
-  const weekSummary = `${formatCount(thisWeekTotal)} casos ejecutados (${formatCount(thisWeekFailed)} fallidos)`;
+  const weekSummary = `${formatCount(thisWeekTotal)} executed cases (${formatCount(thisWeekFailed)} failed)`;
 
   return (
     <>
       {!activeOrganizationId ? (
         <section className="mb-5 rounded-2xl border border-warning-500/25 bg-warning-500/10 px-5 py-4 text-warning-500">
-          <p className="text-sm font-semibold">No hay una organización activa.</p>
+          <p className="text-sm font-semibold">There is no active organization.</p>
           <p className="mt-1 text-sm">
-            Selecciona una organización para ver métricas y actividad contextual.
+            Select an organization to view metrics and contextual activity.
           </p>
         </section>
       ) : null}
@@ -409,11 +409,11 @@ export default async function ManagerPage() {
             emphasized
             label="Pipeline health"
             value={`${pipelinePassRate}%`}
-            supportText={`${formatCount(failedCases)} fallidos de ${formatCount(executedCases)} casos ejecutados`}
-            microInsight={passRateDelta === 0 ? "Sin variación respecto a la semana anterior" : `${passRateDelta > 0 ? "+" : ""}${passRateDelta}% vs semana anterior`}
+            supportText={`${formatCount(failedCases)} failed of ${formatCount(executedCases)} executed cases`}
+            microInsight={passRateDelta === 0 ? "No change from last week" : `${passRateDelta > 0 ? "+" : ""}${passRateDelta}% vs last week`}
             statusBadge={{
               tone: pipelinePassRate >= 90 ? "success" : pipelinePassRate >= 75 ? "warning" : "danger",
-              label: pipelinePassRate >= 90 ? "Estable" : pipelinePassRate >= 75 ? "Riesgo" : "Crítico",
+              label: pipelinePassRate >= 90 ? "Stable" : pipelinePassRate >= 75 ? "Risk" : "Critical",
             }}
             icon={<IconChart className="h-6 w-6 text-brand-700" />}
             accentClassName="bg-brand-100/80 text-brand-700"
@@ -422,29 +422,29 @@ export default async function ManagerPage() {
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           <StatCard
-            label="Proyectos activos"
+            label="Active Projects"
             value={formatCount(activeProjects)}
-            supportText="Portfolio actual en operación"
-            microInsight={`${formatCount(recentRunsCount)} runs en las últimas 24h`}
+            supportText="Current portfolio in operation"
+            microInsight={`${formatCount(recentRunsCount)} runs in the last 24h`}
             statusBadge={{ tone: "info", label: "Seguimiento" }}
             icon={<IconFolder className="h-5 w-5 text-brand-700" />}
             accentClassName="bg-brand-50 text-brand-700"
           />
           <StatCard
-            label="Ejecuciones activas"
+            label="Active Executions"
             value={formatCount(runningRuns)}
-            supportText="Pipelines en curso ahora"
-            microInsight={`${formatCount(thisWeekTotal)} ejecuciones de casos esta semana`}
-            statusBadge={{ tone: runningRuns > 0 ? "warning" : "neutral", label: runningRuns > 0 ? "En curso" : "Sin actividad" }}
+            supportText="Pipelines in progress"
+            microInsight={`${formatCount(thisWeekTotal)} case executions this week`}
+            statusBadge={{ tone: runningRuns > 0 ? "warning" : "neutral", label: runningRuns > 0 ? "In progress" : "No activity" }}
             icon={<IconPlay className="h-5 w-5 text-warning-500" />}
             accentClassName="bg-warning-500/10 text-warning-500"
           />
           <StatCard
-            label="Bugs abiertos"
+            label="Open Bugs"
             value={formatCount(openBugs)}
-            supportText={`${formatCount(criticalBugs)} críticos pendientes`}
-            microInsight="Control de riesgo y estabilidad funcional"
-            statusBadge={{ tone: criticalBugs > 0 ? "danger" : "success", label: criticalBugs > 0 ? "Atención" : "Controlado" }}
+            supportText={`${formatCount(criticalBugs)} critical pending`}
+            microInsight="Risk management and functional stability"
+            statusBadge={{ tone: criticalBugs > 0 ? "danger" : "success", label: criticalBugs > 0 ? "Attention" : "Controlled" }}
             icon={<IconBug className="h-5 w-5 text-danger-500" />}
             accentClassName="bg-danger-100 text-danger-500"
           />
@@ -456,7 +456,7 @@ export default async function ManagerPage() {
           data={trendData}
           period="weekly"
           summary={weekSummary}
-          subtitle="Evolución semanal de casos aprobados y fallidos"
+          subtitle="Weekly evolution of passed and failed cases"
           failedPeak={failedPeak}
         />
         <div className="grid gap-5">
@@ -474,14 +474,17 @@ export default async function ManagerPage() {
           <IconAlert className="h-4 w-4 text-ink-soft" />
           <span>
             {attentionItems.length > 0
-              ? `${attentionItems.length} señal(es) activa(s) en observación.`
-              : "Sin señales críticas activas en este momento."}
+              ? `${attentionItems.length} active signal(s) under observation.`
+              : "No critical signals are active at the moment."}
           </span>
           <span className="rounded-full bg-surface-muted px-2 py-0.5 font-semibold text-ink-soft">
-            Última actualización: {new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+            Last update: {new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
           </span>
         </div>
       </section>
     </>
   );
 }
+
+
+

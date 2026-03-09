@@ -70,7 +70,7 @@ export function withAuth(
             const authCtx = await resolveAuthContext(req);
             if (!authCtx) {
                 return NextResponse.json(
-                    { message: "No autorizado." },
+                    { message: "Unauthorized." },
                     { status: 401 },
                 );
             }
@@ -219,3 +219,5 @@ async function resolveApiTokenContext(token: string): Promise<AuthContext | null
         apiTokenId: apiToken.id,
     };
 }
+
+

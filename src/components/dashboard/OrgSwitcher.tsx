@@ -92,7 +92,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
           {abbrev}
         </span>
         <span className="hidden truncate text-sm font-medium text-ink sm:inline">
-          {activeOrg?.name ?? "Sin organización"}
+          {activeOrg?.name ?? "No organization"}
         </span>
         <IconChevronUpDown className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
       </button>
@@ -100,7 +100,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
       {open && (
         <div className="absolute left-0 z-50 mt-1 w-64 rounded-lg border border-stroke bg-surface-elevated p-2 shadow-lg dark:bg-surface-muted">
           <p className="px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Organizaciones
+            Organizations
           </p>
           <div className="max-h-48 overflow-y-auto">
             {orgs.map((org) => (
@@ -145,7 +145,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-brand-600 transition hover:bg-brand-50"
               >
                 <IconPlus className="h-4 w-4" />
-                Nueva organización
+                Nueva organization
               </button>
             </>
           )}
@@ -154,3 +154,6 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
     </div>
   );
 }
+
+
+

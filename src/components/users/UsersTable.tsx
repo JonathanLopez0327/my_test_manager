@@ -4,6 +4,7 @@ import { IconEdit } from "../icons";
 import { Badge } from "../ui/Badge";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import type { UserRecord, UserSortBy, SortDir } from "./types";
+import { uiMessages } from "@/lib/ui/messages";
 
 type UsersTableProps = {
   items: UserRecord[];
@@ -28,7 +29,7 @@ export function UsersTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
         <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Cargando usuarios...
+        {uiMessages.users.loadingUsers}
       </div>
     );
   }
@@ -36,7 +37,7 @@ export function UsersTable({
   if (!items.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No hay usuarios para mostrar.
+        No users to display.
       </div>
     );
   }
@@ -55,21 +56,21 @@ export function UsersTable({
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Nombre"
+                label="Name"
                 sortKey="fullName"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Organización"
+                label="Organization"
                 sortKey="organization"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Rol"
+                label="Role"
                 sortKey="role"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
@@ -83,14 +84,14 @@ export function UsersTable({
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Estado"
+                label={uiMessages.common.status}
                 sortKey="isActive"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <th className="px-3 py-2 text-right">
-                {canManage ? "Acciones" : ""}
+                {canManage ? uiMessages.common.actions : ""}
               </th>
             </tr>
           </thead>
@@ -101,7 +102,7 @@ export function UsersTable({
                   {user.email}
                 </td>
                 <td className="px-3 py-2.5 text-ink">
-                  {user.fullName ?? "Sin nombre"}
+                  {user.fullName ?? "Unnamed"}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
@@ -114,7 +115,7 @@ export function UsersTable({
                       ) : null}
                     </div>
                   ) : (
-                    "Sin asignación"
+                    "Unassigned"
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
@@ -133,7 +134,7 @@ export function UsersTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <Badge tone={user.isActive ? "success" : "neutral"}>
-                    {user.isActive ? "Activo" : "Inactivo"}
+                    {user.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
@@ -142,7 +143,7 @@ export function UsersTable({
                       <button
                         onClick={() => onEdit?.(user)}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Editar usuario"
+                        aria-label="Edit user"
                       >
                         <IconEdit className="h-4 w-4" />
                       </button>
@@ -163,7 +164,7 @@ export function UsersTable({
           >
             <p className="text-sm font-semibold text-ink">{user.email}</p>
             <p className="text-xs text-ink-soft">
-              {user.fullName ?? "Sin nombre"}
+              {user.fullName ?? "Unnamed"}
             </p>
             <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
               {user.memberships.length > 0 ? (
@@ -177,7 +178,7 @@ export function UsersTable({
                   </div>
                 ))
               ) : (
-                <span>Sin asignación</span>
+                <span>Unassigned</span>
               )}
             </div>
             {user.globalRoles.length ? (
@@ -187,13 +188,13 @@ export function UsersTable({
             ) : null}
             <div className="mt-3 flex items-center justify-between">
               <Badge tone={user.isActive ? "success" : "neutral"}>
-                {user.isActive ? "Activo" : "Inactivo"}
+                {user.isActive ? "Active" : "Inactive"}
               </Badge>
               {canManage ? (
                 <button
                   onClick={() => onEdit?.(user)}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Editar usuario"
+                  aria-label="Edit user"
                 >
                   <IconEdit className="h-4 w-4" />
                 </button>
@@ -205,3 +206,6 @@ export function UsersTable({
     </>
   );
 }
+
+
+
