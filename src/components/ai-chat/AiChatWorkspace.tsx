@@ -1317,7 +1317,7 @@ export function AiChatWorkspace() {
                         {message.role === "assistant" && isLatestAssistantMessage && conversationGeneratedAttachments.length > 0 ? (
                           <section className="mt-3 rounded-xl border border-stroke bg-surface p-2.5">
                             <p className="text-[11px] text-ink-muted">
-                              PDF generado disponible en la sección de adjuntos.
+                              Generated PDF available in the attachments section.
                             </p>
                           </section>
                         ) : null}
@@ -1361,7 +1361,7 @@ export function AiChatWorkspace() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <IconDocument className="h-4 w-4 text-brand-600" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Adjuntos</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Attachments</p>
                   {conversationGeneratedAttachments.length > 0 ? (
                     <Badge className="px-2 py-0.5 text-[10px]">{conversationGeneratedAttachments.length}</Badge>
                   ) : null}
@@ -1371,7 +1371,7 @@ export function AiChatWorkspace() {
                   size="xs"
                   variant="ghost"
                   onClick={() => setAttachmentsPanelOpen((value) => !value)}
-                  aria-label={attachmentsPanelOpen ? "Colapsar adjuntos" : "Expandir adjuntos"}
+                  aria-label={attachmentsPanelOpen ? "Collapse attachmentss" : "Expand attachments"}
                   className="gap-1 text-[11px] text-ink-muted"
                 >
                   {attachmentsPanelOpen ? (
@@ -1391,8 +1391,8 @@ export function AiChatWorkspace() {
               {!attachmentsPanelOpen ? (
                 <p className="text-xs text-ink-muted">
                   {conversationGeneratedAttachments.length > 0
-                    ? `${conversationGeneratedAttachments.length} PDF(s) disponible(s).`
-                    : "No hay PDFs generados en esta conversación."}
+                    ? `${conversationGeneratedAttachments.length} PDF available.`
+                    : "No PDFs were generated in this conversation."}
                 </p>
               ) : null}
 
@@ -1468,7 +1468,7 @@ export function AiChatWorkspace() {
                               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
                             >
                               <IconExternalLink className="h-3.5 w-3.5" />
-                              Abrir
+                              Open
                             </a>
                             <a
                               href={attachment.url}
@@ -1477,7 +1477,7 @@ export function AiChatWorkspace() {
                               className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
                             >
                               <IconDownload className="h-3.5 w-3.5" />
-                              Descargar
+                              Download
                             </a>
                           </div>
                         </div>
