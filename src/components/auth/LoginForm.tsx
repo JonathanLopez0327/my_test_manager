@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -62,25 +63,16 @@ export function LoginForm() {
         <p className="mt-2 text-base text-ink-muted">Enter your email and password to sign in!</p>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3">
+      <div className="mt-8">
         <button
           type="button"
           onClick={handleGoogleSignIn}
           disabled={isSubmitting || isGoogleSubmitting}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
           aria-label="Sign in with Google"
         >
-          <span aria-hidden="true">G</span>
+          <Image src="/logos/google.svg" alt="" width={18} height={18} aria-hidden="true" />
           {isGoogleSubmitting ? "Connecting..." : "Sign in with Google"}
-        </button>
-        <button
-          type="button"
-          disabled
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
-          aria-label="Sign in with X"
-        >
-          <span aria-hidden="true">X</span>
-          Sign in with X
         </button>
       </div>
 

@@ -844,7 +844,7 @@ describe("AiChatWorkspace", () => {
     await applyProjectContext("proj-1");
 
     await waitFor(() => {
-      expect(screen.getByText("No hay PDFs generados en esta conversación.")).toBeInTheDocument();
+      expect(screen.getByText("No PDFs were generated in this conversation.")).toBeInTheDocument();
     });
 
     pendingMode = true;

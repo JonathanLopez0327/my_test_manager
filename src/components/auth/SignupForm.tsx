@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -144,7 +145,7 @@ export function SignupForm() {
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
           aria-label="Continue with Google"
         >
-          <span aria-hidden="true">G</span>
+          <Image src="/logos/google.svg" alt="" width={18} height={18} aria-hidden="true" />
           {isGoogleSubmitting ? "Connecting..." : "Continue with Google"}
         </button>
       </div>
