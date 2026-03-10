@@ -16,13 +16,14 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/manager";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
-
-    const callbackUrl = searchParams.get("callbackUrl") ?? "/";
 
     const result = await signIn("credentials", {
       redirect: false,
@@ -42,6 +43,18 @@ export function LoginForm() {
     router.refresh();
   };
 
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsGoogleSubmitting(true);
+
+    try {
+      await signIn("google", { callbackUrl });
+    } catch {
+      setError("We could not sign in with Google. Please try again.");
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-md">
       <div>
@@ -52,14 +65,17 @@ export function LoginForm() {
       <div className="mt-8 grid grid-cols-2 gap-3">
         <button
           type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isSubmitting || isGoogleSubmitting}
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
           aria-label="Sign in with Google"
         >
           <span aria-hidden="true">G</span>
-          Sign in with Google
+          {isGoogleSubmitting ? "Connecting..." : "Sign in with Google"}
         </button>
         <button
           type="button"
+          disabled
           className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
           aria-label="Sign in with X"
         >

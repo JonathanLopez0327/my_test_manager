@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { hash } from "bcryptjs";
 import type { OrgRole, PrismaClient } from "@/generated/prisma/client";
 import { normalizeSlug, type SignUpInput } from "@/lib/schemas/sign-up";
@@ -92,6 +93,16 @@ export type SignUpSuccessResult = {
   organizationRole: OrgRole;
 };
 
+type OAuthSignUpInput = {
+  email: string;
+  fullName?: string | null;
+};
+
+export type OAuthSignUpResult = {
+  userId: string;
+  created: boolean;
+};
+
 export async function registerUserWithOrganization(
   input: SignUpInput,
   prisma: PrismaClient,
@@ -157,4 +168,135 @@ export async function registerUserWithOrganization(
   });
 
   return created;
+}
+
+function deriveDisplayName(email: string, fullName?: string | null) {
+  const normalized = fullName?.trim();
+  if (normalized) {
+    return normalized;
+  }
+
+  const localPart = email.split("@")[0] ?? "User";
+  const humanized = localPart
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .replace(/\s{2,}/g, " ");
+
+  if (!humanized) {
+    return "User";
+  }
+
+  return humanized
+    .split(" ")
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
+function deriveNameParts(email: string, fullName?: string | null) {
+  const displayName = deriveDisplayName(email, fullName);
+  const parts = displayName
+    .split(" ")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const fallback = email
+    .split("@")[0]
+    ?.replace(/[._-]+/g, " ")
+    .split(" ")
+    .map((segment) => segment.trim())
+    .filter(Boolean) ?? [];
+
+  const firstName = parts[0] ?? fallback[0] ?? "User";
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : (fallback[1] ?? "Member");
+
+  return { firstName, lastName };
+}
+
+function deriveGoogleOrganizationName(
+  email: string,
+  fullName?: string | null,
+  shortGuid?: string,
+) {
+  const { firstName, lastName } = deriveNameParts(email, fullName);
+  const suffix = shortGuid ?? randomBytes(4).toString("hex");
+  const base = `${firstName} ${lastName} ${suffix}`.trim();
+  return base.length <= 120 ? base : base.slice(0, 120);
+}
+
+export async function registerGoogleUserWithOrganization(
+  input: OAuthSignUpInput,
+  prisma: PrismaClient,
+): Promise<OAuthSignUpResult> {
+  const email = input.email.toLowerCase().trim();
+  if (!email) {
+    throw new SignUpError(
+      "VALIDATION_ERROR",
+      "Google account does not include a valid email.",
+      400,
+      { email: ["Google account does not include a valid email."] },
+    );
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, isActive: true },
+  });
+
+  if (existingUser?.isActive === false) {
+    throw new SignUpError(
+      "UNKNOWN_ERROR",
+      "This account is disabled. Contact support.",
+      403,
+    );
+  }
+
+  if (existingUser?.id) {
+    return {
+      userId: existingUser.id,
+      created: false,
+    };
+  }
+
+  const displayName = deriveDisplayName(email, input.fullName);
+  const organizationName = deriveGoogleOrganizationName(email, input.fullName);
+  const baseSlug = createSlugCandidate(organizationName);
+  const technicalPasswordHash = await hash(randomBytes(48).toString("hex"), 10);
+
+  const createdUserId = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email,
+        fullName: displayName,
+        passwordHash: technicalPasswordHash,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    const slug = await generateUniqueOrganizationSlug(tx, baseSlug);
+
+    const organization = await tx.organization.create({
+      data: {
+        name: organizationName,
+        slug,
+        createdById: user.id,
+      },
+      select: { id: true },
+    });
+
+    await tx.organizationMember.create({
+      data: {
+        organizationId: organization.id,
+        userId: user.id,
+        role: "owner",
+      },
+    });
+
+    return user.id;
+  });
+
+  return {
+    userId: createdUserId,
+    created: true,
+  };
 }

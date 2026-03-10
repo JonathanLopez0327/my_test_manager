@@ -1,5 +1,6 @@
 import {
   createSlugCandidate,
+  registerGoogleUserWithOrganization,
   registerUserWithOrganization,
   resolveUniqueSlug,
   SignUpError,
@@ -99,5 +100,106 @@ describe("sign-up service", () => {
         role: "owner",
       },
     });
+  });
+
+  it("creates user + organization for first Google sign-in", async () => {
+    const txMock = {
+      user: {
+        create: jest.fn().mockResolvedValue({ id: "google-user-1" }),
+      },
+      organization: {
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: "google-org-1" }),
+      },
+      organizationMember: {
+        create: jest.fn().mockResolvedValue({}),
+      },
+    };
+
+    const prismaMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      $transaction: jest.fn(async (callback: (tx: typeof txMock) => Promise<unknown>) =>
+        callback(txMock),
+      ),
+    } as unknown as PrismaClient;
+
+    const result = await registerGoogleUserWithOrganization(
+      {
+        email: "new.user@gmail.com",
+        fullName: "New User",
+      },
+      prismaMock,
+    );
+
+    expect(result).toEqual({ userId: "google-user-1", created: true });
+    expect(txMock.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          email: "new.user@gmail.com",
+          fullName: "New User",
+          isActive: true,
+        }),
+      }),
+    );
+    expect(txMock.organizationMember.create).toHaveBeenCalledWith({
+      data: {
+        organizationId: "google-org-1",
+        userId: "google-user-1",
+        role: "owner",
+      },
+    });
+    expect(txMock.organization.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: expect.stringMatching(/^New User [a-f0-9]{8}$/),
+        }),
+      }),
+    );
+  });
+
+  it("reuses existing active user for Google sign-in", async () => {
+    const prismaMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: "existing-google-user", isActive: true }),
+      },
+      $transaction: jest.fn(),
+    } as unknown as PrismaClient;
+
+    const result = await registerGoogleUserWithOrganization(
+      {
+        email: "existing@acme.com",
+        fullName: "Existing User",
+      },
+      prismaMock,
+    );
+
+    expect(result).toEqual({ userId: "existing-google-user", created: false });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects inactive user for Google sign-in", async () => {
+    const prismaMock = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ id: "inactive-user", isActive: false }),
+      },
+      $transaction: jest.fn(),
+    } as unknown as PrismaClient;
+
+    await expect(
+      registerGoogleUserWithOrganization(
+        {
+          email: "inactive@acme.com",
+          fullName: "Inactive User",
+        },
+        prismaMock,
+      ),
+    ).rejects.toMatchObject<Partial<SignUpError>>({
+      code: "UNKNOWN_ERROR",
+      status: 403,
+    });
+
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });

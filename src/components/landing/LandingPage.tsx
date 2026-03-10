@@ -3,12 +3,11 @@ import { Badge } from "@/components/ui/Badge";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { DemoRequestForm } from "./DemoRequestForm";
 
 const navItems = [
   { href: "#features", label: "Features" },
   { href: "#workflow", label: "Workflow" },
-  { href: "#proof", label: "Outcomes" },
+  // { href: "#proof", label: "Outcomes" },
   { href: "#demo", label: "Demo" },
 ];
 
@@ -376,27 +375,39 @@ export function LandingPage() {
                   Book a walkthrough
                 </Badge>
                 <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-                  See how Test Manager fits your release process
+                  See how MTM brings structure to your QA workflow
                 </h2>
                 <p className="mt-4 text-base leading-8 text-white/78">
-                  Share your current QA workflow and we will map the product to your planning,
-                  execution, and reporting needs.
+                  Share your current process and we’ll show how planning, execution, evidence, and release visibility can work in one shared system.
                 </p>
 
                 <div className="mt-8 space-y-4 text-sm text-white/86">
-                  <DemoBullet text="Review your current planning and execution model" />
-                  <DemoBullet text="Show run traceability, artifacts, and leadership metrics" />
+                  <DemoBullet text="Review your current QA workflow and bottlenecks" />
+                  <DemoBullet text="See how plans, runs, defects, and evidence stay connected" />
                   <DemoBullet text="Identify the fastest path to an initial rollout" />
                 </div>
               </div>
 
               <Card className="rounded-[2rem] border-stroke-strong/90 p-6 sm:p-8">
-                <h3 className="text-2xl font-semibold tracking-tight text-ink">Request your demo</h3>
-                <p className="mt-2 text-sm leading-7 text-ink-muted">
-                  Send us your context and we&apos;ll tailor the walkthrough to your team.
+                <Badge tone="neutral" className="w-fit">
+                  Start now
+                </Badge>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                  Get started with Test Manager
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-ink-muted">
+                  Set up your workspace and start organizing test plans, cases, runs, evidence, and QA visibility in one place.
                 </p>
-                <div className="mt-6">
-                  <DemoRequestForm />
+                <div className="mt-8 space-y-3 text-sm text-ink-muted">
+                  <p>- Create your team workspace</p>
+                  <p>- Organize plans, cases, runs, and bugs</p>
+                  <p>- Start building a more structured QA workflow</p>
+                  <p>- Start integrating AI in your process</p>
+                </div>
+                <div className="mt-8">
+                  <Link href="/sign-up">
+                    <Button className="h-12 w-full rounded-xl text-base">Get started</Button>
+                  </Link>
                 </div>
               </Card>
             </div>

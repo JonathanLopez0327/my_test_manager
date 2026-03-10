@@ -82,6 +82,8 @@ The core entities in the system are:
     DATABASE_URL="postgresql://user:password@localhost:5432/test_manager?schema=public"
     NEXTAUTH_SECRET="your-super-secret-key"
     NEXTAUTH_URL="http://localhost:3000"
+    GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
     # S3/MinIO storage for artifacts
     S3_ENDPOINT="http://localhost:9000"

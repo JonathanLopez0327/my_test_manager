@@ -24,6 +24,8 @@ export function SignupForm() {
   const searchParams = useSearchParams();
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const callbackUrl = searchParams.get("callbackUrl") || "/manager";
 
   const {
     control,
@@ -94,7 +96,6 @@ export function SignupForm() {
       return;
     }
 
-    const callbackUrl = searchParams.get("callbackUrl") || "/manager";
     const signInResult = await signIn("credentials", {
       redirect: false,
       email: values.email,
@@ -112,6 +113,18 @@ export function SignupForm() {
     router.refresh();
   };
 
+  const handleGoogleSignUp = async () => {
+    setGlobalError(null);
+    setIsGoogleSubmitting(true);
+
+    try {
+      await signIn("google", { callbackUrl });
+    } catch {
+      setGlobalError("We could not continue with Google. Please try again.");
+      setIsGoogleSubmitting(false);
+    }
+  };
+
   const slugError = errors.organization?.slug?.message;
   const orgNameError = errors.organization?.name?.message;
 
@@ -123,8 +136,26 @@ export function SignupForm() {
           Set up your user and organization in one step.
         </p>
       </div>
+      <div className="mt-8">
+        <button
+          type="button"
+          onClick={handleGoogleSignUp}
+          disabled={isSubmitting || isGoogleSubmitting}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-muted px-4 text-sm font-medium text-ink transition-colors hover:bg-brand-50"
+          aria-label="Continue with Google"
+        >
+          <span aria-hidden="true">G</span>
+          {isGoogleSubmitting ? "Connecting..." : "Continue with Google"}
+        </button>
+      </div>
 
-      <form className="mt-8 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+      <div className="my-7 flex items-center gap-4">
+        <div className="h-px flex-1 bg-stroke" />
+        <span className="text-sm font-medium text-ink-soft">Or</span>
+        <div className="h-px flex-1 bg-stroke" />
+      </div>
+
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
         <h2 className="text-sm font-semibold text-ink">User information</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
