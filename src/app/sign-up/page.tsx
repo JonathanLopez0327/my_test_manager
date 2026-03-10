@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { SignupForm } from "@/components/auth/SignupForm";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { authOptions } from "@/lib/auth";
 
-export default async function LoginPage() {
+export default async function SignUpPage() {
   const session = await getServerSession(authOptions);
   if (session?.user?.id) {
     redirect("/manager");
@@ -13,7 +13,7 @@ export default async function LoginPage() {
   return (
     <div className="min-h-screen bg-background md:grid md:grid-cols-2">
       <section className="flex min-h-screen items-center justify-center px-6 py-12 sm:px-8">
-        <LoginForm />
+        <SignupForm />
       </section>
 
       <aside className="relative hidden overflow-hidden border-l border-white/10 bg-[linear-gradient(145deg,#121d66_0%,#101755_52%,#151d73_100%)] md:flex md:items-center md:justify-center">
@@ -32,7 +32,7 @@ export default async function LoginPage() {
             Test Manager
           </h2>
           <p className="text-sm text-white/90">
-            Free and open-source quality operations workspace for teams.
+            Create your tenant workspace and start managing quality operations.
           </p>
         </div>
       </aside>

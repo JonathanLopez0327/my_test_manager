@@ -49,6 +49,42 @@ curl http://localhost:3000/api/projects \
 - Handler de NextAuth (login, callback, session, csrf, etc).
 - Implementado con `NextAuth(authOptions)`.
 
+### `POST /api/auth/sign-up`
+- Registro publico con creacion de tenant en una sola operacion transaccional.
+- Crea:
+  - `User` activo con `password_hash` (bcrypt).
+  - `Organization` (tenant) con `slug` unico (auto-sufijo: `-2`, `-3`, ...).
+  - `OrganizationMember` con rol `owner`.
+- Body:
+```json
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@acme.com",
+  "password": "password123",
+  "organization": {
+    "name": "Acme QA",
+    "slug": "acme-qa"
+  }
+}
+```
+- `organization.slug` es opcional; si se omite, se deriva desde `organization.name`.
+- Respuesta `201`:
+```json
+{
+  "ok": true,
+  "message": "Account created successfully.",
+  "organization": {
+    "id": "org_id",
+    "slug": "acme-qa"
+  }
+}
+```
+- Errores:
+  - `400` `VALIDATION_ERROR` con `fieldErrors`.
+  - `409` `EMAIL_TAKEN`.
+  - `500` `UNKNOWN_ERROR`.
+
 ## AI Assistant
 
 ### `GET /api/ai/conversations?projectId=<uuid>`

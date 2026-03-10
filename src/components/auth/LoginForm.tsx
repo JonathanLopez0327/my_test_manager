@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 
@@ -113,9 +114,9 @@ export function LoginForm() {
 
       <p className="mt-6 text-sm text-ink">
         Don&apos;t have an account?{" "}
-        <button type="button" className="font-medium text-brand-600 hover:text-brand-700">
+        <Link href="/sign-up" className="font-medium text-brand-600 hover:text-brand-700">
           Sign Up
-        </button>
+        </Link>
       </p>
     </div>
   );

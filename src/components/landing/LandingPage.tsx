@@ -98,7 +98,7 @@ export function LandingPage() {
               Log in
             </Link>
             <a href="#demo">
-              <Button className="rounded-xl px-5">Book a demo</Button>
+              <Button className="rounded-xl px-5">Get started</Button>
             </a>
           </div>
         </div>
