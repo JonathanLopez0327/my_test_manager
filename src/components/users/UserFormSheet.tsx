@@ -123,8 +123,19 @@ export function UserFormSheet({
     ) => {
         setForm((prev) => {
             const newMemberships = [...prev.memberships];
-            // @ts-ignore
-            newMemberships[index] = { ...newMemberships[index], [field]: value };
+            const currentMembership = newMemberships[index];
+            if (!currentMembership) return prev;
+            if (field === "organizationId") {
+                newMemberships[index] = {
+                    ...currentMembership,
+                    organizationId: value,
+                };
+            } else {
+                newMemberships[index] = {
+                    ...currentMembership,
+                    role: value as UserPayload["memberships"][number]["role"],
+                };
+            }
             return { ...prev, memberships: newMemberships };
         });
     };

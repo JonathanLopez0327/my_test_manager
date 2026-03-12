@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
@@ -130,7 +130,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     });
 
     return NextResponse.json(record, { status: 201 });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: "Could not upload the artifact." },
       { status: 500 },

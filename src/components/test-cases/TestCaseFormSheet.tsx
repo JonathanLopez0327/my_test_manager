@@ -61,6 +61,28 @@ type TestCaseFormState = {
     apiRequest: ApiRequest;
     apiExpectedResponse: ApiExpectedResponse;
 };
+type StepByStepRaw = { step?: unknown; expectedResult?: unknown };
+type GherkinRaw = { keyword?: unknown; text?: unknown };
+type DataDrivenRaw = {
+    template?: unknown;
+    examples?: {
+        columns?: unknown;
+        rows?: unknown;
+    };
+};
+type ApiRaw = {
+    request?: {
+        method?: unknown;
+        endpoint?: unknown;
+        headers?: unknown;
+        body?: unknown;
+    };
+    expectedResponse?: {
+        status?: unknown;
+        body?: unknown;
+        headers?: unknown;
+    };
+};
 
 const emptyApiRequest: ApiRequest = { method: "GET", endpoint: "", headers: [], body: "" };
 const emptyApiResponse: ApiExpectedResponse = { status: "", body: "", headers: [] };
@@ -144,7 +166,7 @@ export function TestCaseFormSheet({
                 apiExpectedResponse: { ...emptyApiResponse },
             };
 
-            const steps = testCase.steps as any;
+            const steps = testCase.steps as unknown;
 
             switch (style) {
                 case "step_by_step": {
@@ -154,38 +176,54 @@ export function TestCaseFormSheet({
                                 id: crypto.randomUUID(), step: s, expectedResult: "",
                             }));
                         } else {
-                            newForm.stepsList = steps.map((s: any) => ({
+                            newForm.stepsList = steps.map((s) => {
+                                const stepItem = (s ?? {}) as StepByStepRaw;
+                                return ({
                                 id: crypto.randomUUID(),
-                                step: s.step || "",
-                                expectedResult: s.expectedResult || "",
-                            }));
+                                step: String(stepItem.step ?? ""),
+                                expectedResult: String(stepItem.expectedResult ?? ""),
+                            });
+                            });
                         }
                     }
                     break;
                 }
                 case "gherkin": {
                     if (Array.isArray(steps)) {
-                        newForm.gherkinClauses = steps.map((c: any) => ({
+                        newForm.gherkinClauses = steps.map((c) => {
+                            const clause = (c ?? {}) as GherkinRaw;
+                            return ({
                             id: crypto.randomUUID(),
-                            keyword: c.keyword || "Given",
-                            text: c.text || "",
-                        }));
+                            keyword: (clause.keyword as GherkinKeyword) || "Given",
+                            text: String(clause.text ?? ""),
+                        });
+                        });
                     }
                     break;
                 }
                 case "data_driven": {
                     if (steps && typeof steps === "object") {
-                        if (Array.isArray(steps.template)) {
-                            newForm.dataDrivenTemplate = steps.template.map((c: any) => ({
+                        const dataDrivenSteps = steps as DataDrivenRaw;
+                        if (Array.isArray(dataDrivenSteps.template)) {
+                            newForm.dataDrivenTemplate = dataDrivenSteps.template.map((c) => {
+                                const clause = (c ?? {}) as GherkinRaw;
+                                return ({
                                 id: crypto.randomUUID(),
-                                keyword: c.keyword || "Given",
-                                text: c.text || "",
-                            }));
+                                keyword: (clause.keyword as GherkinKeyword) || "Given",
+                                text: String(clause.text ?? ""),
+                            });
+                            });
                         }
-                        if (steps.examples && typeof steps.examples === "object") {
+                        if (dataDrivenSteps.examples && typeof dataDrivenSteps.examples === "object") {
                             newForm.dataDrivenExamples = {
-                                columns: Array.isArray(steps.examples.columns) ? steps.examples.columns : [],
-                                rows: Array.isArray(steps.examples.rows) ? steps.examples.rows : [],
+                                columns: Array.isArray(dataDrivenSteps.examples.columns)
+                                    ? dataDrivenSteps.examples.columns.map((column) => String(column))
+                                    : [],
+                                rows: Array.isArray(dataDrivenSteps.examples.rows)
+                                    ? dataDrivenSteps.examples.rows.map((row) =>
+                                        Array.isArray(row) ? row.map((cell) => String(cell)) : [],
+                                    )
+                                    : [],
                             };
                         }
                     }
@@ -193,18 +231,33 @@ export function TestCaseFormSheet({
                 }
                 case "api": {
                     if (steps && typeof steps === "object") {
-                        const req = steps.request || {};
-                        const res = steps.expectedResponse || {};
+                        const apiSteps = steps as ApiRaw;
+                        const req = apiSteps.request || {};
+                        const res = apiSteps.expectedResponse || {};
                         newForm.apiRequest = {
-                            method: req.method || "GET",
-                            endpoint: req.endpoint || "",
-                            headers: Array.isArray(req.headers) ? req.headers : [],
-                            body: req.body || "",
+                            method: String(req.method ?? "GET"),
+                            endpoint: String(req.endpoint ?? ""),
+                            headers: Array.isArray(req.headers)
+                                ? req.headers.filter((header): header is { key: string; value: string } =>
+                                    typeof header === "object" && header !== null,
+                                ).map((header) => ({
+                                    key: String(header.key ?? ""),
+                                    value: String(header.value ?? ""),
+                                }))
+                                : [],
+                            body: String(req.body ?? ""),
                         };
                         newForm.apiExpectedResponse = {
-                            status: res.status || "",
-                            body: res.body || "",
-                            headers: Array.isArray(res.headers) ? res.headers : [],
+                            status: String(res.status ?? ""),
+                            body: String(res.body ?? ""),
+                            headers: Array.isArray(res.headers)
+                                ? res.headers.filter((header): header is { key: string; value: string } =>
+                                    typeof header === "object" && header !== null,
+                                ).map((header) => ({
+                                    key: String(header.key ?? ""),
+                                    value: String(header.value ?? ""),
+                                }))
+                                : [],
                         };
                     }
                     break;

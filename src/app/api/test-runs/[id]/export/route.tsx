@@ -10,11 +10,40 @@ import {
     StyleSheet,
     renderToStream,
 } from "@react-pdf/renderer";
+import { Readable } from "stream";
 
 type RouteParams = {
     params: Promise<{
         id: string;
     }>;
+};
+type ExportRunItem = {
+    id: string;
+    status: string;
+    durationMs: number | null;
+    errorMessage: string | null;
+    testCase: {
+        externalKey: string | null;
+        title: string;
+    };
+};
+type ExportRun = {
+    id: string;
+    name: string | null;
+    environment: string | null;
+    buildNumber: string | null;
+    startedAt: Date | null;
+    finishedAt: Date | null;
+    project: {
+        key: string;
+    };
+    items: ExportRunItem[];
+};
+type ExportMetrics = {
+    total: number;
+    passed: number;
+    failed: number;
+    passRate: number;
 };
 
 // PDF Styles
@@ -54,7 +83,11 @@ const getStatusColor = (status: string) => {
     }
 };
 
-const PDFDocument = ({ run, metrics, items }: any) => (
+const PDFDocument = ({ run, metrics, items }: {
+    run: ExportRun;
+    metrics: ExportMetrics;
+    items: ExportRunItem[];
+}) => (
     <Document>
         <Page size="A4" style={styles.page}>
             <View style={styles.header}>
@@ -107,7 +140,7 @@ const PDFDocument = ({ run, metrics, items }: any) => (
                     <Text style={styles.colStatus}>Status</Text>
                     <Text style={styles.colDuration}>Duration</Text>
                 </View>
-                {items.map((item: any) => (
+                {items.map((item) => (
                     <View key={item.id} style={styles.tableRow}>
                         <Text style={styles.colKey}>{item.testCase.externalKey || "?"}</Text>
                         <Text style={styles.colTitle}>{item.testCase.title}</Text>
@@ -120,7 +153,7 @@ const PDFDocument = ({ run, metrics, items }: any) => (
     </Document>
 );
 
-const generateHTML = (run: any, metrics: any, items: any) => {
+const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunItem[]) => {
     return `
     <!DOCTYPE html>
     <html>
@@ -186,7 +219,7 @@ const generateHTML = (run: any, metrics: any, items: any) => {
               </tr>
             </thead>
             <tbody>
-              ${items.map((item: any) => `
+              ${items.map((item) => `
                 <tr>
                   <td>${item.testCase.externalKey || ""}</td>
                   <td>${item.testCase.title}</td>
@@ -209,8 +242,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const format = searchParams.get("format") || "html";
 
     try {
-        const run = await prisma.testRun.findUnique({
-            where: { id },
+            const run = await prisma.testRun.findUnique({
+                where: { id },
             include: {
                 project: true,
                 items: {
@@ -238,11 +271,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             const stream = await renderToStream(<PDFDocument run={run} metrics={metrics} items={run.items} />);
 
             // Convert Node stream to Web ReadableStream
+            const nodeStream = stream as unknown as Readable;
             const webStream = new ReadableStream({
                 start(controller) {
-                    stream.on("data", (chunk: any) => controller.enqueue(chunk));
-                    stream.on("end", () => controller.close());
-                    stream.on("error", (err: any) => controller.error(err));
+                    nodeStream.on("data", (chunk: Buffer | string) => controller.enqueue(chunk));
+                    nodeStream.on("end", () => controller.close());
+                    nodeStream.on("error", (err: Error) => controller.error(err));
                 },
             });
 

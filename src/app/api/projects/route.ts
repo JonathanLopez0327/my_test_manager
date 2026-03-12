@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
-import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { can } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
 
@@ -16,7 +16,7 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
+export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, { userId, activeOrganizationId, organizationRole }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(

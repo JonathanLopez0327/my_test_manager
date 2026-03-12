@@ -114,6 +114,8 @@ export function ArtifactPreview({
     const renderContent = () => {
         if (isImage) {
             return (
+                // Using a raw img keeps compatibility with arbitrary signed artifact URLs.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                     src={url}
                     alt={name || "Artifact"}

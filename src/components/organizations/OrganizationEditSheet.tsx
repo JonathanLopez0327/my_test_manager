@@ -45,7 +45,6 @@ export function OrganizationEditSheet({
         slug: org.slug,
         isActive: org.isActive,
       });
-      setGlobalError(null);
     }
   }, [open, org, reset]);
 

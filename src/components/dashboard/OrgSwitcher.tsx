@@ -34,10 +34,6 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
   }, []);
 
   useEffect(() => {
-    fetchOrgs();
-  }, [fetchOrgs]);
-
-  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -85,7 +81,13 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
     <div ref={dropdownRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={async () => {
+          const shouldOpen = !open;
+          if (shouldOpen && orgs.length === 0) {
+            await fetchOrgs();
+          }
+          setOpen(shouldOpen);
+        }}
         className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors duration-200 hover:bg-surface-muted"
       >
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-300">

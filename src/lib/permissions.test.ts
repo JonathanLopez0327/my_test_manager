@@ -1,5 +1,4 @@
 import { isSuperAdmin, isReadOnlyGlobal, hasProjectPermission } from './permissions';
-import { GlobalRole, MemberRole } from '@/generated/prisma/client';
 
 // Mock prisma to avoid DB connection errors during tests
 jest.mock('./prisma', () => ({
