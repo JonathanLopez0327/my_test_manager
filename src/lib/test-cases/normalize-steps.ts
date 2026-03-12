@@ -1,7 +1,4 @@
-import type { TestCaseStyle as PrismaTestCaseStyle } from "@/generated/prisma/client";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type JsonValue = any;
+import type { Prisma, TestCaseStyle as PrismaTestCaseStyle } from "@/generated/prisma/client";
 
 const VALID_STYLES: PrismaTestCaseStyle[] = ["step_by_step", "gherkin", "data_driven", "api"];
 const GHERKIN_KEYWORDS = ["Given", "When", "Then", "And"] as const;
@@ -14,7 +11,7 @@ export function parseStyle(value?: string | null): PrismaTestCaseStyle {
   return "step_by_step";
 }
 
-export function normalizeSteps(value: unknown, style: PrismaTestCaseStyle): JsonValue {
+export function normalizeSteps(value: unknown, style: PrismaTestCaseStyle): Prisma.InputJsonValue {
   switch (style) {
     case "step_by_step":
       return normalizeStepByStep(value);
@@ -35,8 +32,9 @@ function normalizeStepByStep(value: unknown): { step: string; expectedResult: st
     return value
       .map((item) => {
         if (typeof item === "object" && item !== null) {
-          const step = (item as any).step;
-          const expectedResult = (item as any).expectedResult;
+          const data = item as { step?: unknown; expectedResult?: unknown };
+          const step = data.step;
+          const expectedResult = data.expectedResult;
           if (typeof step === "string" || typeof expectedResult === "string") {
             return {
               step: String(step ?? "").trim(),
@@ -63,11 +61,11 @@ function normalizeGherkin(value: unknown): { keyword: string; text: string }[] {
   return value
     .filter((item): item is { keyword: string; text: string } => {
       if (typeof item !== "object" || item === null) return false;
-      const { keyword, text } = item as any;
+      const { keyword, text } = item as { keyword?: unknown; text?: unknown };
       return typeof keyword === "string" && typeof text === "string";
     })
     .map((item) => ({
-      keyword: GHERKIN_KEYWORDS.includes(item.keyword as any)
+      keyword: GHERKIN_KEYWORDS.includes(item.keyword as (typeof GHERKIN_KEYWORDS)[number])
         ? item.keyword
         : "Given",
       text: item.text.trim(),
@@ -82,7 +80,7 @@ function normalizeDataDriven(value: unknown): {
   const fallback = { template: [], examples: { columns: [], rows: [] } };
   if (typeof value !== "object" || value === null) return fallback;
 
-  const obj = value as any;
+  const obj = value as { template?: unknown; examples?: unknown };
   const template = normalizeGherkin(obj.template);
 
   const examples = obj.examples;
@@ -90,19 +88,20 @@ function normalizeDataDriven(value: unknown): {
     return { template, examples: { columns: [], rows: [] } };
   }
 
-  const columns = Array.isArray(examples.columns)
-    ? examples.columns.filter((c: unknown): c is string => typeof c === "string").map((c: string) => c.trim())
+  const examplesRecord = examples as { columns?: unknown; rows?: unknown };
+
+  const columns = Array.isArray(examplesRecord.columns)
+    ? examplesRecord.columns.filter((c: unknown): c is string => typeof c === "string").map((c: string) => c.trim())
     : [];
 
-  const rows = Array.isArray(examples.rows)
-    ? examples.rows
+  const rows = Array.isArray(examplesRecord.rows)
+    ? examplesRecord.rows
         .filter((r: unknown): r is string[] => Array.isArray(r))
         .map((r: string[]) => r.map((cell) => String(cell ?? "").trim()))
     : [];
 
   return { template, examples: { columns, rows } };
 }
-
 function normalizeApi(value: unknown): {
   request: { method: string; endpoint: string; headers: { key: string; value: string }[]; body: string };
   expectedResponse: { status: string; body: string; headers: { key: string; value: string }[] };
@@ -113,14 +112,21 @@ function normalizeApi(value: unknown): {
   };
   if (typeof value !== "object" || value === null) return fallback;
 
-  const obj = value as any;
+  const obj = value as { request?: unknown; expectedResponse?: unknown };
 
-  const req = typeof obj.request === "object" && obj.request !== null ? obj.request : {};
-  const method = HTTP_METHODS.includes(String(req.method ?? "").toUpperCase() as any)
-    ? String(req.method).toUpperCase()
+  const req =
+    typeof obj.request === "object" && obj.request !== null
+      ? (obj.request as { method?: unknown; endpoint?: unknown; headers?: unknown; body?: unknown })
+      : {};
+  const methodCandidate = String(req.method ?? "").toUpperCase();
+  const method = HTTP_METHODS.includes(methodCandidate as (typeof HTTP_METHODS)[number])
+    ? methodCandidate
     : "GET";
 
-  const res = typeof obj.expectedResponse === "object" && obj.expectedResponse !== null ? obj.expectedResponse : {};
+  const res =
+    typeof obj.expectedResponse === "object" && obj.expectedResponse !== null
+      ? (obj.expectedResponse as { status?: unknown; body?: unknown; headers?: unknown })
+      : {};
 
   return {
     request: {
@@ -142,11 +148,11 @@ function normalizeKeyValuePairs(value: unknown): { key: string; value: string }[
   return value
     .filter((item): item is { key: string; value: string } => {
       if (typeof item !== "object" || item === null) return false;
-      return typeof (item as any).key === "string";
+      return typeof (item as { key?: unknown }).key === "string";
     })
     .map((item) => ({
       key: item.key.trim(),
-      value: String((item as any).value ?? "").trim(),
+      value: String(item.value ?? "").trim(),
     }))
     .filter((item) => item.key.length > 0);
 }

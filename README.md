@@ -25,6 +25,8 @@ A modern, comprehensive Test Management System built with **Next.js**, **Prisma*
 -   **Dashboard & Analytics**:
     -   Real-time statistics on projects, execution rates, and failures.
     -   Automation coverage metrics.
+-   **Landing Feedback Capture**:
+    -   Public landing form to collect platform feedback and improvement requests.
 -   **User Management**:
     -   Project roles (Admin, Editor, Viewer).
     -   Organization roles (Owner, Admin, Member, Billing).
@@ -54,6 +56,7 @@ The core entities in the system are:
 -   **Bug**: Defect records associated with project, test case, and/or run item.
 -   **ApiToken / AgentTokenSecret**: Token infrastructure for integrations and AI agents.
 -   **AiConversation / AiConversationMessage**: Persistent project chat history.
+-   **PlatformFeedback**: Public feedback submissions captured from the landing page.
 
 ## ⚡ Getting Started
 
@@ -82,6 +85,8 @@ The core entities in the system are:
     DATABASE_URL="postgresql://user:password@localhost:5432/test_manager?schema=public"
     NEXTAUTH_SECRET="your-super-secret-key"
     NEXTAUTH_URL="http://localhost:3000"
+    GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+    GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
     # S3/MinIO storage for artifacts
     S3_ENDPOINT="http://localhost:9000"
@@ -127,3 +132,29 @@ The core entities in the system are:
 -   `pnpm lint`: Run ESLint.
 -   `pnpm test`: Run Jest tests.
 -   `pnpm test:watch`: Run Jest in watch mode.
+
+## ✅ Deployment Checklist
+
+### Pre-deploy
+
+1. Configure environment variables (see `.env.example`):
+   - Required in runtime: `DATABASE_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, `S3_PUBLIC_URL`, `LANGGRAPH_API_URL`, `LANGGRAPH_ASSISTANT_ID`, `AI_AGENT_TOKEN_ENCRYPTION_KEY`
+   - Seed-only variables: `SEED_QA_EMAIL`, `SEED_QA_PASSWORD`, `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD`
+   - Optional controls: `AI_AGENT_TOKEN_TTL_DAYS`, `AI_AGENT_TOKEN_ROTATE_BEFORE_DAYS`
+   - `NODE_ENV` is set by the hosting platform.
+2. Ensure auth guard is active for manager routes via `src/proxy.ts` matcher (`/manager/:path*`).
+3. Validate quality gates:
+   ```bash
+   pnpm lint
+   pnpm test -- --runInBand
+   pnpm build
+   ```
+4. Confirm DB schema compatibility (`pnpm exec prisma validate`) and run migrations in target environment (if needed by your release).
+
+### Post-deploy smoke test
+
+1. Sign in and verify unauthenticated access to `/manager/*` redirects to `/login`.
+2. Validate core flow: create project -> plan -> suite/case -> run -> record result -> upload artifact.
+3. Verify AI chat endpoint can resolve `LANGGRAPH_API_URL` and responds without 500 errors.
+4. Confirm artifact upload/download works against configured S3 bucket and URL.
+

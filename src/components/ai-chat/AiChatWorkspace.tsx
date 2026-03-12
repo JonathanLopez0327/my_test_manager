@@ -1397,7 +1397,7 @@ export function AiChatWorkspace() {
               ) : null}
 
               {attachmentsPanelOpen && !selectedThreadId ? (
-                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+                <p className="text-xs text-ink-muted">No PDFs were generated in this conversation.</p>
               ) : null}
 
               {attachmentsPanelOpen && selectedThreadDocumentState?.status === "pending" ? (
@@ -1531,7 +1531,7 @@ export function AiChatWorkspace() {
               conversationGeneratedAttachments.length === 0 &&
               (!selectedThreadDocumentState ||
                 selectedThreadDocumentState.status === "missing") ? (
-                <p className="text-xs text-ink-muted">No hay PDFs generados en esta conversación.</p>
+                <p className="text-xs text-ink-muted">No PDFs were generated in this conversation.</p>
               ) : null}
             </div>
           </section>

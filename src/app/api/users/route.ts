@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -24,7 +24,7 @@ function parseNumber(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalRoles, activeOrganizationId }) => {
+export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { globalRoles, activeOrganizationId }) => {
   const { searchParams } = new URL(req.url);
   const page = parseNumber(searchParams.get("page"), 1);
   const pageSize = Math.min(
@@ -156,7 +156,7 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { userId, globalR
   });
 });
 
-export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { activeOrganizationId }) => {
+export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
   try {
     const body = (await req.json()) as {
       email?: string;

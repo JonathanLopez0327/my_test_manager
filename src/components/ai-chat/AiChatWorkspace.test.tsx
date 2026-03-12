@@ -501,7 +501,7 @@ describe("AiChatWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Adjuntos")).toBeInTheDocument();
+      expect(screen.getByText("Attachments")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Abrir generated.pdf" })).toHaveAttribute(
         "href",
         "http://localhost:9000/test-documents/thread-abc/generated.pdf",
@@ -680,7 +680,7 @@ describe("AiChatWorkspace", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("Generated documents")).not.toBeInTheDocument();
-      expect(screen.getByText("Adjuntos")).toBeInTheDocument();
+      expect(screen.getByText("Attachments")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Abrir generated-v2.pdf" })).toHaveAttribute(
         "href",
         "http://localhost:9000/test-documents/thread-123/generated.pdf",
@@ -689,7 +689,7 @@ describe("AiChatWorkspace", () => {
         "href",
         "http://localhost:9000/test-documents/proj-1/testcases_v1.pdf",
       );
-      expect(screen.getAllByText("PDF generado disponible en la sección de adjuntos.").length).toBe(1);
+      expect(screen.getAllByText("Generated PDF available in the attachments section.").length).toBe(1);
     });
   });
 
@@ -844,7 +844,7 @@ describe("AiChatWorkspace", () => {
     await applyProjectContext("proj-1");
 
     await waitFor(() => {
-      expect(screen.getByText("No hay PDFs generados en esta conversación.")).toBeInTheDocument();
+      expect(screen.getByText("No PDFs were generated in this conversation.")).toBeInTheDocument();
     });
 
     pendingMode = true;

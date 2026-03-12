@@ -70,6 +70,12 @@ type DisplayArtifactRecord = RunArtifactRecord & {
     previewable: boolean;
     isHtml: boolean;
 };
+type PreviewArtifactRecord = {
+    url: string;
+    type: string;
+    mimeType?: string | null;
+    name?: string | null;
+};
 
 const ITEM_FETCH_PAGE_SIZE = 100;
 const ARTIFACT_FETCH_PAGE_SIZE = 100;
@@ -308,7 +314,7 @@ export function TestRunDetailsSheet({
     });
     const [artifactFile, setArtifactFile] = useState<File | null>(null);
     const [artifactMode, setArtifactMode] = useState<"url" | "file">("file");
-    const [previewArtifact, setPreviewArtifact] = useState<RunArtifactRecord | null>(
+    const [previewArtifact, setPreviewArtifact] = useState<PreviewArtifactRecord | null>(
         null,
     );
     const [itemFilter, setItemFilter] = useState<ItemFilter>("all");
@@ -662,7 +668,12 @@ export function TestRunDetailsSheet({
             return;
         }
         if (artifact.previewable) {
-            setPreviewArtifact(artifact);
+            setPreviewArtifact({
+                url: artifact.url,
+                type: artifact.resolvedType,
+                mimeType: artifact.mimeType,
+                name: artifact.name,
+            });
         }
     };
 

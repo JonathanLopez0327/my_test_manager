@@ -298,7 +298,7 @@ function SidebarContent({
           />
           {!collapsed ? (
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-ink">mtm</p>
+              <p className="truncate text-base font-semibold text-ink">My Test Manager</p>
             </div>
           ) : null}
         </Link>

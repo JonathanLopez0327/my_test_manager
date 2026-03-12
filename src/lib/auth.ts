@@ -1,9 +1,14 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
+import { registerGoogleUserWithOrganization } from "@/lib/auth/sign-up";
 
 import { prisma } from "./prisma";
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -13,6 +18,10 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -50,13 +59,53 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+
+      const resolvedEmail = (user.email ?? profile?.email)?.toLowerCase().trim();
+      if (!resolvedEmail) {
+        return false;
+      }
+
+      try {
+        const onboarding = await registerGoogleUserWithOrganization(
+          {
+            email: resolvedEmail,
+            fullName: user.name ?? profile?.name,
+          },
+          prisma,
+        );
+        user.id = onboarding.userId;
+        user.email = resolvedEmail;
+        return true;
+      } catch {
+        return false;
+      }
+    },
     async jwt({ token, user, trigger, session }) {
-      // Initial sign-in: populate token with user data
-      if (user?.id) {
+      // Credentials sign-in already returns DB UUID.
+      if (user?.id && UUID_PATTERN.test(user.id)) {
         token.id = user.id;
       }
 
-      // Load global roles on first sign-in
+      // OAuth sign-in should always resolve token.id from DB by email.
+      const needsUserLookup = !token.id || !UUID_PATTERN.test(String(token.id));
+      const candidateEmail = (user?.email ?? token.email)?.toLowerCase().trim();
+      if (needsUserLookup && candidateEmail) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: candidateEmail },
+          select: { id: true, isActive: true },
+        });
+
+        if (!dbUser?.isActive) {
+          return token;
+        }
+
+        token.id = dbUser.id;
+      }
+
       if (token.id && !token.globalRoles) {
         const roles = await prisma.userGlobalRole.findMany({
           where: { userId: token.id as string },

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
@@ -40,7 +40,7 @@ export const POST = withAuth(null, async (_req, { userId, globalRoles, activeOrg
   try {
     const metrics = await upsertRunMetrics(prisma, id);
     return NextResponse.json(metrics);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: "Could not recalculate metrics." },
       { status: 500 },

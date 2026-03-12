@@ -43,11 +43,70 @@ curl http://localhost:3000/api/projects \
 - Orden comun: `sortBy`, `sortDir` (`asc|desc`).
 - Respuesta de listas: `{ items, total, page, pageSize }`.
 
+## Landing publico
+
+### `POST /api/platform-feedback`
+- Endpoint publico para capturar feedback desde el landing page.
+- No requiere sesion.
+- Body:
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@acme.com",
+  "rating": 5,
+  "message": "Great experience for our QA workflow."
+}
+```
+- Reglas:
+  - `name`: opcional (max 120).
+  - `email`: opcional, formato valido si se envia.
+  - `rating`: requerido, entero entre `1` y `5`.
+  - `message`: requerido, entre `10` y `2000` caracteres.
+- Respuestas:
+  - `201` cuando persiste correctamente.
+  - `400` si el payload es invalido (`fieldErrors`).
+  - `500` si falla la persistencia.
 ## Auth
 
 ### `GET|POST /api/auth/[...nextauth]`
 - Handler de NextAuth (login, callback, session, csrf, etc).
 - Implementado con `NextAuth(authOptions)`.
+
+### `POST /api/auth/sign-up`
+- Registro publico con creacion de tenant en una sola operacion transaccional.
+- Crea:
+  - `User` activo con `password_hash` (bcrypt).
+  - `Organization` (tenant) con `slug` unico (auto-sufijo: `-2`, `-3`, ...).
+  - `OrganizationMember` con rol `owner`.
+- Body:
+```json
+{
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@acme.com",
+  "password": "password123",
+  "organization": {
+    "name": "Acme QA",
+    "slug": "acme-qa"
+  }
+}
+```
+- `organization.slug` es opcional; si se omite, se deriva desde `organization.name`.
+- Respuesta `201`:
+```json
+{
+  "ok": true,
+  "message": "Account created successfully.",
+  "organization": {
+    "id": "org_id",
+    "slug": "acme-qa"
+  }
+}
+```
+- Errores:
+  - `400` `VALIDATION_ERROR` con `fieldErrors`.
+  - `409` `EMAIL_TAKEN`.
+  - `500` `UNKNOWN_ERROR`.
 
 ## AI Assistant
 
@@ -258,6 +317,37 @@ curl http://localhost:3000/api/projects \
   "isActive": true
 }
 ```
+
+### `GET /api/projects/{id}`
+- Permiso: `PROJECT_LIST`.
+- Valida pertenencia a organizacion activa (`403` si no coincide).
+- Incluye relaciones: `members` (con datos del usuario), `createdBy`.
+- Respuesta `200`:
+```json
+{
+  "id": "proj_id",
+  "organizationId": "org_id",
+  "key": "TMS",
+  "name": "Test Manager",
+  "description": "...",
+  "context": "...",
+  "isActive": true,
+  "createdById": "user_id",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z",
+  "members": [
+    {
+      "projectId": "proj_id",
+      "userId": "user_id",
+      "role": "admin",
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "user": { "id": "user_id", "fullName": "Jane Doe", "email": "jane@acme.com" }
+    }
+  ],
+  "createdBy": { "id": "user_id", "fullName": "Jane Doe", "email": "jane@acme.com" }
+}
+```
+- Errores: `404` si no existe, `403` si no pertenece a la organizacion activa.
 
 ### `PUT /api/projects/{id}`
 - Permiso: `PROJECT_UPDATE`.
@@ -554,3 +644,5 @@ curl http://localhost:3000/api/projects \
 - `404`: recurso no encontrado.
 - `409`: conflicto de unicidad.
 - `500`: error interno.
+
+

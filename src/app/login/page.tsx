@@ -1,7 +1,15 @@
+import { getServerSession } from "next-auth";
+import Image from "next/image";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/LoginForm";
-import { BrandLogo } from "@/components/ui/BrandLogo";
+import { authOptions } from "@/lib/auth";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    redirect("/manager");
+  }
+
   return (
     <div className="min-h-screen bg-background md:grid md:grid-cols-2">
       <section className="flex min-h-screen items-center justify-center px-6 py-12 sm:px-8">
@@ -19,7 +27,14 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 px-10 py-12 text-center backdrop-blur-sm">
-          <BrandLogo variant="full" className="h-14 w-auto object-contain" priority />
+          <Image
+            src="/brand/logo_light.png"
+            alt="Test Manager"
+            width={512}
+            height={160}
+            className="h-14 w-auto object-contain"
+            priority
+          />
           <h2 className="text-3xl font-semibold tracking-tight text-white">
             Test Manager
           </h2>

@@ -52,7 +52,7 @@ export function MemberFormSheet({
       setSelectedUserId("");
       setSelectedRole("member");
       // Fetch users for the dropdown
-      fetch("/api/users?pageSize=50")
+      fetch(`/api/users?pageSize=50&organizationId=${organizationId}`)
         .then((res) => res.json())
         .then((data: { items?: UserOption[] }) => {
           setUsers(data.items ?? []);
@@ -62,7 +62,7 @@ export function MemberFormSheet({
         })
         .catch(() => {});
     }
-  }, [open, member]);
+  }, [open, member, organizationId]);
 
   const handleSubmit = async () => {
     if (!selectedUserId) return;

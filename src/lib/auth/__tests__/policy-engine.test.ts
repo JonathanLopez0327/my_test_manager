@@ -28,12 +28,12 @@ describe("PolicyEngine", () => {
     // ─── canSync (global roles only, no DB) ─────────────────
 
     describe("canSync", () => {
-        it("super_admin should have all permissions", () => {
+        it("super_admin should only have global admin permissions", () => {
             const roles: GlobalRole[] = ["super_admin"];
-            expect(canSync(PERMISSIONS.PROJECT_CREATE, roles)).toBe(true);
-            expect(canSync(PERMISSIONS.PROJECT_DELETE, roles)).toBe(true);
             expect(canSync(PERMISSIONS.USER_CREATE, roles)).toBe(true);
-            expect(canSync(PERMISSIONS.ARTIFACT_DELETE, roles)).toBe(true);
+            expect(canSync(PERMISSIONS.ORG_CREATE, roles)).toBe(true);
+            expect(canSync(PERMISSIONS.PROJECT_CREATE, roles)).toBe(false);
+            expect(canSync(PERMISSIONS.ARTIFACT_DELETE, roles)).toBe(false);
         });
 
         it("support should only have read permissions", () => {
@@ -63,7 +63,7 @@ describe("PolicyEngine", () => {
 
         it("multiple global roles should combine", () => {
             const roles: GlobalRole[] = ["support", "super_admin"];
-            expect(canSync(PERMISSIONS.PROJECT_CREATE, roles)).toBe(true);
+            expect(canSync(PERMISSIONS.PROJECT_CREATE, roles)).toBe(false);
             expect(canSync(PERMISSIONS.USER_CREATE, roles)).toBe(true);
         });
     });
@@ -76,16 +76,20 @@ describe("PolicyEngine", () => {
             globalRoles: [],
         };
 
-        it("should allow super_admin without project check", async () => {
+        it("should deny super_admin for project-scoped permission without project membership", async () => {
             const ctx: PolicyContext = {
                 ...baseCtx,
                 globalRoles: ["super_admin"],
                 projectId: "proj-1",
             };
             const result = await can(PERMISSIONS.TEST_SUITE_CREATE, ctx);
-            expect(result).toBe(true);
-            // Should NOT have queried project membership
-            expect(prisma.projectMember.findUnique).not.toHaveBeenCalled();
+            expect(result).toBe(false);
+            expect(prisma.projectMember.findUnique).toHaveBeenCalledWith({
+                where: {
+                    projectId_userId: { projectId: "proj-1", userId: "user-1" },
+                },
+                select: { role: true },
+            });
         });
 
         it("should check project role when no global permission", async () => {

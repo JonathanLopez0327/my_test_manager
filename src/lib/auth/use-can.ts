@@ -21,11 +21,14 @@ import { canSync } from "./can-sync";
  */
 export function useCan(permission: Permission): boolean {
     const { data: session } = useSession();
-    const globalRoles = session?.user?.globalRoles as GlobalRole[] | undefined;
+    const globalRoles = useMemo(
+        () => ((session?.user?.globalRoles as GlobalRole[] | undefined) ?? []),
+        [session?.user?.globalRoles],
+    );
     const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
 
     return useMemo(
-        () => canSync(permission, globalRoles ?? [], organizationRole),
+        () => canSync(permission, globalRoles, organizationRole),
         [permission, globalRoles, organizationRole],
     );
 }
@@ -42,7 +45,10 @@ export function useCan(permission: Permission): boolean {
  */
 export function usePermissions() {
     const { data: session } = useSession();
-    const globalRoles = (session?.user?.globalRoles as GlobalRole[] | undefined) ?? [];
+    const globalRoles = useMemo(
+        () => ((session?.user?.globalRoles as GlobalRole[] | undefined) ?? []),
+        [session?.user?.globalRoles],
+    );
     const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
     const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
 

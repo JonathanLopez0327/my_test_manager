@@ -533,6 +533,18 @@ model BugComment {
   @@map("bug_comments")
 }
 
+model PlatformFeedback {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String?
+  email     String?
+  rating    Int      @db.SmallInt
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt], map: "idx_platform_feedback_created_at")
+  @@index([rating], map: "idx_platform_feedback_rating")
+  @@map("platform_feedback")
+}
 model AiConversation {
   id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId String               @map("organization_id") @db.Uuid
@@ -570,3 +582,4 @@ model AiConversationMessage {
   @@index([conversationId, createdAt], map: "idx_ai_messages_conversation_created")
   @@map("ai_conversation_messages")
 }
+
