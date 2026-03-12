@@ -5,6 +5,44 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 
+export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, { activeOrganizationId }, routeCtx) => {
+  const { id } = await routeCtx.params;
+
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: {
+        members: {
+          include: { user: { select: { id: true, fullName: true, email: true } } },
+        },
+        createdBy: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { message: "Project not found." },
+        { status: 404 },
+      );
+    }
+
+    // Ensure project belongs to the active organization
+    if (activeOrganizationId && project.organizationId !== activeOrganizationId) {
+      return NextResponse.json(
+        { message: "The project does not belong to the active organization." },
+        { status: 403 },
+      );
+    }
+
+    return NextResponse.json(project);
+  } catch {
+    return NextResponse.json(
+      { message: "Could not retrieve the project." },
+      { status: 500 },
+    );
+  }
+});
+
 export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
 

@@ -295,6 +295,37 @@ curl http://localhost:3000/api/projects \
 }
 ```
 
+### `GET /api/projects/{id}`
+- Permiso: `PROJECT_LIST`.
+- Valida pertenencia a organizacion activa (`403` si no coincide).
+- Incluye relaciones: `members` (con datos del usuario), `createdBy`.
+- Respuesta `200`:
+```json
+{
+  "id": "proj_id",
+  "organizationId": "org_id",
+  "key": "TMS",
+  "name": "Test Manager",
+  "description": "...",
+  "context": "...",
+  "isActive": true,
+  "createdById": "user_id",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z",
+  "members": [
+    {
+      "projectId": "proj_id",
+      "userId": "user_id",
+      "role": "admin",
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "user": { "id": "user_id", "fullName": "Jane Doe", "email": "jane@acme.com" }
+    }
+  ],
+  "createdBy": { "id": "user_id", "fullName": "Jane Doe", "email": "jane@acme.com" }
+}
+```
+- Errores: `404` si no existe, `403` si no pertenece a la organizacion activa.
+
 ### `PUT /api/projects/{id}`
 - Permiso: `PROJECT_UPDATE`.
 - Valida pertenencia a organizacion activa.
