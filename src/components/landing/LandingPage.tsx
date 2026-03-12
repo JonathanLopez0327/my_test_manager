@@ -3,11 +3,13 @@ import { Badge } from "@/components/ui/Badge";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PlatformFeedbackForm } from "@/components/landing/PlatformFeedbackForm";
 
 const navItems = [
   { href: "#features", label: "Features" },
   { href: "#workflow", label: "Workflow" },
   // { href: "#proof", label: "Outcomes" },
+  { href: "#feedback", label: "Feedback" },
   { href: "#demo", label: "Demo" },
 ];
 
@@ -367,6 +369,43 @@ export function LandingPage() {
         </section>
         */}
 
+        <section id="feedback" className="py-16 md:py-20 lg:py-24">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+              <div>
+                <Badge tone="info" className="w-fit">
+                  Product feedback
+                </Badge>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                  Help us improve the platform
+                </h2>
+                <p className="mt-4 text-base leading-8 text-ink-muted">
+                  Share your experience with Test Manager and tell us what would make your QA workflow better.
+                </p>
+                <div className="mt-8 space-y-3 text-sm text-ink-muted">
+                  <p>- Highlight what is working well for your team</p>
+                  <p>- Point out friction in planning or execution workflows</p>
+                  <p>- Suggest improvements for future releases</p>
+                </div>
+              </div>
+
+              <Card className="rounded-[2rem] border-stroke-strong/90 p-6 sm:p-8">
+                <Badge tone="neutral" className="w-fit">
+                  We read every response
+                </Badge>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+                  Leave your feedback
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-ink-muted">
+                  Your input helps us prioritize the features that matter most.
+                </p>
+                <div className="mt-8">
+                  <PlatformFeedbackForm />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </section>
         <section id="demo" className="pb-20 pt-16 md:pb-24 md:pt-20 lg:pb-28 lg:pt-24">
           <div className="mx-auto max-w-6xl px-6">
             <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
@@ -691,3 +730,4 @@ function HeroLines() {
     </svg>
   );
 }
+

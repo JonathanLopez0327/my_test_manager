@@ -25,6 +25,8 @@ A modern, comprehensive Test Management System built with **Next.js**, **Prisma*
 -   **Dashboard & Analytics**:
     -   Real-time statistics on projects, execution rates, and failures.
     -   Automation coverage metrics.
+-   **Landing Feedback Capture**:
+    -   Public landing form to collect platform feedback and improvement requests.
 -   **User Management**:
     -   Project roles (Admin, Editor, Viewer).
     -   Organization roles (Owner, Admin, Member, Billing).
@@ -54,6 +56,7 @@ The core entities in the system are:
 -   **Bug**: Defect records associated with project, test case, and/or run item.
 -   **ApiToken / AgentTokenSecret**: Token infrastructure for integrations and AI agents.
 -   **AiConversation / AiConversationMessage**: Persistent project chat history.
+-   **PlatformFeedback**: Public feedback submissions captured from the landing page.
 
 ## ⚡ Getting Started
 
@@ -154,3 +157,4 @@ The core entities in the system are:
 2. Validate core flow: create project -> plan -> suite/case -> run -> record result -> upload artifact.
 3. Verify AI chat endpoint can resolve `LANGGRAPH_API_URL` and responds without 500 errors.
 4. Confirm artifact upload/download works against configured S3 bucket and URL.
+

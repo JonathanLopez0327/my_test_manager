@@ -43,6 +43,29 @@ curl http://localhost:3000/api/projects \
 - Orden comun: `sortBy`, `sortDir` (`asc|desc`).
 - Respuesta de listas: `{ items, total, page, pageSize }`.
 
+## Landing publico
+
+### `POST /api/platform-feedback`
+- Endpoint publico para capturar feedback desde el landing page.
+- No requiere sesion.
+- Body:
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@acme.com",
+  "rating": 5,
+  "message": "Great experience for our QA workflow."
+}
+```
+- Reglas:
+  - `name`: opcional (max 120).
+  - `email`: opcional, formato valido si se envia.
+  - `rating`: requerido, entero entre `1` y `5`.
+  - `message`: requerido, entre `10` y `2000` caracteres.
+- Respuestas:
+  - `201` cuando persiste correctamente.
+  - `400` si el payload es invalido (`fieldErrors`).
+  - `500` si falla la persistencia.
 ## Auth
 
 ### `GET|POST /api/auth/[...nextauth]`
@@ -621,3 +644,5 @@ curl http://localhost:3000/api/projects \
 - `404`: recurso no encontrado.
 - `409`: conflicto de unicidad.
 - `500`: error interno.
+
+
