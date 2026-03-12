@@ -9,7 +9,7 @@ import { getS3Client } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
-const DEFAULT_DOCUMENT_BUCKET = "test-documents";
+const DEFAULT_DOCUMENT_BUCKET = "test-documents-bwkgqmji-r";
 const DEFAULT_URL_EXPIRY_SECONDS = 120;
 
 function resolveDocumentBucket() {

@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { buildS3ObjectUrl, getS3Client, getS3Config } from "@/lib/s3";
+import { validateArtifactUploadPolicy } from "@/lib/artifact-upload-policy";
 
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [
   "screenshot",
@@ -52,6 +53,19 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     if (!type) {
       return NextResponse.json(
         { message: "Invalid artifact type." },
+        { status: 400 },
+      );
+    }
+
+    const uploadPolicy = validateArtifactUploadPolicy({
+      type,
+      sizeBytes: file.size,
+      requirePositiveSize: true,
+    });
+
+    if (!uploadPolicy.ok) {
+      return NextResponse.json(
+        { message: uploadPolicy.message },
         { status: 400 },
       );
     }
@@ -113,7 +127,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         name: generatedName,
         url,
         mimeType: file.type || null,
-        sizeBytes: BigInt(file.size),
+        sizeBytes: uploadPolicy.sizeBytes,
         checksumSha256: hash,
       },
       select: {
@@ -137,5 +151,3 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     );
   }
 });
-
-

@@ -13,14 +13,14 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.978.0",
-    "@aws-sdk/s3-request-presigner": "^3.978.0",
+    "@aws-sdk/client-s3": "^3.1007.0",
+    "@aws-sdk/s3-request-presigner": "^3.1007.0",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.2",
     "@langchain/core": "^1.1.29",
     "@langchain/langgraph": "^1.2.0",
     "@prisma/adapter-pg": "^7.3.0",
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^7.5.0",
     "@react-pdf/renderer": "^4.3.2",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",
@@ -31,7 +31,7 @@
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "pg": "^8.17.2",
-    "prisma": "^7.3.0",
+    "prisma": "^7.5.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.1",
@@ -58,5 +58,13 @@
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "pnpm": {
+    "overrides": {
+      "hono": ">=4.12.7",
+      "@hono/node-server": ">=1.19.10",
+      "minimatch": "3.1.4",
+      "lodash": ">=4.17.23"
+    }
   }
 }
