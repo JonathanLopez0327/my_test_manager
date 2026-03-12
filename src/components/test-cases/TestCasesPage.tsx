@@ -239,6 +239,27 @@ export function TestCasesPage() {
     });
   };
 
+  const handleDuplicate = async (testCase: TestCaseRecord) => {
+    if (!canManage) return;
+    setError(null);
+    try {
+      const response = await fetch(`/api/test-cases/${testCase.id}/duplicate`, {
+        method: "POST",
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(data.message || "Could not duplicate test case.");
+      }
+      await fetchCases();
+    } catch (dupError) {
+      setError(
+        dupError instanceof Error
+          ? dupError.message
+          : "Could not duplicate test case.",
+      );
+    }
+  };
+
   const handleConfirmDelete = async () => {
     const { id } = deleteConfirmation;
     if (!id) return;
@@ -389,6 +410,7 @@ export function TestCasesPage() {
             loading={loading}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onDuplicate={handleDuplicate}
             canManage={canManage}
             sortBy={sortBy}
             sortDir={sortDir}

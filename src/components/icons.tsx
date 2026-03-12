@@ -12,6 +12,7 @@ import {
   ChevronUpDownIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
+  DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   FolderIcon,
   MagnifyingGlassIcon,
@@ -57,3 +58,4 @@ export const IconSend = PaperAirplaneIcon;
 export const IconDocument = DocumentTextIcon;
 export const IconDownload = ArrowDownTrayIcon;
 export const IconExternalLink = ArrowTopRightOnSquareIcon;
+export const IconDuplicate = DocumentDuplicateIcon;

@@ -1,6 +1,6 @@
 "use client";
 
-import { IconEdit, IconTrash } from "../icons";
+import { IconDuplicate, IconEdit, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
 import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
@@ -18,6 +18,7 @@ type TestCasesTableProps = {
   loading: boolean;
   onEdit: (testCase: TestCaseRecord) => void;
   onDelete: (testCase: TestCaseRecord) => void;
+  onDuplicate: (testCase: TestCaseRecord) => void;
   canManage?: boolean;
   sortBy: TestCaseSortBy | null;
   sortDir: SortDir | null;
@@ -85,6 +86,7 @@ export function TestCasesTable({
   loading,
   onEdit,
   onDelete,
+  onDuplicate,
   canManage = true,
   sortBy,
   sortDir,
@@ -205,6 +207,11 @@ export function TestCasesTable({
                   {canManage ? (
                     <div className="flex items-center justify-end gap-2">
                       <RowActionButton
+                        onClick={() => onDuplicate(testCase)}
+                        icon={<IconDuplicate className="h-4 w-4" />}
+                        label="Duplicate case"
+                      />
+                      <RowActionButton
                         onClick={() => onEdit(testCase)}
                         icon={<IconEdit className="h-4 w-4" />}
                         label="Edit case"
@@ -272,6 +279,12 @@ export function TestCasesTable({
             </div>
             {canManage ? (
               <div className="mt-4 flex items-center gap-3">
+                <RowActionButton
+                  onClick={() => onDuplicate(testCase)}
+                  icon={<IconDuplicate className="h-5 w-5" />}
+                  label="Duplicate case"
+                  size="md"
+                />
                 <RowActionButton
                   onClick={() => onEdit(testCase)}
                   icon={<IconEdit className="h-5 w-5" />}
