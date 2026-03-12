@@ -1,13 +1,30 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const S3_ENDPOINT = process.env.S3_ENDPOINT;
-const S3_ACCESS_KEY = process.env.S3_ACCESS_KEY;
-const S3_SECRET_KEY = process.env.S3_SECRET_KEY;
-const S3_REGION = process.env.S3_REGION || "us-east-1";
-const S3_BUCKET = process.env.S3_BUCKET;
-const S3_PUBLIC_URL = process.env.S3_PUBLIC_URL || S3_ENDPOINT;
+// ── Tipo para distinguir los dos buckets ──────────────────────────────
+export type S3BucketType = "artifacts" | "test-documents";
 
+// ── Variables de entorno por bucket ───────────────────────────────────
+const ENV = {
+  artifacts: {
+    endpoint: process.env.S3_ARTIFAC_BUCKET_ENDPOINT,
+    accessKey: process.env.S3_ARTIFAC_BUCKET_ACCESS_KEY,
+    secretKey: process.env.S3_ARTIFAC_BUCKET_SECRET_KEY,
+    region: process.env.S3_ARTIFAC_BUCKET_REGION || "us-east-1",
+    bucket: process.env.S3_ARTIFAC_BUCKET,
+  },
+  "test-documents": {
+    endpoint: process.env.S3_TEST_DOCUMENTS_BUCKET_ENDPOINT,
+    accessKey: process.env.S3_TEST_DOCUMENTS_BUCKET_ACCESS_KEY,
+    secretKey: process.env.S3_TEST_DOCUMENTS_BUCKET_SECRET_KEY,
+    region: process.env.S3_TEST_DOCUMENTS_BUCKET_REGION || "us-east-1",
+    bucket: process.env.S3_TEST_DOCUMENTS_BUCKET,
+  },
+} as const;
+
+const S3_PUBLIC_URL = process.env.S3_PUBLIC_URL;
+
+// ── Helpers ───────────────────────────────────────────────────────────
 function requireEnv(value: string | undefined, name: string) {
   if (!value) {
     throw new Error(`Missing ${name} env var.`);
@@ -15,19 +32,23 @@ function requireEnv(value: string | undefined, name: string) {
   return value;
 }
 
-export function getS3Config() {
+// ── Configuración por bucket ──────────────────────────────────────────
+export function getS3Config(type: S3BucketType) {
+  const env = ENV[type];
+  const label = type === "artifacts" ? "S3_ARTIFAC_BUCKET" : "S3_TEST_DOCUMENTS_BUCKET";
+
   return {
-    endpoint: requireEnv(S3_ENDPOINT, "S3_ENDPOINT"),
-    accessKeyId: requireEnv(S3_ACCESS_KEY, "S3_ACCESS_KEY"),
-    secretAccessKey: requireEnv(S3_SECRET_KEY, "S3_SECRET_KEY"),
-    region: S3_REGION,
-    bucket: requireEnv(S3_BUCKET, "S3_BUCKET"),
-    publicUrl: requireEnv(S3_PUBLIC_URL, "S3_PUBLIC_URL"),
+    endpoint: requireEnv(env.endpoint, `${label}_ENDPOINT`),
+    accessKeyId: requireEnv(env.accessKey, `${label}_ACCESS_KEY`),
+    secretAccessKey: requireEnv(env.secretKey, `${label}_SECRET_KEY`),
+    region: env.region,
+    bucket: requireEnv(env.bucket, label),
   };
 }
 
-export function getS3Client() {
-  const config = getS3Config();
+// ── Cliente S3 por bucket ─────────────────────────────────────────────
+export function getS3Client(type: S3BucketType) {
+  const config = getS3Config(type);
   return new S3Client({
     region: config.region,
     endpoint: config.endpoint,
@@ -39,15 +60,21 @@ export function getS3Client() {
   });
 }
 
-export function buildS3ObjectUrl(bucket: string, key: string) {
-  const config = getS3Config();
-  const base = config.publicUrl.replace(/\/$/, "");
-  return `${base}/${bucket}/${encodeURI(key)}`;
+// ── URL pública de un objeto ──────────────────────────────────────────
+export function buildS3ObjectUrl(type: S3BucketType, key: string) {
+  const config = getS3Config(type);
+  const base = (S3_PUBLIC_URL ?? config.endpoint).replace(/\/$/, "");
+  return `${base}/${config.bucket}/${encodeURI(key)}`;
 }
 
-export async function getPresignedUrl(key: string, expiresIn = 3600) {
-  const client = getS3Client();
-  const config = getS3Config();
+// ── URL pre-firmada ───────────────────────────────────────────────────
+export async function getPresignedUrl(
+  type: S3BucketType,
+  key: string,
+  expiresIn = 3600,
+) {
+  const client = getS3Client(type);
+  const config = getS3Config(type);
   const command = new GetObjectCommand({
     Bucket: config.bucket,
     Key: key,

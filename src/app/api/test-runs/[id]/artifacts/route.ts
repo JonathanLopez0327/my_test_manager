@@ -104,8 +104,9 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   ]);
 
   // Sign URLs
-  const { bucket, publicUrl } = getS3Config();
-  const bucketPrefix = `${publicUrl.replace(/\/$/, "")}/${bucket}/`;
+  const { bucket, endpoint } = getS3Config("artifacts");
+  const base = (process.env.S3_PUBLIC_URL ?? endpoint).replace(/\/$/, "");
+  const bucketPrefix = `${base}/${bucket}/`;
 
   console.log("Signing artifacts...", { bucketPrefix, count: items.length });
 
@@ -115,7 +116,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
         try {
           const encodedKey = item.url.slice(bucketPrefix.length);
           const key = decodeURI(encodedKey);
-          const signedUrl = await getPresignedUrl(key);
+          const signedUrl = await getPresignedUrl("artifacts", key);
           return { ...item, url: signedUrl };
         } catch (err) {
           console.error("Failed to sign URL for artifact", item.id, err);

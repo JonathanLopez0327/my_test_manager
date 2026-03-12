@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
-import { getS3Client, getS3Config } from "@/lib/s3";
+import { getS3Client, getS3Config, buildS3ObjectUrl } from "@/lib/s3";
 
 export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
     const { id, artifactId } = await routeCtx.params;
@@ -31,14 +31,16 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
         }
 
         // Delete from S3
-        const { bucket, publicUrl } = getS3Config();
-        const bucketPrefix = `${publicUrl.replace(/\/$/, "")}/${bucket}/`;
+        const { bucket } = getS3Config("artifacts");
+        const config = getS3Config("artifacts");
+        const base = (process.env.S3_PUBLIC_URL ?? config.endpoint).replace(/\/$/, "");
+        const bucketPrefix = `${base}/${bucket}/`;
 
         if (artifact.url.startsWith(bucketPrefix)) {
             const encodedKey = artifact.url.slice(bucketPrefix.length);
             const key = decodeURI(encodedKey);
 
-            const client = getS3Client();
+            const client = getS3Client("artifacts");
             await client.send(
                 new DeleteObjectCommand({
                     Bucket: bucket,

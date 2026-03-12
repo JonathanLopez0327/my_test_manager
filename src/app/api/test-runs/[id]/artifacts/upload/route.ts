@@ -106,8 +106,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const safeName = sanitizeFileName(file.name || "artifact");
     const key = `test-runs/${id}/${runItemId ?? "run"}/${Date.now()}-${safeName}`;
 
-    const { bucket } = getS3Config();
-    const client = getS3Client();
+    const { bucket } = getS3Config("artifacts");
+    const client = getS3Client("artifacts");
     await client.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -117,7 +117,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       }),
     );
 
-    const url = buildS3ObjectUrl(bucket, key);
+    const url = buildS3ObjectUrl("artifacts", key);
 
     const record = await prisma.testRunArtifact.create({
       data: {

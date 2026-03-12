@@ -36,10 +36,9 @@ jest.mock("@/lib/prisma", () => ({
 }));
 
 jest.mock("@/lib/s3", () => ({
-  getS3Config: () => ({ bucket: "artifacts" }),
-  getS3Client: () => ({ send: jest.fn().mockResolvedValue(undefined) }),
-  buildS3ObjectUrl: (bucket: string, key: string) => {
-    void bucket;
+  getS3Config: (_type: string) => ({ bucket: "artifacts", endpoint: "http://localhost:9000" }),
+  getS3Client: (_type: string) => ({ send: jest.fn().mockResolvedValue(undefined) }),
+  buildS3ObjectUrl: (_type: string, key: string) => {
     void key;
     return "http://localhost/artifacts/file";
   },
