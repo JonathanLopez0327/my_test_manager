@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { getPresignedUrl, getS3Config } from "@/lib/s3";
+import { validateArtifactUploadPolicy } from "@/lib/artifact-upload-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -103,8 +104,9 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   ]);
 
   // Sign URLs
-  const { bucket, publicUrl } = getS3Config();
-  const bucketPrefix = `${publicUrl.replace(/\/$/, "")}/${bucket}/`;
+  const { bucket, endpoint } = getS3Config("artifacts");
+  const base = (process.env.S3_PUBLIC_URL ?? endpoint).replace(/\/$/, "");
+  const bucketPrefix = `${base}/${bucket}/`;
 
   console.log("Signing artifacts...", { bucketPrefix, count: items.length });
 
@@ -114,7 +116,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
         try {
           const encodedKey = item.url.slice(bucketPrefix.length);
           const key = decodeURI(encodedKey);
-          const signedUrl = await getPresignedUrl(key);
+          const signedUrl = await getPresignedUrl("artifacts", key);
           return { ...item, url: signedUrl };
         } catch (err) {
           console.error("Failed to sign URL for artifact", item.id, err);
@@ -200,13 +202,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         throw new Error("artifact_url_required");
       }
 
-      let sizeBytes: bigint | null = null;
-      if (artifact.sizeBytes !== undefined && artifact.sizeBytes !== null) {
-        const parsed = Number(artifact.sizeBytes);
-        if (!Number.isFinite(parsed) || parsed < 0) {
-          throw new Error("artifact_size_invalid");
-        }
-        sizeBytes = BigInt(Math.round(parsed));
+      const uploadPolicy = validateArtifactUploadPolicy({
+        type,
+        sizeBytes: artifact.sizeBytes,
+        requirePositiveSize: false,
+      });
+
+      if (!uploadPolicy.ok) {
+        throw new Error(uploadPolicy.code);
       }
 
       return {
@@ -216,7 +219,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         name: artifact.name?.trim() || null,
         url,
         mimeType: artifact.mimeType?.trim() || null,
-        sizeBytes,
+        sizeBytes: uploadPolicy.sizeBytes,
         checksumSha256: artifact.checksumSha256?.trim() || null,
         metadata:
           artifact.metadata && typeof artifact.metadata === "object"
@@ -237,8 +240,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         : "Could not create artifacts.";
     const errorMap: Record<string, string> = {
       artifact_type_invalid: "Invalid artifact type.",
+      artifact_type_blocked_beta: "Video uploads are disabled in beta.",
       artifact_url_required: "El artefacto requiere URL.",
       artifact_size_invalid: "Invalid artifact size.",
+      artifact_size_limit_exceeded: "Artifact exceeds the 10 MB limit.",
     };
 
     if (message in errorMap) {
@@ -251,5 +256,3 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     );
   }
 });
-
-

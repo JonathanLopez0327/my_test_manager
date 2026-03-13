@@ -52,3 +52,4 @@ export const signUpSchema = z.object({
 
 export type SignUpInput = z.infer<typeof signUpSchema>;
 export type SignUpFormInput = z.input<typeof signUpSchema>;
+

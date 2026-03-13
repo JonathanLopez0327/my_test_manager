@@ -9,6 +9,7 @@ import { Input } from "../ui/Input";
 import {
   organizationUpdateSchema,
   type OrganizationUpdateFormInput,
+  type OrganizationUpdateFormValues,
 } from "@/lib/schemas/organization";
 import type { OrganizationDetail, OrganizationUpdatePayload } from "./types";
 
@@ -17,6 +18,7 @@ type OrganizationEditSheetProps = {
   org: OrganizationDetail | null;
   onClose: () => void;
   onSave: (payload: OrganizationUpdatePayload) => Promise<void>;
+  showQuotas?: boolean;
 };
 
 export function OrganizationEditSheet({
@@ -24,6 +26,7 @@ export function OrganizationEditSheet({
   org,
   onClose,
   onSave,
+  showQuotas = false,
 }: OrganizationEditSheetProps) {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -33,9 +36,9 @@ export function OrganizationEditSheet({
     reset,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OrganizationUpdateFormInput>({
+  } = useForm<OrganizationUpdateFormInput, unknown, OrganizationUpdateFormValues>({
     resolver: zodResolver(organizationUpdateSchema),
-    defaultValues: { name: "", slug: "", isActive: true },
+    defaultValues: { name: "", slug: "", isActive: true, maxProjects: 0, maxMembers: 0, maxTestCases: 0, maxTestRuns: 0, betaExpiresAt: "" },
   });
 
   useEffect(() => {
@@ -44,18 +47,33 @@ export function OrganizationEditSheet({
         name: org.name,
         slug: org.slug,
         isActive: org.isActive,
+        maxProjects: org.maxProjects,
+        maxMembers: org.maxMembers,
+        maxTestCases: org.maxTestCases,
+        maxTestRuns: org.maxTestRuns,
+        betaExpiresAt: org.betaExpiresAt ? org.betaExpiresAt.slice(0, 10) : "",
       });
     }
   }, [open, org, reset]);
 
-  const onSubmit = async (data: OrganizationUpdateFormInput) => {
+  const onSubmit = async (data: OrganizationUpdateFormValues) => {
     setGlobalError(null);
     try {
-      await onSave({
+      const payload: OrganizationUpdatePayload = {
         name: data.name,
         slug: data.slug,
         isActive: data.isActive,
-      });
+      };
+      if (showQuotas) {
+        payload.maxProjects = data.maxProjects;
+        payload.maxMembers = data.maxMembers;
+        payload.maxTestCases = data.maxTestCases;
+        payload.maxTestRuns = data.maxTestRuns;
+        payload.betaExpiresAt = data.betaExpiresAt
+          ? new Date(data.betaExpiresAt).toISOString()
+          : null;
+      }
+      await onSave(payload);
       onClose();
     } catch (err) {
       setGlobalError(
@@ -108,6 +126,71 @@ export function OrganizationEditSheet({
           />
           Organization activa
         </label>
+
+        {showQuotas && (
+          <div className="grid gap-3 rounded-lg border border-stroke p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Quotas</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm font-semibold text-ink">
+                Max Projects
+                <Input
+                  type="number"
+                  min={0}
+                  {...register("maxProjects")}
+                  className="mt-2"
+                />
+                {errors.maxProjects && (
+                  <p className="mt-1 text-xs text-danger-500">{errors.maxProjects.message}</p>
+                )}
+              </label>
+              <label className="text-sm font-semibold text-ink">
+                Max Members
+                <Input
+                  type="number"
+                  min={0}
+                  {...register("maxMembers")}
+                  className="mt-2"
+                />
+                {errors.maxMembers && (
+                  <p className="mt-1 text-xs text-danger-500">{errors.maxMembers.message}</p>
+                )}
+              </label>
+              <label className="text-sm font-semibold text-ink">
+                Max Test Cases
+                <Input
+                  type="number"
+                  min={0}
+                  {...register("maxTestCases")}
+                  className="mt-2"
+                />
+                {errors.maxTestCases && (
+                  <p className="mt-1 text-xs text-danger-500">{errors.maxTestCases.message}</p>
+                )}
+              </label>
+              <label className="text-sm font-semibold text-ink">
+                Max Test Runs
+                <Input
+                  type="number"
+                  min={0}
+                  {...register("maxTestRuns")}
+                  className="mt-2"
+                />
+                {errors.maxTestRuns && (
+                  <p className="mt-1 text-xs text-danger-500">{errors.maxTestRuns.message}</p>
+                )}
+              </label>
+            </div>
+            <label className="col-span-2 text-sm font-semibold text-ink">
+              Beta Expires
+              <Input
+                type="date"
+                {...register("betaExpiresAt")}
+                className="mt-2"
+              />
+              <p className="mt-1 text-xs text-ink-muted">Leave empty for no expiration.</p>
+            </label>
+          </div>
+        )}
 
         {globalError && (
           <p className="rounded-lg bg-danger-500/10 px-4 py-2 text-sm text-danger-500">

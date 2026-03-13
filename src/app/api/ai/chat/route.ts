@@ -23,6 +23,28 @@ function resolveLanggraphApiUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
+function resolveLanggraphApiKey(): string | null {
+  const raw = process.env.NEXT_PUBLIC_LANGGRAPH_API_KEY?.trim();
+  if (raw) return raw;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Missing NEXT_PUBLIC_LANGGRAPH_API_KEY in production.");
+  }
+
+  return null;
+}
+
+function createLanggraphHeaders(apiKey: string | null): HeadersInit {
+  return apiKey
+    ? {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    }
+    : {
+      "Content-Type": "application/json",
+    };
+}
+
 async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
@@ -199,10 +221,12 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     }),
   ]);
 
-  const langgraphApiUrl = resolveLanggraphApiUrl();
-  const assistantId = process.env.LANGGRAPH_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
-
   try {
+    const langgraphApiUrl = resolveLanggraphApiUrl();
+    const langgraphApiKey = resolveLanggraphApiKey();
+    const langgraphHeaders = createLanggraphHeaders(langgraphApiKey);
+    const assistantId = process.env.LANGGRAPH_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
+
     const mtmApiToken = await getOrCreateAgentToken({
       userId,
       organizationId: activeOrganizationId,
@@ -212,7 +236,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     if (!activeThreadId) {
       const threadResponse = await fetchWithTimeout(`${langgraphApiUrl}/threads`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: langgraphHeaders,
         body: JSON.stringify({}),
       });
 
@@ -243,7 +267,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       `${langgraphApiUrl}/threads/${encodeURIComponent(activeThreadId)}/runs/stream`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: langgraphHeaders,
         body: JSON.stringify({
           assistant_id: assistantId,
           input: {
@@ -354,6 +378,19 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       );
     }
 
+    if (error instanceof Error && error.message === "Missing NEXT_PUBLIC_LANGGRAPH_API_KEY in production.") {
+      console.error("[ai-chat] missing_langgraph_api_key", {
+        userId,
+        projectId,
+        conversationId,
+      });
+
+      return NextResponse.json(
+        { message: "LangGraph API key is not configured." },
+        { status: 502 },
+      );
+    }
+
     console.error("[ai-chat] request_failed", {
       userId,
       projectId,
@@ -368,8 +405,5 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     );
   }
 });
-
-
-
 
 

@@ -6,6 +6,7 @@ import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/poli
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -267,6 +268,13 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       organizationRole,
       projectId: suite.testPlan.projectId,
     });
+
+    if (activeOrganizationId) {
+      const quota = await checkQuota(prisma, activeOrganizationId, "testCases");
+      if (!quota.allowed) {
+        return quotaExceededResponse(quota);
+      }
+    }
 
     const testCase = await prisma.testCase.create({
       data: {

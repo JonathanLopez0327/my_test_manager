@@ -5,16 +5,11 @@ import { ensureProjectAccess } from "@/lib/ai/conversations";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { prisma } from "@/lib/prisma";
-import { getS3Client } from "@/lib/s3";
+import { getS3Client, getS3Config } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
-const DEFAULT_DOCUMENT_BUCKET = "test-documents";
 const DEFAULT_URL_EXPIRY_SECONDS = 120;
-
-function resolveDocumentBucket() {
-  return process.env.AI_DOCUMENTS_BUCKET?.trim() || DEFAULT_DOCUMENT_BUCKET;
-}
 
 function resolveUrlExpirySeconds() {
   const raw = Number(process.env.AI_DOCUMENT_URL_EXPIRES_IN_SECONDS);
@@ -80,11 +75,11 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (_req, authCtx, rout
     );
   }
 
-  const bucket = resolveDocumentBucket();
+  const { bucket } = getS3Config("test-documents");
   const keyPrefix = `${conversation.projectId}/${normalizedThreadId}/`;
 
   try {
-    const client = getS3Client();
+    const client = getS3Client("test-documents");
     const listed = await client.send(
       new ListObjectsV2Command({
         Bucket: bucket,

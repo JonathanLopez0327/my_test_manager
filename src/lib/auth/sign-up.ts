@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { hash } from "bcryptjs";
 import type { OrgRole, PrismaClient } from "@/generated/prisma/client";
 import { normalizeSlug, type SignUpInput } from "@/lib/schemas/sign-up";
+import { generateBetaCode } from "@/lib/beta/generate-code";
 
 const DEFAULT_ORG_SLUG = "organization";
 const ORG_SLUG_MAX_LENGTH = 50;
@@ -75,6 +76,7 @@ export function resolveUniqueSlug(baseSlug: string, existingSlugs: string[]) {
   return `${truncateSlugBase(normalizedBase, "-ts")}-ts`;
 }
 
+
 async function generateUniqueOrganizationSlug(tx: TransactionClient, desired: string) {
   const existing = await tx.organization.findMany({
     where: { slug: { startsWith: desired } },
@@ -129,6 +131,7 @@ export async function registerUserWithOrganization(
   }
 
   const passwordHash = await hash(input.password, 10);
+  const autoCode = generateBetaCode();
 
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -156,6 +159,15 @@ export async function registerUserWithOrganization(
         organizationId: organization.id,
         userId: user.id,
         role: "owner",
+      },
+    });
+
+    await tx.betaCode.create({
+      data: {
+        code: autoCode,
+        email,
+        usedById: user.id,
+        usedAt: new Date(),
       },
     });
 
@@ -261,6 +273,7 @@ export async function registerGoogleUserWithOrganization(
   const organizationName = deriveGoogleOrganizationName(email, input.fullName);
   const baseSlug = createSlugCandidate(organizationName);
   const technicalPasswordHash = await hash(randomBytes(48).toString("hex"), 10);
+  const autoCode = generateBetaCode();
 
   const createdUserId = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -289,6 +302,15 @@ export async function registerGoogleUserWithOrganization(
         organizationId: organization.id,
         userId: user.id,
         role: "owner",
+      },
+    });
+
+    await tx.betaCode.create({
+      data: {
+        code: autoCode,
+        email,
+        usedById: user.id,
+        usedAt: new Date(),
       },
     });
 

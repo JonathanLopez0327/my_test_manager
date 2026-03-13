@@ -6,16 +6,18 @@ import { IconChevronUpDown, IconPlus } from "../icons";
 import { useCan } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import type { OrganizationRecord, OrganizationsResponse } from "../organizations/types";
+import { uiMessages } from "@/lib/ui/messages";
 
 type OrgSwitcherProps = {
   onCreateOrg: () => void;
 };
 
 export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
-  const { data: session, update } = useSession();
+  const { data: session, update, status } = useSession();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const canCreate = useCan(PERMISSIONS.ORG_CREATE);
 
@@ -23,6 +25,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
   const activeOrg = orgs.find((o) => o.id === activeOrgId);
 
   const fetchOrgs = useCallback(async () => {
+    setLoadingOrgs(true);
     try {
       const res = await fetch("/api/organizations");
       if (!res.ok) return;
@@ -30,8 +33,16 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
       setOrgs(data.items);
     } catch {
       // silent
+    } finally {
+      setLoadingOrgs(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (status === "authenticated" && orgs.length === 0) {
+      void fetchOrgs();
+    }
+  }, [status, orgs.length, fetchOrgs]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -75,7 +86,15 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("")
-    : "??";
+    : loadingOrgs || status === "loading"
+      ? "..."
+      : "??";
+
+  const activeOrgLabel = activeOrg?.name ?? (
+    loadingOrgs || status === "loading"
+      ? uiMessages.common.loading
+      : uiMessages.common.noOrganization
+  );
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -83,7 +102,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
         type="button"
         onClick={async () => {
           const shouldOpen = !open;
-          if (shouldOpen && orgs.length === 0) {
+          if (shouldOpen && orgs.length === 0 && !loadingOrgs) {
             await fetchOrgs();
           }
           setOpen(shouldOpen);
@@ -94,7 +113,7 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
           {abbrev}
         </span>
         <span className="hidden truncate text-sm font-medium text-ink sm:inline">
-          {activeOrg?.name ?? "No organization"}
+          {activeOrgLabel}
         </span>
         <IconChevronUpDown className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
       </button>
@@ -156,6 +175,3 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
     </div>
   );
 }
-
-
-

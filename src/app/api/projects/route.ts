@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -103,6 +104,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       { message: "You must have an active organization to create projects." },
       { status: 400 },
     );
+  }
+
+  const quota = await checkQuota(prisma, activeOrganizationId, "projects");
+  if (!quota.allowed) {
+    return quotaExceededResponse(quota);
   }
 
   try {

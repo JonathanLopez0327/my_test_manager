@@ -69,6 +69,11 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       name?: string;
       slug?: string;
       isActive?: boolean;
+      maxProjects?: number;
+      maxMembers?: number;
+      maxTestCases?: number;
+      maxTestRuns?: number;
+      betaExpiresAt?: string | null;
     };
 
     const data: Prisma.OrganizationUpdateInput = {};
@@ -97,6 +102,32 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
 
     if (body.isActive !== undefined) {
       data.isActive = body.isActive;
+    }
+
+    const isSuperAdmin = globalRoles.includes("super_admin");
+    if (isSuperAdmin) {
+      const quotaFields = ["maxProjects", "maxMembers", "maxTestCases", "maxTestRuns"] as const;
+      for (const field of quotaFields) {
+        if (body[field] !== undefined) {
+          const val = Number(body[field]);
+          if (!Number.isInteger(val) || val < 0) {
+            return NextResponse.json({ message: `${field} must be a non-negative integer.` }, { status: 400 });
+          }
+          data[field] = val;
+        }
+      }
+
+      if (body.betaExpiresAt !== undefined) {
+        if (body.betaExpiresAt === null) {
+          data.betaExpiresAt = null;
+        } else {
+          const d = new Date(body.betaExpiresAt);
+          if (isNaN(d.getTime())) {
+            return NextResponse.json({ message: "betaExpiresAt must be a valid date." }, { status: 400 });
+          }
+          data.betaExpiresAt = d;
+        }
+      }
     }
 
     const org = await prisma.organization.update({

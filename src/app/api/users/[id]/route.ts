@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 
-export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, routeCtx) => {
+export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId }, routeCtx) => {
   const { id } = await routeCtx.params;
 
   try {
@@ -15,6 +15,13 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, _authCtx, route
       password?: string;
       memberships?: { organizationId: string; role: "owner" | "admin" | "member" | "billing" }[];
     };
+
+    if (id === requesterId && body.isActive === false) {
+      return NextResponse.json(
+        { message: "You cannot deactivate your own account." },
+        { status: 400 },
+      );
+    }
 
     const memberships = body.memberships ?? [];
     const password = body.password?.trim();

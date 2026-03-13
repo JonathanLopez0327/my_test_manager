@@ -11,6 +11,11 @@ export type OrganizationRecord = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  maxProjects: number;
+  maxMembers: number;
+  maxTestCases: number;
+  maxTestRuns: number;
+  betaExpiresAt: string | null;
   _count: {
     members: number;
     projects: number;
@@ -38,6 +43,11 @@ export type OrganizationUpdatePayload = {
   name?: string;
   slug?: string;
   isActive?: boolean;
+  maxProjects?: number;
+  maxMembers?: number;
+  maxTestCases?: number;
+  maxTestRuns?: number;
+  betaExpiresAt?: string | null;
 };
 
 export type MemberRecord = {

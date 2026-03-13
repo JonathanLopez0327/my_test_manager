@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { buildS3ObjectUrl, getS3Client, getS3Config } from "@/lib/s3";
+import { validateArtifactUploadPolicy } from "@/lib/artifact-upload-policy";
 
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [
   "screenshot",
@@ -56,6 +57,19 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       );
     }
 
+    const uploadPolicy = validateArtifactUploadPolicy({
+      type,
+      sizeBytes: file.size,
+      requirePositiveSize: true,
+    });
+
+    if (!uploadPolicy.ok) {
+      return NextResponse.json(
+        { message: uploadPolicy.message },
+        { status: 400 },
+      );
+    }
+
     let generatedName = name;
 
     if (runItemId) {
@@ -92,8 +106,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const safeName = sanitizeFileName(file.name || "artifact");
     const key = `test-runs/${id}/${runItemId ?? "run"}/${Date.now()}-${safeName}`;
 
-    const { bucket } = getS3Config();
-    const client = getS3Client();
+    const { bucket } = getS3Config("artifacts");
+    const client = getS3Client("artifacts");
     await client.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -103,7 +117,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       }),
     );
 
-    const url = buildS3ObjectUrl(bucket, key);
+    const url = buildS3ObjectUrl("artifacts", key);
 
     const record = await prisma.testRunArtifact.create({
       data: {
@@ -113,7 +127,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         name: generatedName,
         url,
         mimeType: file.type || null,
-        sizeBytes: BigInt(file.size),
+        sizeBytes: uploadPolicy.sizeBytes,
         checksumSha256: hash,
       },
       select: {
@@ -137,5 +151,3 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     );
   }
 });
-
-
