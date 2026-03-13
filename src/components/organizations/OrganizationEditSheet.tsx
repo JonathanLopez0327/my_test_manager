@@ -9,6 +9,7 @@ import { Input } from "../ui/Input";
 import {
   organizationUpdateSchema,
   type OrganizationUpdateFormInput,
+  type OrganizationUpdateFormValues,
 } from "@/lib/schemas/organization";
 import type { OrganizationDetail, OrganizationUpdatePayload } from "./types";
 
@@ -35,7 +36,7 @@ export function OrganizationEditSheet({
     reset,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<OrganizationUpdateFormInput>({
+  } = useForm<OrganizationUpdateFormInput, unknown, OrganizationUpdateFormValues>({
     resolver: zodResolver(organizationUpdateSchema),
     defaultValues: { name: "", slug: "", isActive: true, maxProjects: 0, maxMembers: 0, maxTestCases: 0, maxTestRuns: 0, betaExpiresAt: "" },
   });
@@ -55,7 +56,7 @@ export function OrganizationEditSheet({
     }
   }, [open, org, reset]);
 
-  const onSubmit = async (data: OrganizationUpdateFormInput) => {
+  const onSubmit = async (data: OrganizationUpdateFormValues) => {
     setGlobalError(null);
     try {
       const payload: OrganizationUpdatePayload = {
