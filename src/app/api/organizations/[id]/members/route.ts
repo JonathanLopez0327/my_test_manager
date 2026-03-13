@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 
 const VALID_ROLES: OrgRole[] = ["owner", "admin", "member", "billing"];
 const SORTABLE_FIELDS = ["name", "email", "role", "isActive"] as const;
@@ -89,6 +90,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
       { message: "You do not have permission to manage members." },
       { status: 403 },
     );
+  }
+
+  const quota = await checkQuota(prisma, id, "members");
+  if (!quota.allowed) {
+    return quotaExceededResponse(quota);
   }
 
   try {

@@ -57,6 +57,9 @@ describe("sign-up service", () => {
       organizationMember: {
         create: jest.fn().mockResolvedValue({}),
       },
+      betaCode: {
+        create: jest.fn().mockResolvedValue({}),
+      },
     };
 
     const prismaMock = {
@@ -112,6 +115,9 @@ describe("sign-up service", () => {
         create: jest.fn().mockResolvedValue({ id: "google-org-1" }),
       },
       organizationMember: {
+        create: jest.fn().mockResolvedValue({}),
+      },
+      betaCode: {
         create: jest.fn().mockResolvedValue({}),
       },
     };

@@ -257,6 +257,7 @@ export function SuperAdminOrganizationsView() {
           setEditOrg(null);
         }}
         onSave={handleSaveOrg}
+        showQuotas={true}
       />
 
       <OrganizationCreateSheet

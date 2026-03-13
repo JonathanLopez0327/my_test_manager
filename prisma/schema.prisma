@@ -120,6 +120,8 @@ model User {
   bugComments             BugComment[]         @relation("BugCommentAuthor")
   apiTokens               ApiToken[]
   aiConversations         AiConversation[]
+  usedBetaCodes           BetaCode[]           @relation("BetaCodeUsedBy")
+  createdBetaCodes        BetaCode[]           @relation("BetaCodeCreatedBy")
 
   @@map("users")
 }
@@ -388,13 +390,18 @@ model AuditLog {
 }
 
 model Organization {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug        String   @unique
-  name        String
-  isActive    Boolean  @default(true) @map("is_active")
-  createdById String?  @map("created_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug          String   @unique
+  name          String
+  isActive      Boolean  @default(true) @map("is_active")
+  createdById   String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  maxProjects   Int       @default(3)   @map("max_projects")
+  maxMembers    Int       @default(5)   @map("max_members")
+  maxTestCases  Int       @default(200) @map("max_test_cases")
+  maxTestRuns   Int       @default(100) @map("max_test_runs")
+  betaExpiresAt DateTime? @default(dbgenerated("now() + interval '10 days'")) @map("beta_expires_at") @db.Timestamptz(6)
 
   createdBy User?                @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   members   OrganizationMember[]
@@ -581,5 +588,23 @@ model AiConversationMessage {
 
   @@index([conversationId, createdAt], map: "idx_ai_messages_conversation_created")
   @@map("ai_conversation_messages")
+}
+
+model BetaCode {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String    @unique
+  email       String?
+  usedById    String?   @map("used_by") @db.Uuid
+  usedAt      DateTime? @map("used_at") @db.Timestamptz(6)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdById String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  usedBy    User? @relation("BetaCodeUsedBy",    fields: [usedById],    references: [id], onDelete: SetNull)
+  createdBy User? @relation("BetaCodeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([code])
+  @@index([email])
+  @@map("beta_codes")
 }
 

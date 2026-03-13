@@ -29,6 +29,11 @@ export const organizationUpdateSchema = z.object({
     .transform((val) => val.toLowerCase())
     .optional(),
   isActive: z.boolean().optional(),
+  maxProjects: z.coerce.number().int().min(0).optional(),
+  maxMembers: z.coerce.number().int().min(0).optional(),
+  maxTestCases: z.coerce.number().int().min(0).optional(),
+  maxTestRuns: z.coerce.number().int().min(0).optional(),
+  betaExpiresAt: z.string().nullable().optional(),
 });
 
 export type OrganizationUpdateFormValues = z.infer<typeof organizationUpdateSchema>;
