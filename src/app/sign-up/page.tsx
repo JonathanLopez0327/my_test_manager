@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { SignupForm } from "@/components/auth/SignupForm";
-import { BrandLogo } from "@/components/ui/BrandLogo";
 import { authOptions } from "@/lib/auth";
+import Image from "next/image";
 
 export default async function SignUpPage() {
   const session = await getServerSession(authOptions);
@@ -27,7 +27,14 @@ export default async function SignUpPage() {
         </div>
 
         <div className="relative z-10 flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 px-10 py-12 text-center backdrop-blur-sm">
-          <BrandLogo variant="full" className="h-14 w-auto object-contain" priority />
+          <Image
+            src="/brand/logo_dark.png"
+            alt="Test Manager"
+            width={512}
+            height={160}
+            className="h-14 w-auto object-contain"
+            priority
+          />
           <h2 className="text-3xl font-semibold tracking-tight text-white">
             Test Manager
           </h2>

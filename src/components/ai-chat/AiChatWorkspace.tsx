@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
-import { Modal } from "@/components/ui/Modal";
+
 import type { OrganizationsResponse } from "@/components/organizations/types";
 import type { ProjectsResponse } from "@/components/projects/types";
 import type {
@@ -494,7 +494,6 @@ function formatDocumentGeneratedAt(timestamp?: string): string | null {
 export function AiChatWorkspace() {
   const { data: session } = useSession();
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const workspaceSelectRef = useRef<HTMLSelectElement>(null);
   const evidenceInputRef = useRef<HTMLInputElement>(null);
   const pollingThreadsRef = useRef<Set<string>>(new Set());
   const unmountedRef = useRef(false);
@@ -512,7 +511,7 @@ export function AiChatWorkspace() {
   const [expandedAttachmentId, setExpandedAttachmentId] = useState<string | null>(null);
   const [attachmentsPanelOpen, setAttachmentsPanelOpen] = useState(false);
 
-  const [contextModalOpen, setContextModalOpen] = useState(false);
+
   const [projectOptions, setProjectOptions] = useState<ProjectOption[]>([
     { id: "all", label: "All projects" },
     { id: "web-app", label: "Web App" },
@@ -530,19 +529,6 @@ export function AiChatWorkspace() {
     },
   });
 
-  const [contextDraft, setContextDraft] = useState({
-    workspace: FALLBACK_WORKSPACE,
-    projectId: "all",
-    environment: "DEV",
-  });
-
-  useEffect(() => {
-    setContextDraft({
-      workspace: assistantContext.workspace,
-      projectId: assistantContext.projectId,
-      environment: assistantContext.environment,
-    });
-  }, [assistantContext]);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -717,10 +703,6 @@ export function AiChatWorkspace() {
   const selectedProjectLabel =
     projectOptions.find((project) => project.id === assistantContext.projectId)?.label ?? "All projects";
 
-  const isContextChanged =
-    assistantContext.workspace !== contextDraft.workspace ||
-    assistantContext.projectId !== contextDraft.projectId ||
-    assistantContext.environment !== contextDraft.environment;
 
   const conversationGeneratedAttachments = useMemo<ConversationGeneratedAttachment[]>(() => {
     const fromMessages: ConversationGeneratedAttachment[] = [];
@@ -1150,15 +1132,6 @@ export function AiChatWorkspace() {
     }
   };
 
-  const handleApplyContext = () => {
-    setAssistantContext((prev) => ({
-      ...prev,
-      workspace: contextDraft.workspace || FALLBACK_WORKSPACE,
-      projectId: contextDraft.projectId,
-      environment: contextDraft.environment,
-    }));
-    setContextModalOpen(false);
-  };
 
   return (
     <section className="h-[calc(100dvh-9.5rem)] min-h-[640px] overflow-hidden rounded-2xl border border-stroke bg-surface-elevated">
@@ -1267,9 +1240,6 @@ export function AiChatWorkspace() {
               <Badge className="h-7 cursor-default border border-stroke px-2.5 py-0 text-[11px] font-medium text-ink-muted">
                 Project: {selectedProjectLabel}
               </Badge>
-              <Button size="xs" variant="secondary" onClick={() => setContextModalOpen(true)}>
-                Change context
-              </Button>
             </div>
           </header>
 
@@ -1642,75 +1612,6 @@ export function AiChatWorkspace() {
           </form>
         </div>
       </div>
-      <Modal
-        open={contextModalOpen}
-        onClose={() => setContextModalOpen(false)}
-        title="Change assistant context"
-        description="Select workspace scope and environment for QA analysis."
-        size="lg"
-        closeOnEsc
-        trapFocus
-        initialFocusRef={workspaceSelectRef}
-      >
-        <div className="space-y-5">
-          <label className="block text-sm font-semibold text-ink">
-            Workspace
-            <select
-              ref={workspaceSelectRef}
-              value={contextDraft.workspace}
-              onChange={(event) => setContextDraft((prev) => ({ ...prev, workspace: event.target.value }))}
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated px-3 text-sm text-ink"
-            >
-              <option value={assistantContext.workspace}>{assistantContext.workspace}</option>
-              <option value={FALLBACK_WORKSPACE}>{FALLBACK_WORKSPACE}</option>
-            </select>
-            <p className="mt-1 text-xs font-normal text-ink-soft">Select the workspace to analyze</p>
-          </label>
-
-          <label className="block text-sm font-semibold text-ink">
-            Project
-            <select
-              value={contextDraft.projectId}
-              onChange={(event) => setContextDraft((prev) => ({ ...prev, projectId: event.target.value }))}
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated px-3 text-sm text-ink"
-            >
-              {projectOptions.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs font-normal text-ink-soft">Scope results to a project (optional)</p>
-          </label>
-
-          <label className="block text-sm font-semibold text-ink">
-            Environment
-            <select
-              value={contextDraft.environment}
-              onChange={(event) => setContextDraft((prev) => ({ ...prev, environment: event.target.value }))}
-              className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated px-3 text-sm text-ink"
-            >
-              {ENV_OPTIONS.map((environment) => (
-                <option key={environment} value={environment}>
-                  {environment}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs font-normal text-ink-soft">DEV / STG / PROD</p>
-          </label>
-
-          <p className="border-t border-stroke pt-3 text-xs text-ink-soft">This will affect new assistant responses.</p>
-
-          <div className="flex items-center justify-end gap-2 pt-1">
-            <Button variant="quiet" onClick={() => setContextModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleApplyContext} disabled={!isContextChanged}>
-              Apply context
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </section>
   );
 }
