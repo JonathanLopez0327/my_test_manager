@@ -8,6 +8,7 @@ import { OrgSwitcher } from "./OrgSwitcher";
 import { ViewContext } from "./ViewContext";
 import { usePermissions } from "@/lib/auth/use-can";
 import { uiMessages } from "@/lib/ui/messages";
+import { ProfileSheet } from "./ProfileSheet";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
@@ -16,6 +17,7 @@ type TopbarProps = {
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const displayName = session?.user?.name ?? uiMessages.common.userFallback;
   const email = session?.user?.email ?? "";
@@ -82,6 +84,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
               <div className="p-1.5">
                 <button
                   type="button"
+                  onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -118,6 +121,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
       </div>
 
+      <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 }
