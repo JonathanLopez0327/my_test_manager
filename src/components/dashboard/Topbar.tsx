@@ -6,8 +6,6 @@ import { IconChevronDown, IconMenu } from "../icons";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { ViewContext } from "./ViewContext";
-import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
-import type { OrganizationRecord } from "../organizations/types";
 import { usePermissions } from "@/lib/auth/use-can";
 import { uiMessages } from "@/lib/ui/messages";
 
@@ -16,9 +14,9 @@ type TopbarProps = {
 };
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [createOrgOpen, setCreateOrgOpen] = useState(false);
+
   const displayName = session?.user?.name ?? uiMessages.common.userFallback;
   const email = session?.user?.email ?? "";
   const { globalRoles } = usePermissions();
@@ -30,11 +28,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-
-  const handleOrgCreated = async (org: OrganizationRecord) => {
-    await update({ activeOrganizationId: org.id });
-    window.location.reload();
-  };
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-stroke bg-surface px-4 dark:bg-surface sm:px-6">
@@ -49,11 +42,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <IconMenu className="h-4 w-4" />
         </button>
 
-        {!isSuperAdmin && (
-          <OrgSwitcher
-            onCreateOrg={() => setCreateOrgOpen(true)}
-          />
-        )}
+        {!isSuperAdmin && <OrgSwitcher />}
 
         <ViewContext />
       </div>
@@ -129,11 +118,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
       </div>
 
-      <OrganizationCreateSheet
-        open={createOrgOpen}
-        onClose={() => setCreateOrgOpen(false)}
-        onCreated={handleOrgCreated}
-      />
     </header>
   );
 }
