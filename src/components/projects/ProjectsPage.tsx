@@ -39,7 +39,11 @@ export function ProjectsPage() {
     id: string | null;
     name: string;
     isConfirming: boolean;
-  }>({ open: false, id: null, name: "", isConfirming: false });
+    loadingCounts: boolean;
+    hasRelated: boolean | null;
+    counts: Record<string, number> | null;
+    countsError: string | null;
+  }>({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
   const [editing, setEditing] = useState<ProjectRecord | null>(null);
 
   const isReadOnlyGlobal = useMemo(
@@ -118,14 +122,35 @@ export function ProjectsPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = (project: ProjectRecord) => {
+  const handleDelete = async (project: ProjectRecord) => {
     if (!canManage) return;
     setDeleteConfirmation({
       open: true,
       id: project.id,
       name: project.name,
       isConfirming: false,
+      loadingCounts: true,
+      hasRelated: null,
+      counts: null,
+      countsError: null,
     });
+    try {
+      const res = await fetch(`/api/projects/${project.id}/related-counts`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not load related counts.");
+      setDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        hasRelated: data.hasRelated,
+        counts: data.counts,
+      }));
+    } catch (err) {
+      setDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        countsError: err instanceof Error ? err.message : "Could not load related counts.",
+      }));
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -143,7 +168,7 @@ export function ProjectsPage() {
         throw new Error(data.message || "Could not delete project.");
       }
       await fetchProjects();
-      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -254,7 +279,27 @@ export function ProjectsPage() {
       <ConfirmationDialog
         open={deleteConfirmation.open}
         title={`Delete project "${deleteConfirmation.name}"?`}
-        description="This action will permanently delete the project. This cannot be undone."
+        description={
+          deleteConfirmation.loadingCounts ? (
+            <p>Loading related elements...</p>
+          ) : deleteConfirmation.countsError ? (
+            <p className="text-danger-600">{deleteConfirmation.countsError}</p>
+          ) : deleteConfirmation.hasRelated && deleteConfirmation.counts ? (
+            <div className="space-y-2">
+              <p>Cannot delete this project. It has related elements:</p>
+              <ul className="list-disc pl-5 text-sm">
+                {deleteConfirmation.counts.testPlans > 0 && <li>{deleteConfirmation.counts.testPlans} test plans</li>}
+                {deleteConfirmation.counts.testSuites > 0 && <li>{deleteConfirmation.counts.testSuites} test suites</li>}
+                {deleteConfirmation.counts.testCases > 0 && <li>{deleteConfirmation.counts.testCases} test cases</li>}
+                {deleteConfirmation.counts.testRuns > 0 && <li>{deleteConfirmation.counts.testRuns} test runs</li>}
+                {deleteConfirmation.counts.bugs > 0 && <li>{deleteConfirmation.counts.bugs} bugs</li>}
+              </ul>
+              <p>Please delete these elements first.</p>
+            </div>
+          ) : (
+            "This action will permanently delete the project. This cannot be undone."
+          )
+        }
         confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
@@ -263,9 +308,14 @@ export function ProjectsPage() {
             id: null,
             name: "",
             isConfirming: false,
+            loadingCounts: false,
+            hasRelated: null,
+            counts: null,
+            countsError: null,
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
+        disableConfirm={deleteConfirmation.loadingCounts || !!deleteConfirmation.countsError || !!deleteConfirmation.hasRelated}
       />
     </div>
   );

@@ -28,7 +28,7 @@ export default async function LoginPage() {
 
         <div className="relative z-10 flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/5 px-10 py-12 text-center backdrop-blur-sm">
           <Image
-            src="/brand/logo_light.png"
+            src="/brand/logo_dark.png"
             alt="Test Manager"
             width={512}
             height={160}
@@ -39,7 +39,7 @@ export default async function LoginPage() {
             Test Manager
           </h2>
           <p className="text-sm text-white/90">
-            Free and open-source quality operations workspace for teams.
+            Centralize your entire QA workflow in one platform.
           </p>
         </div>
       </aside>

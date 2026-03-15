@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { getTestSuiteRelatedCounts, hasAnyRelated, formatRelatedMessage } from "@/lib/api/related-counts";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 
@@ -153,6 +154,18 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
       globalRoles,
       projectId: existing.testPlan.projectId,
     });
+
+    const counts = await getTestSuiteRelatedCounts(id);
+    if (hasAnyRelated(counts)) {
+      return NextResponse.json(
+        {
+          message: formatRelatedMessage("test suite", counts),
+          code: "HAS_RELATED_ELEMENTS",
+          counts,
+        },
+        { status: 409 },
+      );
+    }
 
     await prisma.testSuite.delete({ where: { id } });
     return NextResponse.json({ ok: true });

@@ -150,23 +150,20 @@ function SidebarLeafItem({
       href={item.href}
       aria-current={isActive ? "page" : undefined}
       aria-label={collapsed ? item.label : undefined}
-      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 ease-[var(--ease-emphasis)] focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-        isActive
+      className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 ease-[var(--ease-emphasis)] focus-visible:ring-2 focus-visible:ring-[color:var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${isActive
           ? "bg-brand-50 font-semibold text-brand-700 dark:bg-brand-500/35 dark:text-white dark:shadow-[inset_0_0_0_1px_rgba(167,139,250,0.45)]"
           : "font-medium text-ink-muted hover:bg-brand-50/45 hover:text-ink dark:text-[#A7B0C5] dark:hover:bg-white/5 dark:hover:text-white"
-      } ${collapsed ? "justify-center px-2" : ""}`}
+        } ${collapsed ? "justify-center px-2" : ""}`}
     >
       <span
         aria-hidden
-        className={`absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-500 transition-opacity dark:bg-brand-200 ${
-          isActive ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r bg-brand-500 transition-opacity dark:bg-brand-200 ${isActive ? "opacity-100" : "opacity-0"
+          }`}
       />
       <Icon
         aria-hidden
-        className={`h-5 w-5 shrink-0 transition-colors ${
-          isActive ? "text-brand-600 dark:text-white" : "text-ink-soft group-hover:text-ink-muted dark:text-[#7D879C] dark:group-hover:text-[#B5BED2]"
-        }`}
+        className={`h-5 w-5 shrink-0 transition-colors ${isActive ? "text-brand-600 dark:text-white" : "text-ink-soft group-hover:text-ink-muted dark:text-[#7D879C] dark:group-hover:text-[#B5BED2]"
+          }`}
       />
       <span className={`truncate ${collapsed ? "hidden" : ""}`}>{item.label}</span>
       {!collapsed && item.badge !== undefined ? (
@@ -228,28 +225,25 @@ function SidebarContent({
     return (
       <div
         key={node.id}
-        className={`rounded-xl border p-1 transition-colors ${
-          isOpen || isGroupActive
+        className={`rounded-xl border p-1 transition-colors ${isOpen || isGroupActive
             ? "border-brand-100 bg-brand-50/55 dark:border-brand-300/35 dark:bg-brand-500/12"
             : "border-transparent dark:border-transparent"
-        }`}
+          }`}
       >
         <button
           type="button"
           aria-expanded={isOpen}
           onClick={() => setOpenGroupId((prev) => (prev === node.id ? null : node.id))}
-          className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${
-              isGroupActive
-                ? "text-brand-700 dark:text-white"
-                : "text-ink-muted hover:bg-brand-50/45 hover:text-ink dark:text-[#A7B0C5] dark:hover:bg-white/5 dark:hover:text-white"
-          } ${collapsed ? "justify-center px-2" : ""}`}
+          className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors ${isGroupActive
+              ? "text-brand-700 dark:text-white"
+              : "text-ink-muted hover:bg-brand-50/45 hover:text-ink dark:text-[#A7B0C5] dark:hover:bg-white/5 dark:hover:text-white"
+            } ${collapsed ? "justify-center px-2" : ""}`}
         >
           <Icon
-            className={`h-5 w-5 shrink-0 ${
-              isGroupActive
+            className={`h-5 w-5 shrink-0 ${isGroupActive
                 ? "text-brand-600 dark:text-white"
                 : "text-ink-soft group-hover:text-ink-muted dark:text-[#7D879C] dark:group-hover:text-[#B5BED2]"
-            }`}
+              }`}
           />
           <span className={`${collapsed ? "hidden" : "truncate"}`}>{node.label}</span>
           {!collapsed ? (
@@ -268,11 +262,10 @@ function SidebarContent({
                   key={child.id}
                   href={child.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`rounded-md px-2 py-1.5 text-[15px] transition-colors ${
-                    isActive
+                  className={`rounded-md px-2 py-1.5 text-[15px] transition-colors ${isActive
                       ? "bg-brand-100/60 font-semibold text-brand-700 dark:bg-brand-500/28 dark:text-white"
                       : "text-ink-muted hover:text-ink dark:text-[#A7B0C5] dark:hover:text-white"
-                  }`}
+                    }`}
                 >
                   {child.label}
                 </Link>
@@ -320,7 +313,7 @@ function SidebarContent({
                       pathname={pathname}
                       collapsed={collapsed}
                     />
-                    )
+                  )
                   : renderGroup(node)
               )}
             </nav>
@@ -328,7 +321,7 @@ function SidebarContent({
         ))}
       </div>
 
-      <div className={`mt-auto rounded-xl border border-stroke bg-surface-muted px-3 py-3 dark:border-[#2A354C] dark:bg-[#141C2E] ${collapsed ? "px-2" : ""}`}>
+      {/* <div className={`mt-auto rounded-xl border border-stroke bg-surface-muted px-3 py-3 dark:border-[#2A354C] dark:bg-[#141C2E] ${collapsed ? "px-2" : ""}`}>
         <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] text-ink-soft dark:text-[#7D879C] ${collapsed ? "hidden" : ""}`}>
           Estado
         </p>
@@ -336,7 +329,7 @@ function SidebarContent({
         <p className={`mt-1 text-xs text-ink-muted dark:text-[#A7B0C5] ${collapsed ? "hidden" : ""}`}>
           Navegacion optimizada para operaciones QA.
         </p>
-      </div>
+      </div> */}
     </aside>
   );
 }
