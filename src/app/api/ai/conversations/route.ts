@@ -11,6 +11,7 @@ import { aiConversationsQuerySchema, aiCreateConversationSchema } from "@/lib/ai
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+const DEFAULT_CONVERSATION_ENVIRONMENT = "DEV";
 
 export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   const { activeOrganizationId, userId, organizationRole } = authCtx;
@@ -99,7 +100,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       projectId,
       userId,
       title: "New conversation",
-      environment,
+      environment: environment?.trim() || DEFAULT_CONVERSATION_ENVIRONMENT,
       status: "active",
       lastMessageAt: now,
     },

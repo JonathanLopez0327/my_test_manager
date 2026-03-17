@@ -1,0 +1,17 @@
+src/app/api/ai-chat/threads/[threadId]/document/route.ts(68,5): error TS2322: Type 'string | null' is not assignable to type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/app/api/ai/chat/route.test.ts(110,28): error TS2554: Expected 2 arguments, but got 1.
+src/app/api/ai/chat/route.test.ts(131,17): error TS2540: Cannot assign to 'NODE_ENV' because it is a read-only property.
+src/app/api/ai/chat/route.test.ts(136,28): error TS2554: Expected 2 arguments, but got 1.
+src/app/api/ai/chat/route.test.ts(146,17): error TS2540: Cannot assign to 'NODE_ENV' because it is a read-only property.
+src/app/api/ai/chat/route.test.ts(151,28): error TS2554: Expected 2 arguments, but got 1.
+src/app/api/test-runs/[id]/artifacts/route.test.ts(18,9): error TS2502: 'authCtx' is referenced directly or indirectly in its own type annotation.
+src/app/api/test-runs/[id]/artifacts/route.test.ts(60,7): error TS2345: Argument of type 'Request' is not assignable to parameter of type 'NextRequest'.
+  Type 'Request' is missing the following properties from type 'NextRequest': cookies, nextUrl, page, ua
+src/app/api/test-runs/[id]/artifacts/route.test.ts(87,7): error TS2345: Argument of type 'Request' is not assignable to parameter of type 'NextRequest'.
+  Type 'Request' is missing the following properties from type 'NextRequest': cookies, nextUrl, page, ua
+src/app/api/test-runs/[id]/artifacts/upload/route.test.ts(18,9): error TS2502: 'authCtx' is referenced directly or indirectly in its own type annotation.
+src/app/api/test-runs/[id]/artifacts/upload/route.test.ts(76,7): error TS2345: Argument of type 'Request' is not assignable to parameter of type 'NextRequest'.
+  Type 'Request' is missing the following properties from type 'NextRequest': cookies, nextUrl, page, ua
+src/app/api/test-runs/[id]/artifacts/upload/route.test.ts(98,7): error TS2345: Argument of type 'Request' is not assignable to parameter of type 'NextRequest'.
+  Type 'Request' is missing the following properties from type 'NextRequest': cookies, nextUrl, page, ua

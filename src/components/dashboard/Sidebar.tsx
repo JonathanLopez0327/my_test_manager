@@ -6,6 +6,7 @@ import { useMemo, useState, type ComponentType } from "react";
 import {
   IconBug,
   IconChevronDown,
+  IconFolder,
   IconGrid,
   IconLayers,
   IconOrganization,
@@ -62,12 +63,19 @@ const navSections: NavSection[] = [
         permission: PERMISSIONS.PROJECT_LIST,
       },
       {
+        type: "item",
+        id: "projects",
+        label: "Projects",
+        icon: IconFolder,
+        href: "/manager/projects",
+        permission: PERMISSIONS.PROJECT_LIST,
+      },
+      {
         type: "group",
         id: "planning",
         label: "Test Management",
         icon: IconLayers,
         children: [
-          { id: "projects", label: "Projects", href: "/manager/projects", permission: PERMISSIONS.PROJECT_LIST },
           { id: "test-plans", label: "Test Plans", href: "/manager/test-plans", permission: PERMISSIONS.TEST_PLAN_LIST },
           { id: "test-suites", label: "Test Suites", href: "/manager/test-suites", permission: PERMISSIONS.TEST_SUITE_LIST },
           { id: "test-cases", label: "Test Cases", href: "/manager/test-cases", permission: PERMISSIONS.TEST_CASE_LIST },

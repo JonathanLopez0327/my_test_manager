@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Sidebar } from "../dashboard/Sidebar";
 import { Topbar } from "../dashboard/Topbar";
 import { WorkspaceShell } from "../ui/WorkspaceShell";
@@ -24,7 +25,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
         "/manager/bugs": "wide",
         "/manager/organizations": "wide",
         "/manager/users": "wide",
-        "/manager/projects": "wide",
+        "/manager/projects": "full",
         "/manager/test-plans": "wide",
         "/manager/test-suites": "wide",
       } as const
@@ -37,8 +38,8 @@ export function ManagerShell({ children }: ManagerShellProps) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Topbar onToggleSidebar={() => setCollapsed((prev) => !prev)} />
-        <main className="flex-1 overflow-y-auto">
-          <WorkspaceShell variant={variant}>
+        <main className={cn("flex-1", variant === "full" ? "flex flex-col overflow-hidden" : "overflow-y-auto")}>
+          <WorkspaceShell variant={variant} className={variant === "full" ? "flex-1" : undefined}>
             {children}
           </WorkspaceShell>
         </main>

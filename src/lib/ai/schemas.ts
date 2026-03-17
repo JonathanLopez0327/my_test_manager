@@ -10,7 +10,7 @@ export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;
 
 export const aiCreateConversationSchema = z.object({
   projectId: z.string().uuid(),
-  environment: z.string().trim().min(1).max(32),
+  environment: z.string().trim().min(1).max(32).optional(),
 });
 
 export const aiConversationsQuerySchema = z.object({

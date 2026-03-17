@@ -2,38 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Pagination } from "../ui/Pagination";
-import { ProjectsHeader } from "./ProjectsHeader";
+import { IconEdit, IconFolder, IconPlus } from "../icons";
 import { ProjectFormSheet } from "./ProjectFormSheet";
-import { ProjectsTable } from "./ProjectsTable";
-import { ConfirmationDialog } from "../ui/ConfirmationDialog";
-import { DataWorkspace } from "../ui/DataWorkspace";
 import { Button } from "../ui/Button";
-import type {
-  ProjectPayload,
-  ProjectRecord,
-  ProjectsResponse,
-  ProjectSortBy,
-  SortDir,
-} from "./types";
-import { nextSort } from "@/lib/sorting";
+import { SearchInput } from "../ui/SearchInput";
+import { ProjectsSideList } from "./ProjectsSideList";
+import { ProjectAiChatPanel } from "./ProjectAiChatPanel";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
-const DEFAULT_PAGE_SIZE = 10;
+const LIST_PAGE_SIZE = 50;
 
 export function ProjectsPage() {
   const { data: session } = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [items, setItems] = useState<ProjectRecord[]>([]);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<ProjectRecord | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     open: boolean;
     id: string | null;
@@ -43,8 +32,16 @@ export function ProjectsPage() {
     hasRelated: boolean | null;
     counts: Record<string, number> | null;
     countsError: string | null;
-  }>({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
-  const [editing, setEditing] = useState<ProjectRecord | null>(null);
+  }>({
+    open: false,
+    id: null,
+    name: "",
+    isConfirming: false,
+    loadingCounts: false,
+    hasRelated: null,
+    counts: null,
+    countsError: null,
+  });
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -55,34 +52,27 @@ export function ProjectsPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
-  const sortBy = (searchParams.get("sortBy") as ProjectSortBy | null) ?? null;
-  const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(total / pageSize)),
-    [total, pageSize],
-  );
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
     setError(null);
+
     try {
       const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
+        page: "1",
+        pageSize: String(LIST_PAGE_SIZE),
         query,
       });
-      if (sortBy && sortDir) {
-        params.set("sortBy", sortBy);
-        params.set("sortDir", sortDir);
-      }
+
       const response = await fetch(`/api/projects?${params.toString()}`);
       const data = (await response.json()) as ProjectsResponse & {
         message?: string;
       };
+
       if (!response.ok) {
         throw new Error(data.message || "Could not load projects.");
       }
+
       setItems(data.items);
       setTotal(data.total);
     } catch (fetchError) {
@@ -94,21 +84,18 @@ export function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query, sortBy, sortDir]);
+  }, [query]);
 
   useEffect(() => {
-    fetchProjects();
+    void fetchProjects();
   }, [fetchProjects]);
 
   useEffect(() => {
-    setPage(1);
-  }, [query, pageSize]);
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+    setSelectedProjectId((previous) => {
+      if (previous && items.some((item) => item.id === previous)) return previous;
+      return items[0]?.id ?? null;
+    });
+  }, [items]);
 
   const handleCreate = () => {
     if (!canManage) return;
@@ -134,21 +121,33 @@ export function ProjectsPage() {
       counts: null,
       countsError: null,
     });
+
     try {
       const res = await fetch(`/api/projects/${project.id}/related-counts`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Could not load related counts.");
+      const data = (await res.json()) as {
+        hasRelated: boolean;
+        counts: Record<string, number>;
+        message?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(data.message || "Could not load related counts.");
+      }
+
       setDeleteConfirmation((prev) => ({
         ...prev,
         loadingCounts: false,
         hasRelated: data.hasRelated,
         counts: data.counts,
       }));
-    } catch (err) {
+    } catch (deleteError) {
       setDeleteConfirmation((prev) => ({
         ...prev,
         loadingCounts: false,
-        countsError: err instanceof Error ? err.message : "Could not load related counts.",
+        countsError:
+          deleteError instanceof Error
+            ? deleteError.message
+            : "Could not load related counts.",
       }));
     }
   };
@@ -167,8 +166,18 @@ export function ProjectsPage() {
       if (!response.ok) {
         throw new Error(data.message || "Could not delete project.");
       }
+
       await fetchProjects();
-      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
+      setDeleteConfirmation({
+        open: false,
+        id: null,
+        name: "",
+        isConfirming: false,
+        loadingCounts: false,
+        hasRelated: null,
+        counts: null,
+        countsError: null,
+      });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -179,9 +188,16 @@ export function ProjectsPage() {
     }
   };
 
+  const handleDeleteFromSheet = async (project: ProjectRecord) => {
+    setModalOpen(false);
+    setEditing(null);
+    await handleDelete(project);
+  };
+
   const handleSave = async (payload: ProjectPayload, projectId?: string) => {
     const method = projectId ? "PUT" : "POST";
     const endpoint = projectId ? `/api/projects/${projectId}` : "/api/projects";
+
     const response = await fetch(endpoint, {
       method,
       headers: {
@@ -189,90 +205,149 @@ export function ProjectsPage() {
       },
       body: JSON.stringify(payload),
     });
+
     const data = (await response.json()) as { message?: string };
+
     if (!response.ok) {
       throw new Error(data.message || "Could not save project.");
     }
+
     await fetchProjects();
   };
 
-  const handleSort = (column: ProjectSortBy) => {
-    const next = nextSort<ProjectSortBy>(sortBy, sortDir, column);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", "1");
-    if (!next) {
-      params.delete("sortBy");
-      params.delete("sortDir");
-    } else {
-      params.set("sortBy", next.sortBy);
-      params.set("sortDir", next.sortDir);
-    }
-    router.replace(`${pathname}?${params.toString()}`);
-    setPage(1);
-  };
-
   return (
-    <div className="space-y-6">
-      <DataWorkspace
-        eyebrow="Data workspace"
-        title="Projects"
-        subtitle="Manage your project inventory and operational status."
-        toolbar={
-          <ProjectsHeader
-            query={query}
-            onQueryChange={setQuery}
-            onCreate={handleCreate}
-            pageSize={pageSize}
-            onPageSizeChange={setPageSize}
-            canCreate={canManage}
-          />
-        }
-        status={
-          <>
-            <p className="text-sm font-semibold text-ink">Project list</p>
-            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-background">
+      {/* Left Panel */}
+      <div className="flex w-[400px] shrink-0 flex-col border-r border-stroke bg-surface/50">
+        <div className="flex items-center justify-between p-4">
+          <div>
+            <h2 className="text-base font-semibold text-ink">Projects</h2>
+            <p className="text-xs text-ink-muted">
               {loading ? "Updating..." : `Total: ${total}`}
-            </div>
-          </>
-        }
-        feedback={
-          error ? (
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+            </p>
+          </div>
+          {canManage ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
+              onClick={handleCreate}
+              aria-label="Create project"
+            >
+              <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="px-4 pb-2">
+          <SearchInput
+            placeholder="Search projects..."
+            value={query}
+            onChange={setQuery}
+            containerClassName="w-full"
+            aria-label="Search projects"
+          />
+        </div>
+
+        {error ? (
+          <div className="mx-4 mb-4 rounded-lg border border-danger-500/20 bg-danger-500/10 px-3 py-2.5 text-sm text-danger-600">
+            <div className="flex items-center justify-between gap-3">
               <span>{error}</span>
-              <Button size="xs" variant="critical" onClick={fetchProjects}>
+              <Button
+                size="xs"
+                variant="critical"
+                onClick={() => void fetchProjects()}
+              >
                 Retry
               </Button>
             </div>
-          ) : null
-        }
-        content={
-          <ProjectsTable
+          </div>
+        ) : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-1">
+          <ProjectsSideList
             items={items}
             loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            canManage={canManage}
-            sortBy={sortBy}
-            sortDir={sortDir}
-            onSort={handleSort}
+            selectedProjectId={selectedProjectId}
+            onSelect={setSelectedProjectId}
           />
-        }
-        footer={
-          <Pagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            onPageChange={setPage}
-          />
-        }
-      />
+        </div>
+      </div>
+
+      {/* Right Panel */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
+        {selectedProjectId ? (() => {
+          const project = items.find((p) => p.id === selectedProjectId);
+          if (!project) return null;
+
+          return (
+            <>
+              <div className="flex items-center border-b border-stroke px-8 py-6">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="truncate text-2xl font-bold tracking-tight text-ink">{project.name}</h2>
+                    {canManage ? (
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="quiet"
+                        className="h-10 w-10 rounded-full p-0"
+                        onClick={() => handleEdit(project)}
+                        aria-label={`Edit project ${project.name}`}
+                      >
+                        <IconEdit className="h-5 w-5 text-ink-muted" />
+                      </Button>
+                    ) : null}
+                  </div>
+                  {project.description ? (
+                    <p className="mt-1.5 text-sm text-ink-muted">{project.description}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-8">
+                <ProjectAiChatPanel projectId={project.id} projectName={project.name} />
+              </div>
+            </>
+          );
+        })() : (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <div className="max-w-md text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-brand-700">
+                <IconFolder className="h-6 w-6" />
+              </div>
+              <h2 className="mt-5 text-xl font-semibold tracking-tight text-ink">
+                Projects workspace
+              </h2>
+              <p className="mt-2 text-sm text-ink-muted">
+                Select a project from the left panel to keep context visible while you work.
+              </p>
+              {canManage ? (
+                <Button
+                  onClick={handleCreate}
+                  size="sm"
+                  className="mt-6"
+                  variant="primary"
+                >
+                  <IconPlus className="h-4 w-4" />
+                  New Project
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
 
       {canManage ? (
         <ProjectFormSheet
           open={modalOpen}
           project={editing}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false);
+            setEditing(null);
+          }}
           onSave={handleSave}
+          onDelete={handleDeleteFromSheet}
         />
       ) : null}
 
@@ -288,11 +363,21 @@ export function ProjectsPage() {
             <div className="space-y-2">
               <p>Cannot delete this project. It has related elements:</p>
               <ul className="list-disc pl-5 text-sm">
-                {deleteConfirmation.counts.testPlans > 0 && <li>{deleteConfirmation.counts.testPlans} test plans</li>}
-                {deleteConfirmation.counts.testSuites > 0 && <li>{deleteConfirmation.counts.testSuites} test suites</li>}
-                {deleteConfirmation.counts.testCases > 0 && <li>{deleteConfirmation.counts.testCases} test cases</li>}
-                {deleteConfirmation.counts.testRuns > 0 && <li>{deleteConfirmation.counts.testRuns} test runs</li>}
-                {deleteConfirmation.counts.bugs > 0 && <li>{deleteConfirmation.counts.bugs} bugs</li>}
+                {deleteConfirmation.counts.testPlans > 0 ? (
+                  <li>{deleteConfirmation.counts.testPlans} test plans</li>
+                ) : null}
+                {deleteConfirmation.counts.testSuites > 0 ? (
+                  <li>{deleteConfirmation.counts.testSuites} test suites</li>
+                ) : null}
+                {deleteConfirmation.counts.testCases > 0 ? (
+                  <li>{deleteConfirmation.counts.testCases} test cases</li>
+                ) : null}
+                {deleteConfirmation.counts.testRuns > 0 ? (
+                  <li>{deleteConfirmation.counts.testRuns} test runs</li>
+                ) : null}
+                {deleteConfirmation.counts.bugs > 0 ? (
+                  <li>{deleteConfirmation.counts.bugs} bugs</li>
+                ) : null}
               </ul>
               <p>Please delete these elements first.</p>
             </div>
@@ -301,7 +386,7 @@ export function ProjectsPage() {
           )
         }
         confirmText="Delete"
-        onConfirm={handleConfirmDelete}
+        onConfirm={() => void handleConfirmDelete()}
         onCancel={() =>
           setDeleteConfirmation({
             open: false,
@@ -315,10 +400,12 @@ export function ProjectsPage() {
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
-        disableConfirm={deleteConfirmation.loadingCounts || !!deleteConfirmation.countsError || !!deleteConfirmation.hasRelated}
+        disableConfirm={
+          deleteConfirmation.loadingCounts ||
+          Boolean(deleteConfirmation.countsError) ||
+          Boolean(deleteConfirmation.hasRelated)
+        }
       />
     </div>
   );
 }
-
-
