@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma, TestCaseStatus } from "@/generated/prisma/client";
+import { Prisma, TestCaseStatus, TestRunStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
+import { upsertRunMetrics } from "@/lib/test-runs";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
 import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
+const ACTIVE_RUN_STATUSES: TestRunStatus[] = ["queued", "running"];
 const SORTABLE_FIELDS = [
   "case",
   "suite",
@@ -276,22 +278,49 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       }
     }
 
-    const testCase = await prisma.testCase.create({
-      data: {
-        suiteId,
-        title,
-        style,
-        description: body.description?.trim() || null,
-        preconditions: body.preconditions?.trim() || null,
-        steps,
-        tags,
-        status,
-        priority,
-        isAutomated,
-        automationType: isAutomated ? automationType : null,
-        automationRef: isAutomated ? automationRef : null,
-        createdById: userId,
-      },
+    const testCase = await prisma.$transaction(async (tx) => {
+      const created = await tx.testCase.create({
+        data: {
+          suiteId,
+          title,
+          style,
+          description: body.description?.trim() || null,
+          preconditions: body.preconditions?.trim() || null,
+          steps,
+          tags,
+          status,
+          priority,
+          isAutomated,
+          automationType: isAutomated ? automationType : null,
+          automationRef: isAutomated ? automationRef : null,
+          createdById: userId,
+        },
+      });
+
+      const targetRuns = await tx.testRun.findMany({
+        where: {
+          status: { in: ACTIVE_RUN_STATUSES },
+          OR: [
+            { suiteId: suite.id },
+            { suiteId: null, testPlanId: suite.testPlanId },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (targetRuns.length > 0) {
+        await tx.testRunItem.createMany({
+          data: targetRuns.map((run) => ({
+            runId: run.id,
+            testCaseId: created.id,
+          })),
+          skipDuplicates: true,
+        });
+
+        await Promise.all(targetRuns.map((run) => upsertRunMetrics(tx, run.id)));
+      }
+
+      return created;
     });
 
     return NextResponse.json(testCase, { status: 201 });

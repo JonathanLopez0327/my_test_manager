@@ -77,6 +77,7 @@ const navSections: NavSection[] = [
         icon: IconLayers,
         children: [
           { id: "test-workspace", label: "Test Workspace", href: "/manager/test-management", permission: PERMISSIONS.TEST_CASE_LIST },
+          { id: "test-runs-workspace", label: "Test Runs Workspace", href: "/manager/test-runs-workspace", permission: PERMISSIONS.TEST_RUN_LIST },
           { id: "test-runs", label: "Test Runs", href: "/manager/test-runs", permission: PERMISSIONS.TEST_RUN_LIST },
         ],
       },

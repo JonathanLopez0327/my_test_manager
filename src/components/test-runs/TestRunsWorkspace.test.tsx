@@ -1,0 +1,309 @@
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { TestRunsWorkspace } from "./TestRunsWorkspace";
+
+jest.mock("next-auth/react", () => ({
+  useSession: () => ({
+    data: {
+      user: {
+        globalRoles: [],
+      },
+    },
+  }),
+}));
+
+describe("TestRunsWorkspace", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.includes("/api/test-runs?")) {
+        const params = new URL(url, "http://localhost").searchParams;
+        const query = params.get("query") ?? "";
+        const allRuns = [
+          {
+            id: "run-1",
+            name: "Run One",
+            status: "running",
+            runType: "manual",
+            project: { id: "p1", key: "WEB", name: "Web" },
+            testPlan: { id: "tp1", name: "Plan A" },
+            suite: { id: "s1", name: "Suite A", testPlan: { id: "tp1", name: "Plan A" } },
+            startedAt: null,
+            finishedAt: null,
+          },
+          {
+            id: "run-2",
+            name: "Run Two",
+            status: "completed",
+            runType: "manual",
+            project: { id: "p1", key: "WEB", name: "Web" },
+            testPlan: { id: "tp1", name: "Plan A" },
+            suite: { id: "s2", name: "Suite B", testPlan: { id: "tp1", name: "Plan A" } },
+            startedAt: null,
+            finishedAt: null,
+          },
+        ];
+        const items = query
+          ? allRuns.filter((run) => run.name.toLowerCase().includes(query.toLowerCase()))
+          : allRuns;
+
+        return {
+          ok: true,
+          json: async () => ({
+            items,
+            total: items.length,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/projects?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: "p1", key: "WEB", name: "Web" }],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-plans?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "tp1",
+                projectId: "p1",
+                name: "Plan A",
+                project: { id: "p1", key: "WEB", name: "Web" },
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-suites?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "s1",
+                name: "Suite A",
+                testPlan: {
+                  id: "tp1",
+                  name: "Plan A",
+                  project: { id: "p1", key: "WEB", name: "Web" },
+                },
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-1/items?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "item-1",
+                status: "not_run",
+                durationMs: null,
+                executedAt: null,
+                errorMessage: null,
+                testCase: { id: "tc-1", title: "Login works", externalKey: "TC-1" },
+                executedBy: null,
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-2/items?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "item-2",
+                status: "passed",
+                durationMs: 1000,
+                executedAt: "2026-03-16T00:00:00.000Z",
+                errorMessage: null,
+                testCase: { id: "tc-2", title: "Checkout works", externalKey: "TC-2" },
+                executedBy: { id: "u1", fullName: "QA User", email: "qa@example.com" },
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-1/artifacts?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "a1",
+                runItemId: "item-1",
+                type: "log",
+                name: "log.txt",
+                url: "https://example.com/log.txt",
+                mimeType: "text/plain",
+                createdAt: "2026-03-16T00:00:00.000Z",
+                sizeBytes: 120,
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-2/artifacts?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [],
+            total: 0,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as Response;
+      }
+
+      return {
+        ok: false,
+        json: async () => ({ message: `Unhandled request: ${url}` }),
+      } as Response;
+    }) as jest.Mock;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.clearAllMocks();
+  });
+
+  it("renders split layout with run list and selected run details", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run One.*WEB/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Run Two.*WEB/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("heading", { name: "Run One" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Test Cases" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Artifacts" })).toBeInTheDocument();
+  });
+
+  it("changes right panel when selecting a different run", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Run Two")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Run Two/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Run Two" })).toBeInTheDocument();
+      expect(screen.getAllByText("Checkout works").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("marks test case as dirty via quick action and saves batch", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.click(within(row).getByRole("button", { name: "Passed" }));
+
+    expect(screen.getByText("1 pending changes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
+          if (requestInit?.method !== "POST") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.items?.[0]?.status === "passed" && body?.items?.[0]?.testCaseId === "tc-1";
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("renders artifacts tab in read-only mode", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run One.*WEB/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Artifacts" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("log.txt")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Open" })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Upload artifact")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+  });
+
+  it("searches runs using query parameter", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run One.*WEB/i })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search runs" }), {
+      target: { value: "Two" },
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/test-runs?") && String(call[0]).includes("query=Two")),
+      ).toBe(true);
+    });
+  });
+});

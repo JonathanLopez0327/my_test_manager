@@ -26,6 +26,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
         "/manager/users": "wide",
         "/manager/projects": "full",
         "/manager/test-management": "full",
+        "/manager/test-runs-workspace": "full",
       } as const
     )[pathname] ?? "default";
 
