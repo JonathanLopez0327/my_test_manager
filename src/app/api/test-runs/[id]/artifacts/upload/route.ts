@@ -42,6 +42,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       String(formData.get("type") ?? "").trim() || null,
     );
     const name = String(formData.get("name") ?? "").trim() || null;
+    const metadataRaw = String(formData.get("metadata") ?? "").trim();
 
     if (!file || typeof file === "string") {
       return NextResponse.json(
@@ -57,6 +58,25 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       );
     }
 
+    let metadata: Record<string, unknown> = {};
+    if (metadataRaw) {
+      try {
+        const parsed = JSON.parse(metadataRaw) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          return NextResponse.json(
+            { message: "Invalid artifact metadata." },
+            { status: 400 },
+          );
+        }
+        metadata = parsed as Record<string, unknown>;
+      } catch {
+        return NextResponse.json(
+          { message: "Invalid artifact metadata." },
+          { status: 400 },
+        );
+      }
+    }
+
     const uploadPolicy = validateArtifactUploadPolicy({
       type,
       sizeBytes: file.size,
@@ -66,6 +86,16 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     if (!uploadPolicy.ok) {
       return NextResponse.json(
         { message: uploadPolicy.message },
+        { status: 400 },
+      );
+    }
+
+    const scope = typeof metadata.scope === "string" ? metadata.scope : null;
+    const requiresImage =
+      type === "screenshot" || scope === "general" || scope === "step";
+    if (requiresImage && !(file.type || "").toLowerCase().startsWith("image/")) {
+      return NextResponse.json(
+        { message: "Only image files are allowed for execution evidence." },
         { status: 400 },
       );
     }
@@ -129,6 +159,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         mimeType: file.type || null,
         sizeBytes: uploadPolicy.sizeBytes,
         checksumSha256: hash,
+        metadata,
       },
       select: {
         id: true,
@@ -139,6 +170,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         url: true,
         mimeType: true,
         checksumSha256: true,
+        metadata: true,
         createdAt: true,
       },
     });

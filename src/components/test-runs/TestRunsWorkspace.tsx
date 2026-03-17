@@ -2,12 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconEdit, IconFolder, IconPlus } from "@/components/icons";
+import { IconEdit, IconFolder, IconPlay, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { RowActionButton } from "@/components/ui/RowActionButton";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { TableShell } from "@/components/ui/TableShell";
 import { TestRunFormSheet } from "./TestRunFormSheet";
+import {
+  TestRunExecutionModal,
+  type ExecutionArtifactRecord,
+  type ExecutionItemRecord,
+  type ExecutionStatus,
+} from "./TestRunExecutionModal";
 import type { TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
 import type { ProjectsResponse } from "@/components/projects/types";
 import type { TestPlansResponse } from "@/components/test-plans/types";
@@ -32,6 +39,9 @@ type RunItemRecord = {
     id: string;
     title: string;
     externalKey: string | null;
+    preconditions: string | null;
+    steps: unknown;
+    style: "step_by_step" | "gherkin" | "data_driven" | "api";
   };
   executedBy: {
     id: string;
@@ -49,6 +59,7 @@ type RunArtifactRecord = {
   mimeType: string | null;
   createdAt: string;
   sizeBytes?: number | string | null;
+  metadata?: unknown;
 };
 
 type RunItemEditState = {
@@ -164,6 +175,8 @@ export function TestRunsWorkspace() {
   const [plans, setPlans] = useState<TestPlanOption[]>([]);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
   const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [executionModalOpen, setExecutionModalOpen] = useState(false);
+  const [executionItem, setExecutionItem] = useState<RunItemRecord | null>(null);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -499,6 +512,108 @@ export function TestRunsWorkspace() {
     }
   };
 
+  const handleOpenExecution = (item: RunItemRecord) => {
+    if (!canManage) return;
+    setExecutionItem(item);
+    setExecutionModalOpen(true);
+  };
+
+  const loadRunItemArtifacts = useCallback(async (runId: string, runItemId: string) => {
+    const allArtifacts: RunArtifactRecord[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(ARTIFACT_PAGE_SIZE),
+        runItemId,
+      });
+      const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
+      const payload = (await response.json()) as {
+        items: RunArtifactRecord[];
+        total: number;
+        pageSize: number;
+        message?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Could not load run item evidence.");
+      }
+
+      allArtifacts.push(...payload.items);
+      hasMore = page * payload.pageSize < payload.total;
+      page += 1;
+    }
+
+    return allArtifacts;
+  }, []);
+
+  const handleSaveExecution = useCallback(
+    async (payload: {
+      status: ExecutionStatus;
+      generalFiles: File[];
+      stepFiles: Record<number, File[]>;
+    }) => {
+      if (!selectedRunId || !executionItem) return;
+
+      const uploadEntries = [
+        ...payload.generalFiles.map((file) => ({
+          file,
+          metadata: { scope: "general" as const },
+        })),
+        ...Object.entries(payload.stepFiles).flatMap(([stepIndex, files]) =>
+          files.map((file) => ({
+            file,
+            metadata: { scope: "step" as const, stepIndex: Number(stepIndex) },
+          })),
+        ),
+      ];
+
+      for (const entry of uploadEntries) {
+        const formData = new FormData();
+        formData.append("file", entry.file);
+        formData.append("runItemId", executionItem.id);
+        formData.append("type", "screenshot");
+        formData.append("metadata", JSON.stringify(entry.metadata));
+        formData.append("name", entry.file.name);
+
+        const uploadResponse = await fetch(`/api/test-runs/${selectedRunId}/artifacts/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        const uploadPayload = (await uploadResponse.json()) as { message?: string };
+        if (!uploadResponse.ok) {
+          throw new Error(uploadPayload.message || "Could not upload evidence.");
+        }
+      }
+
+      const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [
+            {
+              testCaseId: executionItem.testCase.id,
+              status: payload.status,
+            },
+          ],
+        }),
+      });
+      const savePayload = (await saveResponse.json()) as { message?: string };
+      if (!saveResponse.ok) {
+        throw new Error(savePayload.message || "Could not save execution.");
+      }
+
+      await Promise.all([
+        fetchRunItems(selectedRunId),
+        fetchRunArtifacts(selectedRunId),
+        fetchRuns(),
+      ]);
+    },
+    [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId],
+  );
+
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-background">
       <aside className="flex w-[400px] shrink-0 flex-col border-r border-stroke bg-surface/50">
@@ -742,6 +857,14 @@ export function TestRunsWorkspace() {
                                           {action.label}
                                         </Button>
                                       ))}
+                                      {canManage ? (
+                                        <RowActionButton
+                                          onClick={() => handleOpenExecution(item)}
+                                          icon={<IconPlay className="h-4 w-4" />}
+                                          label={`Execute case ${item.testCase.title}`}
+                                          size="sm"
+                                        />
+                                      ) : null}
                                     </div>
                                   </td>
                                 </tr>
@@ -786,6 +909,14 @@ export function TestRunsWorkspace() {
                                       {action.label}
                                     </Button>
                                   ))}
+                                  {canManage ? (
+                                    <RowActionButton
+                                      onClick={() => handleOpenExecution(item)}
+                                      icon={<IconPlay className="h-4 w-4" />}
+                                      label={`Execute case ${item.testCase.title}`}
+                                      size="sm"
+                                    />
+                                  ) : null}
                                 </div>
                               </div>
                             );
@@ -881,6 +1012,21 @@ export function TestRunsWorkspace() {
           onSave={handleSaveRun}
         />
       ) : null}
+
+      <TestRunExecutionModal
+        open={executionModalOpen}
+        runId={selectedRunId}
+        item={executionItem as ExecutionItemRecord | null}
+        canManage={canManage}
+        onClose={() => {
+          setExecutionModalOpen(false);
+          setExecutionItem(null);
+        }}
+        onLoadArtifacts={async (runId, runItemId) =>
+          (await loadRunItemArtifacts(runId, runItemId)) as ExecutionArtifactRecord[]
+        }
+        onSave={handleSaveExecution}
+      />
     </div>
   );
 }

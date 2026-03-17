@@ -124,7 +124,14 @@ describe("TestRunsWorkspace", () => {
                 durationMs: null,
                 executedAt: null,
                 errorMessage: null,
-                testCase: { id: "tc-1", title: "Login works", externalKey: "TC-1" },
+                testCase: {
+                  id: "tc-1",
+                  title: "Login works",
+                  externalKey: "TC-1",
+                  preconditions: "User exists",
+                  steps: [{ step: "Open login page", expectedResult: "Page loads" }],
+                  style: "step_by_step",
+                },
                 executedBy: null,
               },
             ],
@@ -146,8 +153,39 @@ describe("TestRunsWorkspace", () => {
                 durationMs: 1000,
                 executedAt: "2026-03-16T00:00:00.000Z",
                 errorMessage: null,
-                testCase: { id: "tc-2", title: "Checkout works", externalKey: "TC-2" },
+                testCase: {
+                  id: "tc-2",
+                  title: "Checkout works",
+                  externalKey: "TC-2",
+                  preconditions: null,
+                  steps: [{ step: "Checkout", expectedResult: "Order created" }],
+                  style: "step_by_step",
+                },
                 executedBy: { id: "u1", fullName: "QA User", email: "qa@example.com" },
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-1/artifacts?runItemId=item-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: "a-img-1",
+                runItemId: "item-1",
+                type: "screenshot",
+                name: "General.png",
+                url: "https://example.com/general.png",
+                mimeType: "image/png",
+                createdAt: "2026-03-16T00:00:00.000Z",
+                sizeBytes: 120,
+                metadata: { scope: "general" },
               },
             ],
             total: 1,
@@ -171,6 +209,7 @@ describe("TestRunsWorkspace", () => {
                 mimeType: "text/plain",
                 createdAt: "2026-03-16T00:00:00.000Z",
                 sizeBytes: 120,
+                metadata: {},
               },
             ],
             total: 1,
@@ -196,6 +235,13 @@ describe("TestRunsWorkspace", () => {
         return {
           ok: true,
           json: async () => ({}),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/artifacts/upload") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ id: "new-artifact" }),
         } as Response;
       }
 
@@ -305,5 +351,65 @@ describe("TestRunsWorkspace", () => {
         fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/test-runs?") && String(call[0]).includes("query=Two")),
       ).toBe(true);
     });
+  });
+
+  it("opens execution modal and saves status plus evidence", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+      expect(screen.getByText("User exists")).toBeInTheDocument();
+      expect(screen.getByText("Open login page")).toBeInTheDocument();
+    });
+
+    const generalInput = screen.getByLabelText("Add general evidence images") as HTMLInputElement;
+    const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
+    fireEvent.change(generalInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
+      ).toBe(true);
+      expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/items") && (call[1] as RequestInit)?.method === "POST"),
+      ).toBe(true);
+    });
+  });
+
+  it("rejects non-image file inside execution modal", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    const generalInput = screen.getByLabelText("Add general evidence images") as HTMLInputElement;
+    const invalid = new File([new Uint8Array([1, 2, 3])], "evidence.txt", { type: "text/plain" });
+    fireEvent.change(generalInput, { target: { files: [invalid] } });
+
+    expect(screen.getByText("Only image files are allowed.")).toBeInTheDocument();
   });
 });

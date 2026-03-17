@@ -102,6 +102,9 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
             id: true,
             title: true,
             externalKey: true,
+            preconditions: true,
+            steps: true,
+            style: true,
           },
         },
         executedBy: {
