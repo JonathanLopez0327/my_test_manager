@@ -53,6 +53,12 @@ export function TestCasesPage() {
     title: string;
     isConfirming: boolean;
   }>({ open: false, id: null, title: "", isConfirming: false });
+  const [duplicateConfirmation, setDuplicateConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    title: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, title: "", isConfirming: false });
   const [editing, setEditing] = useState<TestCaseRecord | null>(null);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
   const [suitesError, setSuitesError] = useState<string | null>(null);
@@ -239,11 +245,24 @@ export function TestCasesPage() {
     });
   };
 
-  const handleDuplicate = async (testCase: TestCaseRecord) => {
+  const handleDuplicate = (testCase: TestCaseRecord) => {
     if (!canManage) return;
+    setDuplicateConfirmation({
+      open: true,
+      id: testCase.id,
+      title: testCase.title,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDuplicate = async () => {
+    const { id } = duplicateConfirmation;
+    if (!id) return;
+
+    setDuplicateConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-cases/${testCase.id}/duplicate`, {
+      const response = await fetch(`/api/test-cases/${id}/duplicate`, {
         method: "POST",
       });
       const data = (await response.json()) as { message?: string };
@@ -251,12 +270,14 @@ export function TestCasesPage() {
         throw new Error(data.message || "Could not duplicate test case.");
       }
       await fetchCases();
+      setDuplicateConfirmation({ open: false, id: null, title: "", isConfirming: false });
     } catch (dupError) {
       setError(
         dupError instanceof Error
           ? dupError.message
           : "Could not duplicate test case.",
       );
+      setDuplicateConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -452,6 +473,23 @@ export function TestCasesPage() {
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
+      />
+      <ConfirmationDialog
+        open={duplicateConfirmation.open}
+        title={`Duplicate test case "${duplicateConfirmation.title}"?`}
+        description="A new copy will be created in the same suite."
+        confirmText="Duplicate"
+        variant="info"
+        onConfirm={handleConfirmDuplicate}
+        onCancel={() =>
+          setDuplicateConfirmation({
+            open: false,
+            id: null,
+            title: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={duplicateConfirmation.isConfirming}
       />
     </div>
   );

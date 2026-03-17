@@ -76,9 +76,7 @@ const navSections: NavSection[] = [
         label: "Test Management",
         icon: IconLayers,
         children: [
-          { id: "test-plans", label: "Test Plans", href: "/manager/test-plans", permission: PERMISSIONS.TEST_PLAN_LIST },
-          { id: "test-suites", label: "Test Suites", href: "/manager/test-suites", permission: PERMISSIONS.TEST_SUITE_LIST },
-          { id: "test-cases", label: "Test Cases", href: "/manager/test-cases", permission: PERMISSIONS.TEST_CASE_LIST },
+          { id: "test-workspace", label: "Test Workspace", href: "/manager/test-management", permission: PERMISSIONS.TEST_CASE_LIST },
           { id: "test-runs", label: "Test Runs", href: "/manager/test-runs", permission: PERMISSIONS.TEST_RUN_LIST },
         ],
       },

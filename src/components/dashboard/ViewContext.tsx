@@ -11,10 +11,8 @@ function getSectionLabel(pathname: string) {
   if (pathname.startsWith("/manager/organizations")) return "Organizations";
   if (pathname.startsWith("/manager/projects")) return "Projects";
   if (pathname.startsWith("/manager/users")) return "Users";
-  if (pathname.startsWith("/manager/test-plans")) return "Test Plans";
-  if (pathname.startsWith("/manager/test-suites")) return "Test Suites";
+  if (pathname.startsWith("/manager/test-management")) return "Test Workspace";
   if (pathname.startsWith("/manager/test-runs")) return "Test Runs";
-  if (pathname.startsWith("/manager/test-cases")) return "Test Cases";
   return "Manager";
 }
 

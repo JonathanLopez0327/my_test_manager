@@ -21,13 +21,11 @@ export function ManagerShell({ children }: ManagerShellProps) {
       {
         "/manager/ai-chat": "wide",
         "/manager/test-runs": "wide",
-        "/manager/test-cases": "wide",
         "/manager/bugs": "wide",
         "/manager/organizations": "wide",
         "/manager/users": "wide",
         "/manager/projects": "full",
-        "/manager/test-plans": "wide",
-        "/manager/test-suites": "wide",
+        "/manager/test-management": "full",
       } as const
     )[pathname] ?? "default";
 
