@@ -871,8 +871,6 @@ export function TestManagementWorkspace() {
                 onCreate={handleCreate}
                 onExportExcel={handleExportExcel}
                 onExportPdf={handleExportPdf}
-                pageSize={pageSize}
-                onPageSizeChange={setPageSize}
                 canCreate={canManage}
               />
             </div>
@@ -918,6 +916,8 @@ export function TestManagementWorkspace() {
                   pageSize={pageSize}
                   total={total}
                   onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  pageSizeOptions={[5, 10, 20, 30]}
                 />
               </div>
             </div>

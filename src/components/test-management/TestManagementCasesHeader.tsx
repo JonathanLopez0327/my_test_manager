@@ -1,6 +1,6 @@
 "use client";
 
-import { IconDownload, IconPlus } from "@/components/icons";
+import { IconPlus } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import type { TestCaseStatus } from "@/components/test-cases/types";
@@ -18,8 +18,6 @@ type TestManagementCasesHeaderProps = {
   onCreate: () => void;
   onExportExcel: () => void;
   onExportPdf: () => void;
-  pageSize: number;
-  onPageSizeChange: (value: number) => void;
   canCreate?: boolean;
 };
 
@@ -36,10 +34,13 @@ export function TestManagementCasesHeader({
   onCreate,
   onExportExcel,
   onExportPdf,
-  pageSize,
-  onPageSizeChange,
   canCreate = true,
 }: TestManagementCasesHeaderProps) {
+  const handleExportChange = (value: string) => {
+    if (value === "xlsx") onExportExcel();
+    if (value === "pdf") onExportPdf();
+  };
+
   return (
     <div className="flex w-full flex-wrap items-center gap-3 md:gap-4">
       <SearchInput
@@ -85,24 +86,18 @@ export function TestManagementCasesHeader({
         ))}
       </select>
       <div className="ml-auto flex items-center gap-2">
-        <Button onClick={onExportExcel} size="sm" variant="secondary" className="whitespace-nowrap">
-          <IconDownload className="h-4 w-4" />
-          Export Excel
-        </Button>
-        <Button onClick={onExportPdf} size="sm" variant="secondary" className="whitespace-nowrap">
-          <IconDownload className="h-4 w-4" />
-          Export PDF
-        </Button>
         <select
-          value={pageSize}
-          onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+          defaultValue=""
+          aria-label="Export options"
+          onChange={(event) => {
+            handleExportChange(event.target.value);
+            event.target.value = "";
+          }}
+          className="h-10 min-w-[170px] rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
         >
-          {[5, 10, 20, 30].map((size) => (
-            <option key={size} value={size}>
-              {size} per page
-            </option>
-          ))}
+          <option value="">Export</option>
+          <option value="xlsx">Export as Excel</option>
+          <option value="pdf">Export as PDF</option>
         </select>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">

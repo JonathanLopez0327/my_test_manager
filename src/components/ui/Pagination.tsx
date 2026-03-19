@@ -7,6 +7,8 @@ type PaginationProps = {
   pageSize: number;
   total: number;
   onPageChange: (page: number) => void;
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (value: number) => void;
 };
 
 function getPages(page: number, totalPages: number) {
@@ -25,6 +27,8 @@ export function Pagination({
   pageSize,
   total,
   onPageChange,
+  pageSizeOptions,
+  onPageSizeChange,
 }: PaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const pages = getPages(page, totalPages);
@@ -35,6 +39,20 @@ export function Pagination({
         Pagina {page} de {totalPages} - {total} registros
       </p>
       <div className="flex items-center gap-2">
+        {onPageSizeChange ? (
+          <select
+            value={pageSize}
+            onChange={(event) => onPageSizeChange(Number(event.target.value))}
+            aria-label="Rows per page"
+            className="h-9 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-xs text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+          >
+            {(pageSizeOptions ?? [5, 10, 20, 30]).map((size) => (
+              <option key={size} value={size}>
+                {size} per page
+              </option>
+            ))}
+          </select>
+        ) : null}
         <button
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page === 1}

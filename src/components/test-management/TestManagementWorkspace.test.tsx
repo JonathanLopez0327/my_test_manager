@@ -290,4 +290,89 @@ describe("TestManagementWorkspace", () => {
       expect(screen.getByRole("button", { name: "Save Test Case" })).toBeInTheDocument();
     });
   });
+
+  it("uses a single export dropdown and opens xlsx/pdf exports with active filters", async () => {
+    const openSpy = jest.spyOn(window, "open").mockImplementation(() => null);
+
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Export options")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: "Export Excel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Export PDF" })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Search title, suite, or plan..."), {
+      target: { value: "payment" },
+    });
+    fireEvent.change(screen.getByDisplayValue("All tags"), { target: { value: "smoke" } });
+    fireEvent.change(screen.getByLabelText("Filter by status"), { target: { value: "ready" } });
+    fireEvent.change(screen.getByLabelText("Filter by priority"), { target: { value: "2" } });
+
+    fireEvent.change(screen.getByLabelText("Export options"), { target: { value: "xlsx" } });
+    fireEvent.change(screen.getByLabelText("Export options"), { target: { value: "pdf" } });
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledTimes(2);
+    });
+
+    const firstUrl = String(openSpy.mock.calls[0]?.[0]);
+    const secondUrl = String(openSpy.mock.calls[1]?.[0]);
+
+    expect(firstUrl).toContain("/api/test-cases/export?");
+    expect(firstUrl).toContain("format=xlsx");
+    expect(firstUrl).toContain("suiteId=suite-child");
+    expect(firstUrl).toContain("query=payment");
+    expect(firstUrl).toContain("tag=smoke");
+    expect(firstUrl).toContain("status=ready");
+    expect(firstUrl).toContain("priority=2");
+
+    expect(secondUrl).toContain("/api/test-cases/export?");
+    expect(secondUrl).toContain("format=pdf");
+    expect(secondUrl).toContain("suiteId=suite-child");
+    expect(secondUrl).toContain("query=payment");
+    expect(secondUrl).toContain("tag=smoke");
+    expect(secondUrl).toContain("status=ready");
+    expect(secondUrl).toContain("priority=2");
+
+    openSpy.mockRestore();
+  });
+
+  it("renders rows-per-page selector in footer pagination and updates request pageSize", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Rows per page")).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByLabelText("Rows per page")).toHaveLength(1);
+
+    fireEvent.change(screen.getByLabelText("Rows per page"), {
+      target: { value: "20" },
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) =>
+          String(call[0]).includes("/api/test-cases?") &&
+          String(call[0]).includes("suiteId=suite-child") &&
+          String(call[0]).includes("pageSize=20"),
+        ),
+      ).toBe(true);
+    });
+  });
 });
