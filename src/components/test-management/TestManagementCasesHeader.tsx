@@ -1,6 +1,6 @@
 "use client";
 
-import { IconPlus } from "@/components/icons";
+import { IconChevronDown, IconDownload, IconPlus } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import type { TestCaseStatus } from "@/components/test-cases/types";
@@ -86,19 +86,31 @@ export function TestManagementCasesHeader({
         ))}
       </select>
       <div className="ml-auto flex items-center gap-2">
-        <select
-          defaultValue=""
-          aria-label="Export options"
-          onChange={(event) => {
-            handleExportChange(event.target.value);
-            event.target.value = "";
-          }}
-          className="h-10 min-w-[170px] rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
-        >
-          <option value="">Export</option>
-          <option value="xlsx">Export as Excel</option>
-          <option value="pdf">Export as PDF</option>
-        </select>
+        <div className="relative flex h-10 w-[56px] items-center justify-between rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 transition-all duration-200 ease-[var(--ease-emphasis)] focus-within:border-brand-300 hover:border-brand-300">
+          <IconDownload className="h-4 w-4 text-ink-muted" />
+          <IconChevronDown className="h-3.5 w-3.5 text-ink-muted" />
+          <select
+            defaultValue=""
+            aria-label="Export options"
+            onChange={(event) => {
+              if (event.target.value) {
+                handleExportChange(event.target.value);
+                event.target.value = "";
+              }
+            }}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0 outline-none"
+          >
+            <option value="" disabled className="bg-surface-elevated text-ink dark:bg-surface-muted">
+              Export...
+            </option>
+            <option value="xlsx" className="bg-surface-elevated text-ink dark:bg-surface-muted">
+              Export as Excel
+            </option>
+            <option value="pdf" className="bg-surface-elevated text-ink dark:bg-surface-muted">
+              Export as PDF
+            </option>
+          </select>
+        </div>
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />

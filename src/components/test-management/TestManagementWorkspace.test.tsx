@@ -23,31 +23,92 @@ describe("TestManagementWorkspace", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
-    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    const plans = [
+      {
+        id: "plan-1",
+        projectId: "proj-1",
+        name: "Regression Plan",
+        description: null,
+        status: "active",
+        startsOn: null,
+        endsOn: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        project: {
+          id: "proj-1",
+          key: "WEB",
+          name: "Web App",
+        },
+      },
+    ];
+
+    const suites: Array<{
+      id: string;
+      testPlanId: string;
+      parentSuiteId: string | null;
+      name: string;
+      description: string | null;
+      displayOrder: number;
+      createdAt: string;
+      updatedAt: string;
+      parent: { id: string; name: string } | null;
+      testPlan: {
+        id: string;
+        name: string;
+        project: { id: string; key: string; name: string };
+      };
+    }> = [
+      {
+        id: "suite-parent",
+        testPlanId: "plan-1",
+        parentSuiteId: null,
+        name: "Checkout",
+        description: null,
+        displayOrder: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        parent: null,
+        testPlan: {
+          id: "plan-1",
+          name: "Regression Plan",
+          project: {
+            id: "proj-1",
+            key: "WEB",
+            name: "Web App",
+          },
+        },
+      },
+      {
+        id: "suite-child",
+        testPlanId: "plan-1",
+        parentSuiteId: "suite-parent",
+        name: "Payment",
+        description: null,
+        displayOrder: 2,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        parent: { id: "suite-parent", name: "Checkout" },
+        testPlan: {
+          id: "plan-1",
+          name: "Regression Plan",
+          project: {
+            id: "proj-1",
+            key: "WEB",
+            name: "Web App",
+          },
+        },
+      },
+    ];
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      const method = init?.method ?? "GET";
 
       if (url.includes("/api/test-plans?")) {
         return {
           ok: true,
           json: async () => ({
-            items: [
-              {
-                id: "plan-1",
-                projectId: "proj-1",
-                name: "Regression Plan",
-                description: null,
-                status: "active",
-                startsOn: null,
-                endsOn: null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                project: {
-                  id: "proj-1",
-                  key: "WEB",
-                  name: "Web App",
-                },
-              },
-            ],
+            items: plans,
             total: 1,
             page: 1,
             pageSize: 50,
@@ -55,53 +116,81 @@ describe("TestManagementWorkspace", () => {
         } as Response;
       }
 
-      if (url.includes("/api/test-suites?")) {
+      if (url.includes("/api/projects?")) {
         return {
           ok: true,
           json: async () => ({
             items: [
               {
-                id: "suite-parent",
-                testPlanId: "plan-1",
-                parentSuiteId: null,
-                name: "Checkout",
+                id: "proj-1",
+                key: "WEB",
+                name: "Web App",
                 description: null,
-                displayOrder: 1,
+                status: "active",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-                parent: null,
-                testPlan: {
-                  id: "plan-1",
-                  name: "Regression Plan",
-                  project: {
-                    id: "proj-1",
-                    key: "WEB",
-                    name: "Web App",
-                  },
-                },
-              },
-              {
-                id: "suite-child",
-                testPlanId: "plan-1",
-                parentSuiteId: "suite-parent",
-                name: "Payment",
-                description: null,
-                displayOrder: 2,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                parent: { id: "suite-parent", name: "Checkout" },
-                testPlan: {
-                  id: "plan-1",
-                  name: "Regression Plan",
-                  project: {
-                    id: "proj-1",
-                    key: "WEB",
-                    name: "Web App",
-                  },
-                },
               },
             ],
-            total: 2,
+            total: 1,
+            page: 1,
+            pageSize: 100,
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-suites") && method === "POST") {
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          testPlanId?: string;
+          parentSuiteId?: string | null;
+          name?: string;
+          description?: string | null;
+          displayOrder?: number | null;
+        };
+        const plan = plans.find((item) => item.id === body.testPlanId);
+        if (!plan || !body.name?.trim()) {
+          return {
+            ok: false,
+            json: async () => ({ message: "Plan and name are required." }),
+          } as Response;
+        }
+
+        const parent =
+          body.parentSuiteId && suites.find((suite) => suite.id === body.parentSuiteId)
+            ? { id: body.parentSuiteId, name: suites.find((suite) => suite.id === body.parentSuiteId)!.name }
+            : null;
+        const createdSuite = {
+          id: `suite-${suites.length + 1}`,
+          testPlanId: body.testPlanId,
+          parentSuiteId: body.parentSuiteId ?? null,
+          name: body.name.trim(),
+          description: body.description?.trim() || null,
+          displayOrder: Number.isFinite(Number(body.displayOrder)) ? Number(body.displayOrder) : 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          parent,
+          testPlan: {
+            id: plan.id,
+            name: plan.name,
+            project: {
+              id: plan.project.id,
+              key: plan.project.key,
+              name: plan.project.name,
+            },
+          },
+        };
+        suites.push(createdSuite);
+        return {
+          ok: true,
+          json: async () => createdSuite,
+        } as Response;
+      }
+
+      if (url.includes("/api/test-suites?")) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: suites,
+            total: suites.length,
             page: 1,
             pageSize: 50,
           }),
@@ -185,6 +274,118 @@ describe("TestManagementWorkspace", () => {
     });
 
     expect(screen.getByText("Select a test suite")).toBeInTheDocument();
+  });
+
+  it("opens inline suite input from left panel without opening suite drawer", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Regression Plan")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("New suite name for Regression Plan")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("New test suite")).not.toBeInTheDocument();
+  });
+
+  it("creates a suite inline with Enter, trims name, and selects it", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Regression Plan")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+
+    const input = await screen.findByLabelText("New suite name for Regression Plan");
+    fireEvent.change(input, { target: { value: "  New Inline Suite  " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call;
+          if (String(requestUrl) !== "/api/test-suites") return false;
+          if ((requestInit as RequestInit | undefined)?.method !== "POST") return false;
+          const body = JSON.parse(String((requestInit as RequestInit).body ?? "{}"));
+          return (
+            body.testPlanId === "plan-1" &&
+            body.name === "New Inline Suite" &&
+            body.parentSuiteId === null
+          );
+        }),
+      ).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText("New Inline Suite").length).toBeGreaterThan(0);
+      expect(screen.getByRole("heading", { name: "New Inline Suite" })).toBeInTheDocument();
+    });
+  });
+
+  it("cancels inline suite creation on Escape without calling create API", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Regression Plan")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+    const input = await screen.findByLabelText("New suite name for Regression Plan");
+    fireEvent.change(input, { target: { value: "Will be cancelled" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("New suite name for Regression Plan")).not.toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([requestUrl, requestInit]) =>
+          String(requestUrl) === "/api/test-suites" &&
+          (requestInit as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toBe(false);
+  });
+
+  it("cancels inline create on empty blur and saves on valid blur", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Regression Plan")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+    const firstInput = await screen.findByLabelText("New suite name for Regression Plan");
+    fireEvent.blur(firstInput);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("New suite name for Regression Plan")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+    const secondInput = await screen.findByLabelText("New suite name for Regression Plan");
+    fireEvent.change(secondInput, { target: { value: "Blur Suite" } });
+    fireEvent.blur(secondInput);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call;
+          if (String(requestUrl) !== "/api/test-suites") return false;
+          if ((requestInit as RequestInit | undefined)?.method !== "POST") return false;
+          const body = JSON.parse(String((requestInit as RequestInit).body ?? "{}"));
+          return body.name === "Blur Suite";
+        }),
+      ).toBe(true);
+    });
   });
 
   it("loads suite cases when a suite is selected", async () => {
