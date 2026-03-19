@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
 import { TestCaseFormSheet } from "./TestCaseFormSheet";
+import { TestCaseDetailSheet } from "./TestCaseDetailSheet";
 import { TestCasesTable } from "./TestCasesTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { DataWorkspace } from "../ui/DataWorkspace";
@@ -47,6 +48,8 @@ export function TestCasesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedDetailCase, setSelectedDetailCase] = useState<TestCaseRecord | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     open: boolean;
     id: string | null;
@@ -233,6 +236,11 @@ export function TestCasesPage() {
     if (!canManage) return;
     setEditing(testCase);
     setModalOpen(true);
+  };
+
+  const handleView = (testCase: TestCaseRecord) => {
+    setSelectedDetailCase(testCase);
+    setIsDetailOpen(true);
   };
 
   const handleDelete = (testCase: TestCaseRecord) => {
@@ -429,6 +437,7 @@ export function TestCasesPage() {
           <TestCasesTable
             items={items}
             loading={loading}
+            onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onDuplicate={handleDuplicate}
@@ -457,6 +466,12 @@ export function TestCasesPage() {
           onSave={handleSave}
         />
       ) : null}
+
+      <TestCaseDetailSheet
+        open={isDetailOpen}
+        testCase={selectedDetailCase}
+        onClose={() => setIsDetailOpen(false)}
+      />
 
       <ConfirmationDialog
         open={deleteConfirmation.open}

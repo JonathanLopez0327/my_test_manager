@@ -35,6 +35,14 @@ function parseStatus(value?: string | null) {
     : null;
 }
 
+function parsePriorityFilter(value?: string | null) {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < 1 || parsed > 5) return null;
+  return parsed;
+}
+
 function parsePriority(value?: number | null) {
   if (value === null || value === undefined) return 3;
   const parsed = Number(value);
@@ -55,6 +63,7 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   const testPlanId = searchParams.get("testPlanId")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
+  const priority = parsePriorityFilter(searchParams.get("priority")?.trim() ?? null);
   const requestedSortBy = searchParams.get("sortBy");
   const sortBy =
     requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestCaseSortBy)
@@ -99,6 +108,9 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   }
   if (status) {
     filters.push({ status });
+  }
+  if (priority !== null) {
+    filters.push({ priority });
   }
   if (query) {
     filters.push({

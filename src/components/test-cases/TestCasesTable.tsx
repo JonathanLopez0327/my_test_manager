@@ -16,6 +16,7 @@ import type {
 type TestCasesTableProps = {
   items: TestCaseRecord[];
   loading: boolean;
+  onView: (testCase: TestCaseRecord) => void;
   onEdit: (testCase: TestCaseRecord) => void;
   onDelete: (testCase: TestCaseRecord) => void;
   onDuplicate: (testCase: TestCaseRecord) => void;
@@ -84,6 +85,7 @@ function getPriorityLabel(priority: number) {
 export function TestCasesTable({
   items,
   loading,
+  onView,
   onEdit,
   onDelete,
   onDuplicate,
@@ -144,16 +146,20 @@ export function TestCasesTable({
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-3 py-2 text-right">
-                {canManage ? "Actions" : ""}
-              </th>
+              <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {items.map((testCase) => (
               <tr key={testCase.id} className="transition-colors hover:bg-brand-50/35">
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-ink">{testCase.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => onView(testCase)}
+                    className="text-left font-semibold text-ink transition-colors hover:text-brand-700"
+                  >
+                    {testCase.title}
+                  </button>
                   <p className="text-xs text-ink-muted">
                     {testCase.description ?? "No description"}
                   </p>
@@ -204,26 +210,28 @@ export function TestCasesTable({
                     : "Manual"}
                 </td>
                 <td className="px-3 py-3">
-                  {canManage ? (
-                    <div className="flex items-center justify-end gap-2">
-                      <RowActionButton
-                        onClick={() => onDuplicate(testCase)}
-                        icon={<IconDuplicate className="h-4 w-4" />}
-                        label="Duplicate case"
-                      />
-                      <RowActionButton
-                        onClick={() => onEdit(testCase)}
-                        icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit case"
-                      />
-                      <RowActionButton
-                        onClick={() => onDelete(testCase)}
-                        icon={<IconTrash className="h-4 w-4" />}
-                        label="Delete case"
-                        tone="danger"
-                      />
-                    </div>
-                  ) : null}
+                  <div className="flex items-center justify-end gap-2">
+                    {canManage ? (
+                      <>
+                        <RowActionButton
+                          onClick={() => onDuplicate(testCase)}
+                          icon={<IconDuplicate className="h-4 w-4" />}
+                          label="Duplicate case"
+                        />
+                        <RowActionButton
+                          onClick={() => onEdit(testCase)}
+                          icon={<IconEdit className="h-4 w-4" />}
+                          label="Edit case"
+                        />
+                        <RowActionButton
+                          onClick={() => onDelete(testCase)}
+                          icon={<IconTrash className="h-4 w-4" />}
+                          label="Delete case"
+                          tone="danger"
+                        />
+                      </>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -242,9 +250,13 @@ export function TestCasesTable({
                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                   {testCase.suite.testPlan.project.key}
                 </p>
-                <p className="text-lg font-semibold text-ink">
+                <button
+                  type="button"
+                  onClick={() => onView(testCase)}
+                  className="text-left text-lg font-semibold text-ink transition-colors hover:text-brand-700"
+                >
                   {testCase.title}
-                </p>
+                </button>
               </div>
               <Badge tone={statusTones[testCase.status]}>
                 {statusLabels[testCase.status]}

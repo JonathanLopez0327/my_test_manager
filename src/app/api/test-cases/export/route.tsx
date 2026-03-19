@@ -91,6 +91,14 @@ function parseStatus(value?: string | null): TestCaseStatus | null {
     : null;
 }
 
+function parsePriorityFilter(value?: string | null): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < 1 || parsed > 5) return null;
+  return parsed;
+}
+
 function formatTimestampForFilename(date = new Date()): string {
   return date.toISOString().replace(/[:.]/g, "-");
 }
@@ -123,6 +131,7 @@ function buildFilterSummary(searchParams: URLSearchParams, total: number): strin
     ["Test Plan", searchParams.get("testPlanId")?.trim() || null],
     ["Project", searchParams.get("projectId")?.trim() || null],
     ["Status", searchParams.get("status")?.trim() || null],
+    ["Priority", searchParams.get("priority")?.trim() || null],
     ["Sort", searchParams.get("sortBy")?.trim() || null],
     ["Direction", searchParams.get("sortDir")?.trim() || null],
   ];
@@ -232,6 +241,7 @@ export const GET = withAuth(
     const testPlanId = searchParams.get("testPlanId")?.trim();
     const projectId = searchParams.get("projectId")?.trim();
     const status = parseStatus(searchParams.get("status")?.trim() ?? null);
+    const priority = parsePriorityFilter(searchParams.get("priority")?.trim() ?? null);
     const requestedSortBy = searchParams.get("sortBy");
     const sortBy =
       requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestCaseSortBy)
@@ -269,6 +279,7 @@ export const GET = withAuth(
     if (testPlanId) filters.push({ suite: { testPlanId } });
     if (projectId) filters.push({ suite: { testPlan: { projectId } } });
     if (status) filters.push({ status });
+    if (priority !== null) filters.push({ priority });
 
     if (query) {
       filters.push({

@@ -3,10 +3,15 @@
 import { IconDownload, IconPlus } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
+import type { TestCaseStatus } from "@/components/test-cases/types";
 
 type TestManagementCasesHeaderProps = {
   query: string;
   onQueryChange: (value: string) => void;
+  status: TestCaseStatus | "";
+  onStatusChange: (value: TestCaseStatus | "") => void;
+  priority: string;
+  onPriorityChange: (value: string) => void;
   tag: string;
   onTagChange: (value: string) => void;
   tagOptions: string[];
@@ -21,6 +26,10 @@ type TestManagementCasesHeaderProps = {
 export function TestManagementCasesHeader({
   query,
   onQueryChange,
+  status,
+  onStatusChange,
+  priority,
+  onPriorityChange,
   tag,
   onTagChange,
   tagOptions,
@@ -39,6 +48,30 @@ export function TestManagementCasesHeader({
         onChange={onQueryChange}
         containerClassName="min-w-[240px] flex-[1.2]"
       />
+      <select
+        value={status}
+        onChange={(event) => onStatusChange(event.target.value as TestCaseStatus | "")}
+        aria-label="Filter by status"
+        className="h-10 min-w-[150px] flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+      >
+        <option value="">All status</option>
+        <option value="draft">Draft</option>
+        <option value="ready">Ready</option>
+        <option value="deprecated">Deprecated</option>
+      </select>
+      <select
+        value={priority}
+        onChange={(event) => onPriorityChange(event.target.value)}
+        aria-label="Filter by priority"
+        className="h-10 min-w-[140px] flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300"
+      >
+        <option value="">All priority</option>
+        {[1, 2, 3, 4, 5].map((priorityValue) => (
+          <option key={priorityValue} value={String(priorityValue)}>
+            P{priorityValue}
+          </option>
+        ))}
+      </select>
       <select
         value={tag}
         onChange={(event) => onTagChange(event.target.value)}
@@ -81,4 +114,3 @@ export function TestManagementCasesHeader({
     </div>
   );
 }
-

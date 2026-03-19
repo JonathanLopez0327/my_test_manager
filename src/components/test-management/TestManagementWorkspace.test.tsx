@@ -208,4 +208,86 @@ describe("TestManagementWorkspace", () => {
       ),
     ).toBe(true);
   });
+
+  it("applies status and priority filters to test case requests", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Filter by status")).toBeInTheDocument();
+      expect(screen.getByLabelText("Filter by priority")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Filter by status"), {
+      target: { value: "ready" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter by priority"), {
+      target: { value: "2" },
+    });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) =>
+          String(call[0]).includes("/api/test-cases?") &&
+          String(call[0]).includes("suiteId=suite-child") &&
+          String(call[0]).includes("status=ready") &&
+          String(call[0]).includes("priority=2"),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("opens read-only test case detail when case title is clicked", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Validate card payment" }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Validate card payment" })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Automation Ref")).toBeInTheDocument();
+      expect(screen.getByText("tests/payment.spec.ts")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Automation Ref")).not.toBeInTheDocument();
+    });
+  });
+
+  it("keeps Edit case behavior available from row actions", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByLabelText("Edit case").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByLabelText("Edit case")[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Edit Test Case")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save Test Case" })).toBeInTheDocument();
+    });
+  });
 });

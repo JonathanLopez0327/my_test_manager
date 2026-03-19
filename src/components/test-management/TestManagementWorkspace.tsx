@@ -7,6 +7,7 @@ import { IconChevronDown, IconEdit, IconFolder, IconPlus } from "@/components/ic
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import { TestCasesTable } from "@/components/test-cases/TestCasesTable";
+import { TestCaseDetailSheet } from "@/components/test-cases/TestCaseDetailSheet";
 import { TestCaseFormSheet } from "@/components/test-cases/TestCaseFormSheet";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { TestPlanFormSheet } from "@/components/test-plans/TestPlanFormSheet";
@@ -24,6 +25,7 @@ import type {
   TestCasePayload,
   TestCaseRecord,
   TestCasesResponse,
+  TestCaseStatus,
   TestCaseTagsResponse,
   TestCaseSortBy,
   SortDir,
@@ -117,6 +119,8 @@ export function TestManagementWorkspace() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TestCaseStatus | "">("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [loadingCases, setLoadingCases] = useState(false);
@@ -125,6 +129,8 @@ export function TestManagementWorkspace() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TestCaseRecord | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedDetailCase, setSelectedDetailCase] = useState<TestCaseRecord | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<TestPlanRecord | null>(null);
   const [suiteModalOpen, setSuiteModalOpen] = useState(false);
@@ -314,7 +320,7 @@ export function TestManagementWorkspace() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, pageSize, tagFilter]);
+  }, [query, pageSize, tagFilter, statusFilter, priorityFilter]);
 
   const fetchCases = useCallback(async () => {
     if (!selectedSuiteId) {
@@ -336,6 +342,12 @@ export function TestManagementWorkspace() {
       if (tagFilter) {
         params.set("tag", tagFilter);
       }
+      if (statusFilter) {
+        params.set("status", statusFilter);
+      }
+      if (priorityFilter) {
+        params.set("priority", priorityFilter);
+      }
       if (sortBy && sortDir) {
         params.set("sortBy", sortBy);
         params.set("sortDir", sortDir);
@@ -355,7 +367,7 @@ export function TestManagementWorkspace() {
     } finally {
       setLoadingCases(false);
     }
-  }, [selectedSuiteId, page, pageSize, query, tagFilter, sortBy, sortDir]);
+  }, [selectedSuiteId, page, pageSize, query, tagFilter, statusFilter, priorityFilter, sortBy, sortDir]);
 
   const fetchTags = useCallback(async () => {
     if (!selectedSuiteId) {
@@ -441,6 +453,11 @@ export function TestManagementWorkspace() {
     if (!canManage) return;
     setEditing(testCase);
     setModalOpen(true);
+  };
+
+  const handleView = (testCase: TestCaseRecord) => {
+    setSelectedDetailCase(testCase);
+    setIsDetailOpen(true);
   };
 
   const handleDelete = (testCase: TestCaseRecord) => {
@@ -615,7 +632,7 @@ export function TestManagementWorkspace() {
     setSelectedPlanId(suite.testPlanId);
   };
 
-  const buildExportUrl = (format: "xlsx" | "pdf") => {
+  const buildExportUrl = useCallback((format: "xlsx" | "pdf") => {
     const params = new URLSearchParams();
     params.set("format", format);
     if (query.trim()) params.set("query", query.trim());
@@ -625,8 +642,10 @@ export function TestManagementWorkspace() {
       params.set("sortBy", sortBy);
       params.set("sortDir", sortDir);
     }
+    if (statusFilter) params.set("status", statusFilter);
+    if (priorityFilter) params.set("priority", priorityFilter);
     return `/api/test-cases/export?${params.toString()}`;
-  };
+  }, [query, selectedSuiteId, tagFilter, statusFilter, priorityFilter, sortBy, sortDir]);
 
   const handleExportExcel = () => {
     if (!selectedSuiteId) return;
@@ -842,6 +861,10 @@ export function TestManagementWorkspace() {
               <TestManagementCasesHeader
                 query={query}
                 onQueryChange={setQuery}
+                status={statusFilter}
+                onStatusChange={setStatusFilter}
+                priority={priorityFilter}
+                onPriorityChange={setPriorityFilter}
                 tag={tagFilter}
                 onTagChange={setTagFilter}
                 tagOptions={tags}
@@ -879,6 +902,7 @@ export function TestManagementWorkspace() {
               <TestCasesTable
                 items={items}
                 loading={loadingCases}
+                onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
@@ -911,6 +935,12 @@ export function TestManagementWorkspace() {
           onSave={handleSave}
         />
       ) : null}
+
+      <TestCaseDetailSheet
+        open={isDetailOpen}
+        testCase={selectedDetailCase}
+        onClose={() => setIsDetailOpen(false)}
+      />
 
       {canManage ? (
         <TestPlanFormSheet
