@@ -13,8 +13,7 @@ import {
   TestRunExecutionModal,
   type ExecutionArtifactRecord,
   type ExecutionItemRecord,
-  type ExecutionStatus,
-  type ExecutionStepSnapshot,
+  type ExecutionStepState,
 } from "./TestRunExecutionModal";
 import type { TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
 import type { ProjectsResponse } from "@/components/projects/types";
@@ -538,7 +537,6 @@ export function TestRunsWorkspace() {
         page: String(page),
         pageSize: String(ARTIFACT_PAGE_SIZE),
         runItemId,
-        includeExecutionState: "true",
       });
       const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
       const payload = (await response.json()) as {
@@ -562,27 +560,20 @@ export function TestRunsWorkspace() {
 
   const handleSaveExecution = useCallback(
     async (payload: {
-      status: ExecutionStatus;
-      runNotes: string;
-      activeStepIndex: number;
-      stepState: ExecutionStepSnapshot[];
-      generalFiles: File[];
+      status: "passed" | "failed" | "not_run";
+      stepState: ExecutionStepState[];
       stepFiles: Record<number, File[]>;
     }) => {
       if (!selectedRunId || !executionItem) return;
 
-      const uploadEntries = [
-        ...payload.generalFiles.map((file) => ({
+      const resolvedStatus = deriveExecutionStatusFromSteps(payload.stepState);
+
+      const uploadEntries = Object.entries(payload.stepFiles).flatMap(([stepIndex, files]) =>
+        files.map((file) => ({
           file,
-          metadata: { scope: "general" as const },
+          metadata: { scope: "step" as const, stepIndex: Number(stepIndex) },
         })),
-        ...Object.entries(payload.stepFiles).flatMap(([stepIndex, files]) =>
-          files.map((file) => ({
-            file,
-            metadata: { scope: "step" as const, stepIndex: Number(stepIndex) },
-          })),
-        ),
-      ];
+      );
 
       for (const entry of uploadEntries) {
         const formData = new FormData();
@@ -609,7 +600,7 @@ export function TestRunsWorkspace() {
           items: [
             {
               testCaseId: executionItem.testCase.id,
-              status: payload.status,
+              status: resolvedStatus,
             },
           ],
         }),
@@ -617,33 +608,6 @@ export function TestRunsWorkspace() {
       const savePayload = (await saveResponse.json()) as { message?: string };
       if (!saveResponse.ok) {
         throw new Error(savePayload.message || "Could not save execution.");
-      }
-
-      const stateResponse = await fetch(`/api/test-runs/${selectedRunId}/artifacts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          artifacts: [
-            {
-              runItemId: executionItem.id,
-              type: "other",
-              name: "Execution state snapshot",
-              url: `execution-state://${selectedRunId}/${executionItem.id}/${Date.now()}`,
-              metadata: {
-                kind: "execution_state",
-                snapshot: {
-                  runNotes: payload.runNotes,
-                  activeStepIndex: payload.activeStepIndex,
-                  steps: payload.stepState,
-                },
-              },
-            },
-          ],
-        }),
-      });
-      const statePayload = (await stateResponse.json()) as { message?: string };
-      if (!stateResponse.ok) {
-        throw new Error(statePayload.message || "Could not save execution metadata.");
       }
 
       await Promise.all([
@@ -1080,4 +1044,10 @@ function parseExecutionArtifactMeta(metadata: unknown): ExecutionArtifactMeta {
       ? raw.kind
       : undefined;
   return { kind };
+}
+
+function deriveExecutionStatusFromSteps(stepState: ExecutionStepState[]) {
+  if (stepState.some((step) => step.status === "failed")) return "failed" as const;
+  if (stepState.length > 0 && stepState.every((step) => step.status === "passed")) return "passed" as const;
+  return "not_run" as const;
 }

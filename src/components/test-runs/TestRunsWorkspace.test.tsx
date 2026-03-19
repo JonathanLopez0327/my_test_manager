@@ -360,7 +360,7 @@ describe("TestRunsWorkspace", () => {
     });
   });
 
-  it("opens execution modal and saves status plus evidence", async () => {
+  it("opens simplified execution modal and saves failed status with step evidence", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
@@ -375,30 +375,99 @@ describe("TestRunsWorkspace", () => {
     fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
 
     await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
-      expect(screen.getByText("User exists")).toBeInTheDocument();
       expect(screen.getByText("Open login page")).toBeInTheDocument();
+      expect(screen.queryByText("Run notes")).not.toBeInTheDocument();
+      expect(screen.queryByText("Actual result")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Save progress/i })).not.toBeInTheDocument();
     });
 
-    const generalInput = screen.getByLabelText("Attach general evidence") as HTMLInputElement;
-    const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
-    fireEvent.change(generalInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as failed" }));
 
-    fireEvent.click(screen.getByRole("button", { name: /Save progress/i }));
+    const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
+    const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
+    fireEvent.change(stepInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
       ).toBe(true);
       expect(
-        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts") && (call[1] as RequestInit)?.method === "POST"),
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
+          if (requestInit?.method !== "POST") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.items?.[0]?.status === "failed" && body?.items?.[0]?.testCaseId === "tc-1";
+        }),
       ).toBe(true);
       expect(
-        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/items") && (call[1] as RequestInit)?.method === "POST"),
+        fetchMock.mock.calls.some(
+          (call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts") && (call[1] as RequestInit)?.method === "POST",
+        ),
+      ).toBe(false);
+    });
+
+    expect(screen.queryByText("Execute test case")).not.toBeInTheDocument();
+  });
+
+  it("derives passed and not_run statuses from step state", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as passed" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
+          if (requestInit?.method !== "POST") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.items?.[0]?.status === "passed";
+        }),
       ).toBe(true);
     });
 
-    expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
+    const file = new File([new Uint8Array([1, 2, 3])], "evidence-2.png", { type: "image/png" });
+    fireEvent.change(stepInput, { target: { files: [file] } });
+
+    expect(screen.getByText("1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      const itemPosts = fetchMock.mock.calls.filter((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).endsWith("/api/test-runs/run-1/items") && requestInit?.method === "POST";
+      });
+      const last = itemPosts[itemPosts.length - 1] as [string, RequestInit] | undefined;
+      expect(last).toBeDefined();
+      const body = last?.[1]?.body ? JSON.parse(String(last[1].body)) : null;
+      expect(body?.items?.[0]?.status).toBe("not_run");
+    });
   });
 
   it("rejects non-image file inside execution modal", async () => {
@@ -418,7 +487,7 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
 
-    const generalInput = screen.getByLabelText("Attach general evidence") as HTMLInputElement;
+    const generalInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
     const invalid = new File([new Uint8Array([1, 2, 3])], "evidence.txt", { type: "text/plain" });
     fireEvent.change(generalInput, { target: { files: [invalid] } });
 
