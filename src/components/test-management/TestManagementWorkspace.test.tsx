@@ -185,6 +185,49 @@ describe("TestManagementWorkspace", () => {
         } as Response;
       }
 
+      if (url.includes("/api/test-suites/") && method === "PUT") {
+        const suiteId = url.split("/api/test-suites/")[1];
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          testPlanId?: string;
+          parentSuiteId?: string | null;
+          name?: string;
+          description?: string | null;
+          displayOrder?: number | null;
+        };
+        const currentSuite = suites.find((suite) => suite.id === suiteId);
+        if (!currentSuite) {
+          return {
+            ok: false,
+            json: async () => ({ message: "Test suite not found." }),
+          } as Response;
+        }
+        if (!body.name?.trim()) {
+          return {
+            ok: false,
+            json: async () => ({ message: "Plan and name are required." }),
+          } as Response;
+        }
+        if (body.name.trim() === "Fail rename") {
+          return {
+            ok: false,
+            json: async () => ({ message: "Could not update the suite." }),
+          } as Response;
+        }
+
+        currentSuite.name = body.name.trim();
+        currentSuite.updatedAt = new Date().toISOString();
+        currentSuite.parentSuiteId = body.parentSuiteId ?? null;
+        currentSuite.description = body.description?.trim() || null;
+        currentSuite.displayOrder = Number.isFinite(Number(body.displayOrder))
+          ? Number(body.displayOrder)
+          : currentSuite.displayOrder;
+
+        return {
+          ok: true,
+          json: async () => currentSuite,
+        } as Response;
+      }
+
       if (url.includes("/api/test-suites?")) {
         return {
           ok: true,
@@ -385,6 +428,161 @@ describe("TestManagementWorkspace", () => {
           return body.name === "Blur Suite";
         }),
       ).toBe(true);
+    });
+  });
+
+  it("opens inline rename on double click with focus and selected text", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+
+    const input = await screen.findByLabelText("Edit suite name");
+    expect(input).toHaveFocus();
+    expect((input as HTMLInputElement).value).toBe("Payment");
+    expect((input as HTMLInputElement).selectionStart).toBe(0);
+    expect((input as HTMLInputElement).selectionEnd).toBe("Payment".length);
+  });
+
+  it("renames suite inline with Enter using PUT and trimmed name", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+    const input = await screen.findByLabelText("Edit suite name");
+    fireEvent.change(input, { target: { value: "  Payments Updated  " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call;
+          if (String(requestUrl) !== "/api/test-suites/suite-child") return false;
+          if ((requestInit as RequestInit | undefined)?.method !== "PUT") return false;
+          const body = JSON.parse(String((requestInit as RequestInit).body ?? "{}"));
+          return body.name === "Payments Updated" && body.testPlanId === "plan-1";
+        }),
+      ).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payments Updated" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Payments Updated" })).toBeInTheDocument();
+    });
+  });
+
+  it("cancels inline rename with Escape without update request", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+    const input = await screen.findByLabelText("Edit suite name");
+    fireEvent.change(input, { target: { value: "Will not persist" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([requestUrl, requestInit]) =>
+          String(requestUrl).includes("/api/test-suites/") &&
+          (requestInit as RequestInit | undefined)?.method === "PUT",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not send update request when renamed value is unchanged after trim", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+    const input = await screen.findByLabelText("Edit suite name");
+    fireEvent.change(input, { target: { value: "  Payment  " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([requestUrl, requestInit]) =>
+          String(requestUrl).includes("/api/test-suites/") &&
+          (requestInit as RequestInit | undefined)?.method === "PUT",
+      ),
+    ).toBe(false);
+  });
+
+  it("handles inline rename blur and API error with inline feedback", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Checkout" }));
+    const firstInput = await screen.findByLabelText("Edit suite name");
+    fireEvent.change(firstInput, { target: { value: "   " } });
+    fireEvent.blur(firstInput);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Checkout" })).toBeInTheDocument();
+    });
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+    const secondInput = await screen.findByLabelText("Edit suite name");
+    fireEvent.change(secondInput, { target: { value: "Fail rename" } });
+    fireEvent.blur(secondInput);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
+      expect(screen.getByText("Could not update the suite.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+  });
+
+  it("coordinates inline create and rename modes without conflicts", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Regression Plan")).toBeInTheDocument();
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+    expect(screen.getByLabelText("New suite name for Regression Plan")).toBeInTheDocument();
+
+    fireEvent.doubleClick(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("New suite name for Regression Plan")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Edit suite name")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText("Create suite in Regression Plan"));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("New suite name for Regression Plan")).toBeInTheDocument();
     });
   });
 

@@ -11,7 +11,6 @@ import { TestCaseDetailSheet } from "@/components/test-cases/TestCaseDetailSheet
 import { TestCaseFormSheet } from "@/components/test-cases/TestCaseFormSheet";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { TestPlanFormSheet } from "@/components/test-plans/TestPlanFormSheet";
-import { TestSuiteFormSheet } from "@/components/test-suites/TestSuiteFormSheet";
 import { TestManagementCasesHeader } from "./TestManagementCasesHeader";
 import type {
   TestPlanPayload,
@@ -52,13 +51,6 @@ type ProjectOption = {
   id: string;
   key: string;
   name: string;
-};
-
-type TestPlanOption = {
-  id: string;
-  name: string;
-  projectKey: string;
-  projectName: string;
 };
 
 function sortSuites(left: TestSuiteRecord, right: TestSuiteRecord) {
@@ -133,12 +125,16 @@ export function TestManagementWorkspace() {
   const [selectedDetailCase, setSelectedDetailCase] = useState<TestCaseRecord | null>(null);
   const [planModalOpen, setPlanModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<TestPlanRecord | null>(null);
-  const [suiteModalOpen, setSuiteModalOpen] = useState(false);
-  const [editingSuite, setEditingSuite] = useState<TestSuiteRecord | null>(null);
   const [inlinePlanId, setInlinePlanId] = useState<string | null>(null);
   const [inlineDraft, setInlineDraft] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [isInlineSaving, setIsInlineSaving] = useState(false);
+  const [editingSuiteId, setEditingSuiteId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+  const [editingError, setEditingError] = useState<{ suiteId: string; message: string } | null>(
+    null,
+  );
+  const [isInlineEditingSaving, setIsInlineEditingSaving] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [planSaveError, setPlanSaveError] = useState<string | null>(null);
@@ -187,17 +183,6 @@ export function TestManagementWorkspace() {
       })),
     [suites],
   );
-  const testPlanOptions = useMemo<TestPlanOption[]>(
-    () =>
-      plans.map((plan) => ({
-        id: plan.id,
-        name: plan.name,
-        projectKey: plan.project.key,
-        projectName: plan.project.name,
-      })),
-    [plans],
-  );
-
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId) ?? null,
     [plans, selectedPlanId],
@@ -437,13 +422,6 @@ export function TestManagementWorkspace() {
     setPlanModalOpen(true);
   };
 
-  const handleEditSuite = () => {
-    if (!canManage || !selectedSuite) return;
-    setSuiteSaveError(null);
-    setEditingSuite(selectedSuite);
-    setSuiteModalOpen(true);
-  };
-
   const handleEdit = (testCase: TestCaseRecord) => {
     if (!canManage) return;
     setEditing(testCase);
@@ -612,23 +590,6 @@ export function TestManagementWorkspace() {
     }
   };
 
-  const handleDeleteSuite = async (suite: TestSuiteRecord) => {
-    setSuiteSaveError(null);
-    const response = await fetch(`/api/test-suites/${suite.id}`, {
-      method: "DELETE",
-    });
-    const data = (await response.json()) as { message?: string };
-    if (!response.ok) {
-      const message = data.message || "Could not delete test suite.";
-      setSuiteSaveError(message);
-      throw new Error(message);
-    }
-
-    await fetchAllPlansAndSuites();
-    setSelectedSuiteId((current) => (current === suite.id ? "" : current));
-    setSelectedPlanId(suite.testPlanId);
-  };
-
   const resolveInlineParentSuiteId = useCallback((_planId: string): string | null => {
     return null;
   }, []);
@@ -639,9 +600,16 @@ export function TestManagementWorkspace() {
     setInlineError(null);
   }, []);
 
+  const resetInlineEditState = useCallback(() => {
+    setEditingSuiteId(null);
+    setEditingValue("");
+  }, []);
+
   const handleStartInlineCreate = (planId: string) => {
     if (!canManage) return;
-    if (isInlineSaving) return;
+    if (isInlineSaving || isInlineEditingSaving) return;
+    resetInlineEditState();
+    setEditingError(null);
     setSuiteSaveError(null);
     setInlineError(null);
     setSelectedPlanId(planId);
@@ -682,6 +650,60 @@ export function TestManagementWorkspace() {
     [handleSaveSuite, resetInlineCreateState, resolveInlineParentSuiteId],
   );
 
+  const handleStartInlineEdit = useCallback(
+    (suite: TestSuiteRecord, planId: string) => {
+      if (!canManage) return;
+      if (isInlineSaving || isInlineEditingSaving) return;
+      resetInlineCreateState();
+      setInlineError(null);
+      setEditingError(null);
+      setSelectedPlanId(planId);
+      setSelectedSuiteId(suite.id);
+      setExpandedPlanIds((prev) => ({ ...prev, [planId]: true }));
+      setEditingSuiteId(suite.id);
+      setEditingValue(suite.name);
+    },
+    [canManage, isInlineEditingSaving, isInlineSaving, resetInlineCreateState],
+  );
+
+  const handleInlineEditSubmit = useCallback(
+    async (suite: TestSuiteRecord, value: string) => {
+      const trimmedName = value.trim();
+      if (!trimmedName || trimmedName === suite.name) {
+        resetInlineEditState();
+        return;
+      }
+
+      setIsInlineEditingSaving(true);
+      setEditingError(null);
+      setSuiteSaveError(null);
+
+      try {
+        await handleSaveSuite(
+          {
+            testPlanId: suite.testPlanId,
+            parentSuiteId: suite.parentSuiteId,
+            name: trimmedName,
+            description: suite.description,
+            displayOrder: suite.displayOrder,
+          },
+          suite.id,
+        );
+        resetInlineEditState();
+      } catch (saveError) {
+        setEditingError({
+          suiteId: suite.id,
+          message: saveError instanceof Error ? saveError.message : "Could not update test suite.",
+        });
+        setSuiteSaveError(null);
+        resetInlineEditState();
+      } finally {
+        setIsInlineEditingSaving(false);
+      }
+    },
+    [handleSaveSuite, resetInlineEditState],
+  );
+
   const buildExportUrl = useCallback((format: "xlsx" | "pdf") => {
     const params = new URLSearchParams();
     params.set("format", format);
@@ -710,24 +732,74 @@ export function TestManagementWorkspace() {
   const renderSuiteNodes = (nodes: SuiteTreeNode[], depth: number, planId: string) =>
     nodes.map((suite) => {
       const isSelected = selectedSuiteId === suite.id;
+      const isEditingThisSuite = editingSuiteId === suite.id;
       return (
         <div key={suite.id}>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedPlanId(planId);
-              setSelectedSuiteId(suite.id);
-            }}
-            className={cn(
-              "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
-              isSelected
-                ? "bg-brand-50/70 font-semibold text-brand-700"
-                : "text-ink-muted hover:bg-brand-50/40 hover:text-ink",
-            )}
-            style={{ paddingLeft: `${12 + depth * 18}px` }}
-          >
-            {suite.name}
-          </button>
+          {isEditingThisSuite ? (
+            <div style={{ paddingLeft: `${12 + depth * 18}px` }}>
+              <input
+                autoFocus
+                value={editingValue}
+                onChange={(event) => {
+                  setEditingValue(event.target.value);
+                  if (editingError?.suiteId === suite.id) setEditingError(null);
+                }}
+                onFocus={(event) => event.currentTarget.select()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (!isInlineEditingSaving) {
+                      void handleInlineEditSubmit(suite, editingValue);
+                    }
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    if (!isInlineEditingSaving) {
+                      resetInlineEditState();
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  if (!isEditingThisSuite || isInlineEditingSaving) return;
+                  const trimmed = editingValue.trim();
+                  if (!trimmed) {
+                    resetInlineEditState();
+                    return;
+                  }
+                  void handleInlineEditSubmit(suite, editingValue);
+                }}
+                disabled={isInlineEditingSaving}
+                aria-label="Edit suite name"
+                className="h-9 w-full rounded-lg border border-stroke bg-surface px-3 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] focus:border-brand-300 focus:ring-2 focus:ring-brand-500/20 disabled:opacity-70"
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (isInlineEditingSaving) return;
+                setSelectedPlanId(planId);
+                setSelectedSuiteId(suite.id);
+              }}
+              onDoubleClick={() => handleStartInlineEdit(suite, planId)}
+              className={cn(
+                "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                isSelected
+                  ? "bg-brand-50/70 font-semibold text-brand-700"
+                  : "text-ink-muted hover:bg-brand-50/40 hover:text-ink",
+              )}
+              style={{ paddingLeft: `${12 + depth * 18}px` }}
+            >
+              {suite.name}
+            </button>
+          )}
+          {editingError?.suiteId === suite.id ? (
+            <p
+              className="mt-1 px-3 text-xs text-danger-500"
+              style={{ paddingLeft: `${12 + depth * 18}px` }}
+            >
+              {editingError.message}
+            </p>
+          ) : null}
           {suite.children.length > 0 ? renderSuiteNodes(suite.children, depth + 1, planId) : null}
         </div>
       );
@@ -846,7 +918,7 @@ export function TestManagementWorkspace() {
                           onClick={() => handleStartInlineCreate(plan.id)}
                           aria-label={`Create suite in ${plan.name}`}
                           title="Create test suite"
-                          disabled={isInlineSaving}
+                          disabled={isInlineSaving || isInlineEditingSaving}
                         >
                           <IconPlus className="h-4 w-4 shrink-0" />
                         </Button>
@@ -910,19 +982,6 @@ export function TestManagementWorkspace() {
             <h2 className="text-2xl font-bold tracking-tight text-ink">
               {selectedSuite ? selectedSuite.name : selectedPlan ? selectedPlan.name : "Test Workspace"}
             </h2>
-            {canManage && selectedSuite ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="quiet"
-                className="h-8 w-8 rounded-lg p-0 text-ink-soft hover:bg-surface-muted hover:text-ink"
-                onClick={handleEditSuite}
-                aria-label={`Edit suite ${selectedSuite.name}`}
-                title="Edit test suite"
-              >
-                <IconEdit className="h-4 w-4 shrink-0" />
-              </Button>
-            ) : null}
           </div>
           <p className="mt-1.5 text-sm text-ink-muted">
             {selectedSuite
@@ -1043,21 +1102,6 @@ export function TestManagementWorkspace() {
           }}
           onSave={handleSavePlan}
           onDelete={handleDeletePlan}
-        />
-      ) : null}
-
-      {canManage ? (
-        <TestSuiteFormSheet
-          open={suiteModalOpen}
-          suite={editingSuite}
-          testPlans={testPlanOptions}
-          defaultTestPlanId={editingSuite?.testPlanId}
-          onClose={() => {
-            setSuiteModalOpen(false);
-            setEditingSuite(null);
-          }}
-          onSave={handleSaveSuite}
-          onDelete={handleDeleteSuite}
         />
       ) : null}
 
