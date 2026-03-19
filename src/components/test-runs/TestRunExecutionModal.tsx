@@ -88,8 +88,9 @@ export type ExecutionStepUpdate = {
 };
 
 type ExecutionSavePayload = {
-  executionId: string;
+  executionId: string | null;
   status: ExecutionStatus;
+  durationMs: number;
   stepResults: ExecutionStepUpdate[];
   stepFiles: Record<number, File[]>;
 };
@@ -102,7 +103,6 @@ type TestRunExecutionModalProps = {
   onClose: () => void;
   onLoadExecutions: (runId: string, runItemId: string) => Promise<ExecutionHistoryResponse>;
   onLoadExecutionDetail: (runId: string, runItemId: string, executionId: string) => Promise<ExecutionDetailRecord>;
-  onCreateExecution: (runId: string, runItemId: string) => Promise<{ id: string }>;
   onSave: (payload: ExecutionSavePayload) => Promise<void>;
 };
 
@@ -145,7 +145,6 @@ export function TestRunExecutionModal({
   onClose,
   onLoadExecutions,
   onLoadExecutionDetail,
-  onCreateExecution,
   onSave,
 }: TestRunExecutionModalProps) {
   const [executions, setExecutions] = useState<ExecutionHistoryItemRecord[]>([]);
@@ -165,8 +164,8 @@ export function TestRunExecutionModal({
   const [artifactsError, setArtifactsError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [creatingExecution, setCreatingExecution] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [modalOpenedAt, setModalOpenedAt] = useState<number | null>(null);
 
   const selectedGlobalStatus = mapGlobalResultToStatus(selectedGlobalResult);
   const parsedFromItem = useMemo(
@@ -197,6 +196,15 @@ export function TestRunExecutionModal({
 
   useEffect(() => {
     if (!open || !item || !runId) return;
+    const shouldLoadExecutionHistory = Boolean(item.currentExecutionId) || (item.attemptCount ?? 0) > 0;
+
+    if (!shouldLoadExecutionHistory) {
+      setExecutions([]);
+      setCurrentExecutionId(null);
+      setSelectedExecutionId(null);
+      setLoadingExecutions(false);
+      return;
+    }
 
     let canceled = false;
     setLoadingExecutions(true);
@@ -225,6 +233,16 @@ export function TestRunExecutionModal({
       canceled = true;
     };
   }, [item, onLoadExecutions, open, runId]);
+
+  useEffect(() => {
+    if (!open) {
+      setModalOpenedAt(null);
+      return;
+    }
+    if (modalOpenedAt === null) {
+      setModalOpenedAt(Date.now());
+    }
+  }, [modalOpenedAt, open]);
 
   useEffect(() => {
     if (!open || !item || !runId || !selectedExecutionId) return;
@@ -274,31 +292,16 @@ export function TestRunExecutionModal({
     };
   }, [item, onLoadExecutionDetail, open, parsedFromItem.length, runId, selectedExecutionId]);
 
-  const handleCreateExecution = async () => {
-    if (!item || !runId || !canManage) return;
-    setCreatingExecution(true);
-    setSaveError(null);
-    try {
-      const created = await onCreateExecution(runId, item.id);
-      const payload = await onLoadExecutions(runId, item.id);
-      setExecutions(payload.items);
-      setCurrentExecutionId(payload.currentExecutionId);
-      setSelectedExecutionId(created.id || payload.currentExecutionId || payload.items[0]?.id || null);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not create new execution.");
-    } finally {
-      setCreatingExecution(false);
-    }
-  };
-
   const handlePersist = async () => {
     if (!canManage || !item || !runId || !selectedExecutionId || isReadOnlyExecution || !hasChanges) return;
     setSaving(true);
     setSaveError(null);
     try {
+      const durationMs = Math.max(1, Date.now() - (modalOpenedAt ?? Date.now()));
       await onSave({
         executionId: selectedExecutionId,
         status: selectedGlobalStatus,
+        durationMs,
         stepResults: stepState.map((step, stepIndex) => ({
           stepIndex,
           status: step.status,
@@ -306,18 +309,20 @@ export function TestRunExecutionModal({
         stepFiles: stepDraftFiles,
       });
 
-      const [history, detail] = await Promise.all([
-        onLoadExecutions(runId, item.id),
-        onLoadExecutionDetail(runId, item.id, selectedExecutionId),
-      ]);
-      setExecutions(history.items);
-      setCurrentExecutionId(history.currentExecutionId);
-      setExecutionDetail(detail);
-      setBaselineGlobalStatus(detail.status);
-      const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
-      setStepState(mergedStepState);
-      setBaselineStepState(mergedStepState);
-      setStepDraftFiles({});
+      if (selectedExecutionId) {
+        const [history, detail] = await Promise.all([
+          onLoadExecutions(runId, item.id),
+          onLoadExecutionDetail(runId, item.id, selectedExecutionId),
+        ]);
+        setExecutions(history.items);
+        setCurrentExecutionId(history.currentExecutionId);
+        setExecutionDetail(detail);
+        setBaselineGlobalStatus(detail.status);
+        const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
+        setStepState(mergedStepState);
+        setBaselineStepState(mergedStepState);
+        setStepDraftFiles({});
+      }
       onClose();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save execution.");
@@ -350,28 +355,9 @@ export function TestRunExecutionModal({
               </Badge>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <label htmlFor="execution-history" className="text-xs text-ink-soft">History</label>
-              <select
-                id="execution-history"
-                aria-label="Execution history"
-                value={selectedExecutionId ?? ""}
-                onChange={(event) => setSelectedExecutionId(event.target.value || null)}
-                className="h-8 rounded-md border border-stroke bg-surface px-2 text-xs text-ink outline-none focus:border-brand-300"
-              >
-                {executions.map((execution) => (
-                  <option key={execution.id} value={execution.id}>
-                    #{execution.attemptNumber} - {formatStatusLabel(execution.status)}
-                  </option>
-                ))}
-              </select>
-              <Button type="button" size="xs" variant="secondary" onClick={() => void handleCreateExecution()} disabled={!canManage || creatingExecution}>
-                {creatingExecution ? "Creating..." : "Run again"}
-              </Button>
-              {isReadOnlyExecution ? (
-                <span className="text-xs font-medium text-ink-soft">Read-only (historical attempt)</span>
-              ) : null}
-            </div>
+            {isReadOnlyExecution ? (
+              <p className="mt-3 text-xs font-medium text-ink-soft">Read-only (historical attempt)</p>
+            ) : null}
           </header>
 
           <section className="rounded-lg border border-stroke bg-surface">
@@ -461,7 +447,7 @@ export function TestRunExecutionModal({
               <Button type="button" variant="quiet" onClick={onClose} disabled={saving}>
                 Cancel
               </Button>
-              <Button type="button" onClick={() => void handlePersist()} disabled={!canManage || saving || isReadOnlyExecution || !hasChanges || !selectedExecutionId}>
+              <Button type="button" onClick={() => void handlePersist()} disabled={!canManage || saving || isReadOnlyExecution || !hasChanges}>
                 {saving ? "Saving..." : "Save"}
               </Button>
             </div>

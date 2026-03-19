@@ -5,12 +5,14 @@ import { useSession } from "next-auth/react";
 import { IconCheck, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { TableShell } from "@/components/ui/TableShell";
 import { TestRunFormSheet } from "./TestRunFormSheet";
 import {
   TestRunExecutionModal,
   type ExecutionDetailRecord,
+  type ExecutionHistoryItemRecord,
   type ExecutionHistoryResponse,
   type ExecutionItemRecord,
   type ExecutionStatus,
@@ -205,6 +207,11 @@ export function TestRunsWorkspace() {
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
   const [executionItem, setExecutionItem] = useState<RunItemRecord | null>(null);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyItem, setHistoryItem] = useState<RunItemRecord | null>(null);
+  const [historyItems, setHistoryItems] = useState<ExecutionHistoryItemRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [rowActionMenu, setRowActionMenu] = useState<RowActionMenuState | null>(null);
   const rowActionMenuRef = useRef<HTMLDivElement | null>(null);
   const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
@@ -551,10 +558,9 @@ export function TestRunsWorkspace() {
   }, [items]);
 
   const openRowActionMenu = useCallback((itemId: string, x: number, y: number) => {
-    if (!canManage) return;
     setRowActionMenu({ itemId, x, y });
     setIsMarkAsSubmenuOpen(false);
-  }, [canManage]);
+  }, []);
 
   const handleOpenRowActionMenuFromButton = useCallback(
     (itemId: string, target: HTMLElement) => {
@@ -575,12 +581,14 @@ export function TestRunsWorkspace() {
           .filter((item) => dirtyItems.has(item.id))
           .map((item) => {
             const edit = itemEdits[item.id];
+            const nextStatus = edit?.status ?? item.status;
+            const shouldStampExecution = nextStatus !== "not_run";
             return {
               testCaseId: item.testCase.id,
-              status: edit?.status ?? item.status,
+              status: nextStatus,
               durationMs: item.durationMs,
-              executedById: item.executedBy?.id ?? null,
-              executedAt: item.executedAt,
+              executedById: shouldStampExecution ? (session?.user?.id ?? item.executedBy?.id ?? null) : null,
+              executedAt: shouldStampExecution ? new Date().toISOString() : null,
               errorMessage: item.errorMessage,
             };
           }),
@@ -695,8 +703,9 @@ export function TestRunsWorkspace() {
 
   const handleSaveExecution = useCallback(
     async (payload: {
-      executionId: string;
+      executionId: string | null;
       status: ExecutionStatus;
+      durationMs: number;
       stepResults: Array<{ stepIndex: number; status: "passed" | "failed" | "not_run"; actualResult?: string | null; comment?: string | null }>;
       stepFiles: Record<number, File[]>;
     }) => {
@@ -713,7 +722,9 @@ export function TestRunsWorkspace() {
         const formData = new FormData();
         formData.append("file", entry.file);
         formData.append("runItemId", executionItem.id);
-        formData.append("executionId", payload.executionId);
+        if (payload.executionId) {
+          formData.append("executionId", payload.executionId);
+        }
         formData.append("type", "screenshot");
         formData.append("metadata", JSON.stringify({ kind: "execution_evidence", ...entry.metadata }));
         formData.append("name", entry.file.name);
@@ -722,23 +733,46 @@ export function TestRunsWorkspace() {
           method: "POST",
           body: formData,
         });
-        const uploadPayload = (await uploadResponse.json()) as { message?: string };
+        const uploadPayload = await parseJsonSafely<{ message?: string }>(uploadResponse);
         if (!uploadResponse.ok) {
-          throw new Error(uploadPayload.message || "Could not upload evidence.");
+          throw new Error(uploadPayload?.message || "Could not upload evidence.");
         }
       }
 
-      const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items/${executionItem.id}/executions/${payload.executionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: payload.status,
-          stepResults: payload.stepResults,
-        }),
-      });
-      const savePayload = (await saveResponse.json()) as { message?: string };
-      if (!saveResponse.ok) {
-        throw new Error(savePayload.message || "Could not save execution.");
+      if (payload.executionId) {
+        const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items/${executionItem.id}/executions/${payload.executionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: payload.status,
+            durationMs: payload.durationMs,
+            stepResults: payload.stepResults,
+          }),
+        });
+        const savePayload = await parseJsonSafely<{ message?: string }>(saveResponse);
+        if (!saveResponse.ok) {
+          throw new Error(savePayload?.message || "Could not save execution.");
+        }
+      } else {
+        const legacyResponse = await fetch(`/api/test-runs/${selectedRunId}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [
+              {
+                testCaseId: executionItem.testCase.id,
+                status: payload.status,
+                durationMs: payload.durationMs,
+                executedById: session?.user?.id ?? null,
+                executedAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        });
+        const legacyPayload = await parseJsonSafely<{ message?: string }>(legacyResponse);
+        if (!legacyResponse.ok) {
+          throw new Error(legacyPayload?.message || "Could not save execution.");
+        }
       }
 
       await Promise.all([
@@ -747,40 +781,87 @@ export function TestRunsWorkspace() {
         fetchRuns(),
       ]);
     },
-    [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId],
+    [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId, session?.user?.id],
   );
 
-  const loadRunItemExecutions = useCallback(async (runId: string, runItemId: string) => {
+  const loadRunItemExecutionsReadOnly = useCallback(async (runId: string, runItemId: string) => {
     const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`);
-    const payload = (await response.json()) as ExecutionHistoryResponse & { message?: string };
+    const payload = await parseJsonSafely<ExecutionHistoryResponse & { message?: string }>(response);
     if (!response.ok) {
-      throw new Error(payload.message || "Could not load execution history.");
+      throw new Error(payload?.message || "Could not load execution history.");
+    }
+    if (!payload) {
+      throw new Error("Could not load execution history.");
     }
     return payload;
   }, []);
 
-  const loadExecutionDetail = useCallback(async (runId: string, runItemId: string, executionId: string) => {
-    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions/${executionId}`);
-    const payload = (await response.json()) as ExecutionDetailRecord & { message?: string };
-    if (!response.ok) {
-      throw new Error(payload.message || "Could not load execution detail.");
-    }
-    return payload;
-  }, []);
+  const loadRunItemExecutionsForExecutionModal = useCallback(async (runId: string, runItemId: string) => {
+    const fetchHistory = async () => {
+      try {
+        const payload = await loadRunItemExecutionsReadOnly(runId, runItemId);
+        return { ok: true as const, payload };
+      } catch {
+        return { ok: false as const, payload: null };
+      }
+    };
 
-  const createExecutionForItem = useCallback(async (runId: string, runItemId: string) => {
-    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`, {
+    let initial = await fetchHistory();
+    if (initial.ok && initial.payload) return initial.payload;
+
+    // Bootstrap first execution when history is missing/uninitialized.
+    const createResponse = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "not_run" }),
     });
-    const payload = (await response.json()) as { id?: string; message?: string };
-    if (!response.ok || !payload.id) {
-      throw new Error(payload.message || "Could not create execution.");
+    const createPayload = await parseJsonSafely<{ id?: string; message?: string }>(createResponse);
+
+    if (createResponse.ok && createPayload?.id) {
+      initial = await fetchHistory();
+      if (initial.ok && initial.payload) return initial.payload;
     }
-    await Promise.all([fetchRunItems(runId), fetchRunArtifacts(runId), fetchRuns()]);
-    return { id: payload.id };
-  }, [fetchRunArtifacts, fetchRunItems, fetchRuns]);
+
+    return {
+      currentExecutionId: null,
+      items: [],
+    };
+  }, [loadRunItemExecutionsReadOnly]);
+
+  const loadExecutionDetail = useCallback(async (runId: string, runItemId: string, executionId: string) => {
+    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions/${executionId}`);
+    const payload = await parseJsonSafely<ExecutionDetailRecord & { message?: string }>(response);
+    if (!response.ok) {
+      throw new Error(payload?.message || "Could not load execution detail.");
+    }
+    if (!payload) {
+      throw new Error("Could not load execution detail.");
+    }
+    return payload;
+  }, []);
+
+  const handleOpenExecutionHistory = useCallback(async (item: RunItemRecord) => {
+    if (!selectedRunId) return;
+    setHistoryModalOpen(true);
+    setHistoryItem(item);
+    setHistoryItems([]);
+    setHistoryError(null);
+    setHistoryLoading(true);
+    try {
+      const payload = await loadRunItemExecutionsReadOnly(selectedRunId, item.id);
+      setHistoryItems(payload.items);
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : "Could not load execution history.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [loadRunItemExecutionsReadOnly, selectedRunId]);
+
+  const handleSelectViewExecutionHistory = useCallback(() => {
+    if (!selectedMenuItem) return;
+    void handleOpenExecutionHistory(selectedMenuItem);
+    closeRowActionMenu();
+  }, [closeRowActionMenu, handleOpenExecutionHistory, selectedMenuItem]);
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-background">
@@ -1001,7 +1082,6 @@ export function TestRunsWorkspace() {
                                   key={item.id}
                                   className="transition-colors hover:bg-brand-50/35"
                                   onContextMenu={(event) => {
-                                    if (!canManage) return;
                                     event.preventDefault();
                                     openRowActionMenu(item.id, event.clientX, event.clientY);
                                   }}
@@ -1025,17 +1105,15 @@ export function TestRunsWorkspace() {
                                   </td>
                                   <td className="px-3 py-3">
                                     <div className="flex items-center justify-end gap-1">
-                                      {canManage ? (
-                                        <Button
-                                          size="xs"
-                                          variant="quiet"
-                                          className="h-7 w-8 px-0"
-                                          aria-label={`Open actions menu for ${item.testCase.title}`}
-                                          onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
-                                        >
-                                          <IconMenu className="h-4 w-4" />
-                                        </Button>
-                                      ) : null}
+                                      <Button
+                                        size="xs"
+                                        variant="quiet"
+                                        className="h-7 w-8 px-0"
+                                        aria-label={`Open actions menu for ${item.testCase.title}`}
+                                        onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
+                                      >
+                                        <IconMenu className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   </td>
                                 </tr>
@@ -1069,18 +1147,16 @@ export function TestRunsWorkspace() {
                                   <p>Runs: {item.attemptCount ?? 0}</p>
                                 </div>
                                 <div className="mt-3 flex flex-wrap items-center gap-1">
-                                  {canManage ? (
-                                    <Button
-                                      size="xs"
-                                      variant="quiet"
-                                      className="h-7 px-2.5"
-                                      aria-label={`Open actions menu for ${item.testCase.title}`}
-                                      onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
-                                    >
-                                      <IconMenu className="h-4 w-4" />
-                                      <span className="ml-1">Actions</span>
-                                    </Button>
-                                  ) : null}
+                                  <Button
+                                    size="xs"
+                                    variant="quiet"
+                                    className="h-7 px-2.5"
+                                    aria-label={`Open actions menu for ${item.testCase.title}`}
+                                    onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
+                                  >
+                                    <IconMenu className="h-4 w-4" />
+                                    <span className="ml-1">Actions</span>
+                                  </Button>
                                 </div>
                               </div>
                             );
@@ -1193,61 +1269,74 @@ export function TestRunsWorkspace() {
             }
           }}
         >
-          <button
-            type="button"
-            role="menuitem"
-            aria-haspopup="menu"
-            aria-expanded={isMarkAsSubmenuOpen}
-            className={cn(
-              "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
-              "text-ink hover:bg-surface-muted",
-            )}
-            onClick={() => setIsMarkAsSubmenuOpen((open) => !open)}
-          >
-            <span>Mark as</span>
-            <IconChevronRight className={cn("h-4 w-4 transition-transform", isMarkAsSubmenuOpen ? "rotate-90" : "")} />
-          </button>
-          {isMarkAsSubmenuOpen ? (
-            <div className="ml-2 mt-1 space-y-1 border-l border-stroke pl-2">
-              {quickStatusActions.map((action) => {
-                const edit = itemEdits[selectedMenuItem.id] ?? { status: selectedMenuItem.status };
-                const isActive = edit.status === action.key;
-                return (
-                  <button
-                    key={action.key}
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
-                      isActive
-                        ? "bg-brand-50 text-brand-700"
-                        : "text-ink hover:bg-surface-muted",
-                    )}
-                    onClick={() => handleSelectRowStatus(action.key)}
-                  >
-                    <span>{action.label}</span>
-                    {isActive ? <IconCheck className="h-4 w-4" /> : null}
-                  </button>
-                );
-              })}
-            </div>
+          {canManage ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                aria-haspopup="menu"
+                aria-expanded={isMarkAsSubmenuOpen}
+                className={cn(
+                  "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
+                  "text-ink hover:bg-surface-muted",
+                )}
+                onClick={() => setIsMarkAsSubmenuOpen((open) => !open)}
+              >
+                <span>Mark as</span>
+                <IconChevronRight className={cn("h-4 w-4 transition-transform", isMarkAsSubmenuOpen ? "rotate-90" : "")} />
+              </button>
+              {isMarkAsSubmenuOpen ? (
+                <div className="ml-2 mt-1 space-y-1 border-l border-stroke pl-2">
+                  {quickStatusActions.map((action) => {
+                    const edit = itemEdits[selectedMenuItem.id] ?? { status: selectedMenuItem.status };
+                    const isActive = edit.status === action.key;
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        role="menuitem"
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
+                          isActive
+                            ? "bg-brand-50 text-brand-700"
+                            : "text-ink hover:bg-surface-muted",
+                        )}
+                        onClick={() => handleSelectRowStatus(action.key)}
+                      >
+                        <span>{action.label}</span>
+                        {isActive ? <IconCheck className="h-4 w-4" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div className="my-1 h-px bg-stroke" />
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                onClick={handleSelectRunAgain}
+              >
+                Run again
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                onClick={handleSelectExecuteCase}
+              >
+                Execute case
+              </button>
+              <div className="my-1 h-px bg-stroke" />
+            </>
           ) : null}
-          <div className="my-1 h-px bg-stroke" />
           <button
             type="button"
             role="menuitem"
             className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
-            onClick={handleSelectRunAgain}
+            onClick={handleSelectViewExecutionHistory}
           >
-            Run again
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
-            onClick={handleSelectExecuteCase}
-          >
-            Execute case
+            View execution history
           </button>
         </div>
       ) : null}
@@ -1276,11 +1365,71 @@ export function TestRunsWorkspace() {
           setExecutionModalOpen(false);
           setExecutionItem(null);
         }}
-        onLoadExecutions={loadRunItemExecutions}
+        onLoadExecutions={loadRunItemExecutionsForExecutionModal}
         onLoadExecutionDetail={loadExecutionDetail}
-        onCreateExecution={createExecutionForItem}
         onSave={handleSaveExecution}
       />
+
+      <Modal
+        open={historyModalOpen}
+        onClose={() => {
+          setHistoryModalOpen(false);
+          setHistoryItem(null);
+          setHistoryItems([]);
+          setHistoryError(null);
+        }}
+        size="lg"
+        closeOnEsc
+        trapFocus
+        title="Execution history"
+      >
+        <div className="space-y-3">
+          {historyItem ? (
+            <p className="text-sm text-ink-muted">
+              {historyItem.testCase.title}
+            </p>
+          ) : null}
+          {historyError ? (
+            <div className="rounded-lg border border-danger-500/20 bg-danger-500/10 px-3 py-2 text-sm text-danger-600">
+              {historyError}
+            </div>
+          ) : null}
+          <div className="overflow-hidden rounded-lg border border-stroke">
+            <table className="w-full border-collapse text-sm">
+              <thead className="bg-surface-elevated">
+                <tr className="text-left text-xs font-semibold uppercase tracking-[0.1em] text-ink-soft">
+                  <th className="px-3 py-2">Title</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyLoading ? (
+                  <tr>
+                    <td className="px-3 py-5 text-center text-sm text-ink-muted" colSpan={3}>
+                      Loading history...
+                    </td>
+                  </tr>
+                ) : historyItems.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-5 text-center text-sm text-ink-muted" colSpan={3}>
+                      No execution history yet.
+                    </td>
+                  </tr>
+                ) : (
+                  historyItems.map((entry) => (
+                    <tr key={entry.id} className="border-t border-stroke">
+                      <td className="px-3 py-2 text-ink">{`Execution #${entry.attemptNumber}`}</td>
+                      <td className="px-3 py-2 text-ink-muted">{entry.status.replace("_", " ")}</td>
+                      <td className="px-3 py-2 text-ink-muted">{formatDate(entry.completedAt)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

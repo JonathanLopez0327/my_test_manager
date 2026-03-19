@@ -326,7 +326,107 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const recalculateMetrics = body.recalculateMetrics !== false;
 
-    const result = await prisma.$transaction(async (tx) => {
+    const runLegacyUpsert = async () => prisma.$transaction(async (tx) => {
+      const updatedItems = [];
+
+      for (const item of body.items ?? []) {
+        const testCaseId = item.testCaseId?.trim();
+        if (!testCaseId) {
+          throw new Error("test_case_required");
+        }
+
+        const status = parseResultStatus(item.status ?? null) ?? "not_run";
+        const durationMs = parseDuration(item.durationMs);
+        if (item.durationMs !== undefined && item.durationMs !== null && durationMs === null) {
+          throw new Error("duration_invalid");
+        }
+
+        const executedAt = parseDate(item.executedAt ?? null);
+        if (item.executedAt && !executedAt) {
+          throw new Error("executed_at_invalid");
+        }
+
+        const upserted = await tx.testRunItem.upsert({
+          where: {
+            runId_testCaseId: {
+              runId: id,
+              testCaseId,
+            },
+          },
+          update: {
+            status,
+            durationMs,
+            executedById: item.executedById?.trim() || null,
+            executedAt,
+            errorMessage: item.errorMessage?.trim() || null,
+            stacktrace: item.stacktrace?.trim() || null,
+          },
+          create: {
+            runId: id,
+            testCaseId,
+            status,
+            durationMs,
+            executedById: item.executedById?.trim() || null,
+            executedAt,
+            errorMessage: item.errorMessage?.trim() || null,
+            stacktrace: item.stacktrace?.trim() || null,
+          },
+        });
+
+        if (item.artifacts && item.artifacts.length > 0) {
+          const artifactData = item.artifacts.map((artifact) => {
+            const type = parseArtifactType(artifact.type ?? null);
+            if (!type) {
+              throw new Error("artifact_type_invalid");
+            }
+            const url = artifact.url?.trim();
+            if (!url) {
+              throw new Error("artifact_url_required");
+            }
+
+            let sizeBytes: bigint | null = null;
+            if (artifact.sizeBytes !== undefined && artifact.sizeBytes !== null) {
+              const parsed = Number(artifact.sizeBytes);
+              if (!Number.isFinite(parsed) || parsed < 0) {
+                throw new Error("artifact_size_invalid");
+              }
+              sizeBytes = BigInt(Math.round(parsed));
+            }
+
+            return {
+              runId: id,
+              runItemId: upserted.id,
+              type,
+              name: artifact.name?.trim() || null,
+              url,
+              mimeType: artifact.mimeType?.trim() || null,
+              sizeBytes,
+              checksumSha256: artifact.checksumSha256?.trim() || null,
+              metadata:
+                artifact.metadata && typeof artifact.metadata === "object"
+                  ? artifact.metadata
+                  : {},
+            };
+          });
+
+          await tx.testRunArtifact.createMany({
+            data: artifactData,
+          });
+        }
+
+        updatedItems.push(upserted);
+      }
+
+      const metrics = recalculateMetrics
+        ? await upsertRunMetrics(tx, id)
+        : null;
+
+      return { updatedItems, metrics };
+    });
+
+    let result;
+    try {
+      result = await prisma.$transaction(async (tx) => {
       const updatedItems = [];
 
       for (const item of body.items ?? []) {
@@ -492,7 +592,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         : null;
 
       return { updatedItems, metrics };
-    });
+      });
+    } catch {
+      // Compatibility fallback while some environments are still on legacy schema.
+      result = await runLegacyUpsert();
+    }
 
     return NextResponse.json(result);
   } catch (error) {

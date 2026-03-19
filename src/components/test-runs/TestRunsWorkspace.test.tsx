@@ -1,20 +1,24 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useSession } from "next-auth/react";
 import { TestRunsWorkspace } from "./TestRunsWorkspace";
 
 jest.mock("next-auth/react", () => ({
-  useSession: () => ({
-    data: {
-      user: {
-        globalRoles: [],
-      },
-    },
-  }),
+  useSession: jest.fn(),
 }));
 
 describe("TestRunsWorkspace", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
+    (useSession as jest.Mock).mockReturnValue({
+      data: {
+        user: {
+          id: "user-1",
+          globalRoles: [],
+        },
+      },
+    });
+
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -413,6 +417,7 @@ describe("TestRunsWorkspace", () => {
     expect(screen.getByRole("menuitem", { name: "Mark as" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Run again" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Execute case" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "View execution history" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Mark as" }));
     expect(screen.getByRole("menuitem", { name: "Passed" })).toBeInTheDocument();
@@ -432,7 +437,12 @@ describe("TestRunsWorkspace", () => {
           if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
           if (requestInit?.method !== "POST") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.items?.[0]?.status === "passed" && body?.items?.[0]?.testCaseId === "tc-1";
+          return (
+            body?.items?.[0]?.status === "passed" &&
+            body?.items?.[0]?.testCaseId === "tc-1" &&
+            body?.items?.[0]?.executedById === "user-1" &&
+            typeof body?.items?.[0]?.executedAt === "string"
+          );
         }),
       ).toBe(true);
     });
@@ -475,6 +485,55 @@ describe("TestRunsWorkspace", () => {
     });
   });
 
+  it("opens execution history modal from context menu", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "View execution history" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execution history")).toBeInTheDocument();
+      expect(screen.getByText("Execution #1")).toBeInTheDocument();
+      expect(screen.getAllByText("not run").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows only view execution history action for read-only users", async () => {
+    (useSession as jest.Mock).mockReturnValue({
+      data: {
+        user: {
+          id: "user-readonly",
+          globalRoles: ["support"],
+        },
+      },
+    });
+
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+
+    expect(screen.getByRole("menuitem", { name: "View execution history" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Mark as" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Run again" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Execute case" })).not.toBeInTheDocument();
+  });
+
   it("opens execution modal with history selector and saves failed status on current execution", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
@@ -494,7 +553,6 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
       expect(screen.getByText("Open login page")).toBeInTheDocument();
-      expect(screen.getByRole("combobox", { name: "Execution history" })).toBeInTheDocument();
       expect(screen.queryByText("Run notes")).not.toBeInTheDocument();
       expect(screen.queryByText("Actual result")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Save progress/i })).not.toBeInTheDocument();
@@ -526,7 +584,7 @@ describe("TestRunsWorkspace", () => {
           if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
           if (requestInit?.method !== "PATCH") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.status === "failed";
+          return body?.status === "failed" && typeof body?.durationMs === "number" && body.durationMs >= 1;
         }),
       ).toBe(true);
       expect(
@@ -571,7 +629,7 @@ describe("TestRunsWorkspace", () => {
           if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
           if (requestInit?.method !== "PATCH") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.status === "blocked";
+          return body?.status === "blocked" && typeof body?.durationMs === "number" && body.durationMs >= 1;
         }),
       ).toBe(true);
     });

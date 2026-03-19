@@ -60,6 +60,7 @@ export const PATCH = withAuth(null, async (req, { userId, globalRoles, activeOrg
 
   const body = (await req.json().catch(() => ({}))) as {
     status?: string | null;
+    durationMs?: number | null;
     summary?: string | null;
     stepResults?: Array<{
       stepIndex: number;
@@ -94,6 +95,13 @@ export const PATCH = withAuth(null, async (req, { userId, globalRoles, activeOrg
   }
 
   const status = parseResultStatus(body.status ?? null) ?? existing.status;
+  const durationMs =
+    body.durationMs === undefined || body.durationMs === null
+      ? existing.durationMs
+      : Number(body.durationMs);
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return NextResponse.json({ message: "Invalid duration." }, { status: 400 });
+  }
   const now = new Date();
   const completedAt = status === "not_run" || status === "in_progress" ? null : now;
 
@@ -119,6 +127,7 @@ export const PATCH = withAuth(null, async (req, { userId, globalRoles, activeOrg
       where: { id: executionId },
       data: {
         status,
+        durationMs,
         summary: body.summary?.trim() || null,
         startedAt: existing.startedAt ?? now,
         completedAt,
@@ -135,6 +144,7 @@ export const PATCH = withAuth(null, async (req, { userId, globalRoles, activeOrg
       where: { id: runItemId },
       data: {
         status,
+        durationMs,
         executedAt: completedAt,
         executedById: userId,
         errorMessage: null,
