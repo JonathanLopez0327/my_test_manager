@@ -37,7 +37,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   try {
     const formData = await req.formData();
     const file = formData.get("file");
-    const runItemId = String(formData.get("runItemId") ?? "").trim() || null;
+    let runItemId = String(formData.get("runItemId") ?? "").trim() || null;
+    const executionId = String(formData.get("executionId") ?? "").trim() || null;
     const type = parseArtifactType(
       String(formData.get("type") ?? "").trim() || null,
     );
@@ -102,7 +103,45 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     let generatedName = name;
 
-    if (runItemId) {
+    if (executionId) {
+      const execution = await prisma.testRunItemExecution.findFirst({
+        where: {
+          id: executionId,
+          runItem: { runId: id },
+        },
+        select: {
+          id: true,
+          runItemId: true,
+          runItem: {
+            select: {
+              testCase: {
+                select: {
+                  title: true,
+                  externalKey: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!execution) {
+        return NextResponse.json(
+          { message: "Execution does not belong to this run." },
+          { status: 400 },
+        );
+      }
+      if (runItemId && runItemId !== execution.runItemId) {
+        return NextResponse.json(
+          { message: "runItemId does not match executionId." },
+          { status: 400 },
+        );
+      }
+      runItemId = execution.runItemId;
+      const caseName = execution.runItem.testCase.externalKey
+        ? `${execution.runItem.testCase.externalKey} ${execution.runItem.testCase.title}`
+        : execution.runItem.testCase.title;
+      generatedName = `${caseName} - ${type} - ${file.name}`;
+    } else if (runItemId) {
       const belongs = await prisma.testRunItem.findFirst({
         where: { id: runItemId, runId: id },
         select: {
@@ -153,6 +192,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       data: {
         runId: id,
         runItemId,
+        executionId,
         type,
         name: generatedName,
         url,

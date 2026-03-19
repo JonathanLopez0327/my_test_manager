@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TestRunsWorkspace } from "./TestRunsWorkspace";
 
 jest.mock("next-auth/react", () => ({
@@ -121,6 +121,9 @@ describe("TestRunsWorkspace", () => {
               {
                 id: "item-1",
                 status: "not_run",
+                currentExecutionId: "exec-1",
+                latestAttemptNumber: 1,
+                attemptCount: 1,
                 durationMs: null,
                 executedAt: null,
                 errorMessage: null,
@@ -150,6 +153,9 @@ describe("TestRunsWorkspace", () => {
               {
                 id: "item-2",
                 status: "passed",
+                currentExecutionId: "exec-2",
+                latestAttemptNumber: 1,
+                attemptCount: 1,
                 durationMs: 1000,
                 executedAt: "2026-03-16T00:00:00.000Z",
                 errorMessage: null,
@@ -192,6 +198,104 @@ describe("TestRunsWorkspace", () => {
             page: 1,
             pageSize: 100,
           }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions") && (!init || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            currentExecutionId: "exec-1",
+            items: [
+              {
+                id: "exec-1",
+                attemptNumber: 1,
+                status: "not_run",
+                startedAt: null,
+                completedAt: null,
+                summary: null,
+                executedBy: null,
+              },
+            ],
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "exec-2",
+            attemptNumber: 2,
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1") && (!init || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "exec-1",
+            attemptNumber: 1,
+            status: "not_run",
+            startedAt: null,
+            completedAt: null,
+            summary: null,
+            stepResults: [
+              {
+                id: "sr-1",
+                stepIndex: 0,
+                stepTextSnapshot: "Open login page",
+                expectedSnapshot: "Page loads",
+                status: "not_run",
+                actualResult: null,
+                comment: null,
+              },
+            ],
+            artifacts: [],
+            runItem: { currentExecutionId: "exec-1" },
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions/exec-2") && (!init || init.method === "GET")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "exec-2",
+            attemptNumber: 2,
+            status: "not_run",
+            startedAt: null,
+            completedAt: null,
+            summary: null,
+            stepResults: [
+              {
+                id: "sr-2",
+                stepIndex: 0,
+                stepTextSnapshot: "Open login page",
+                expectedSnapshot: "Page loads",
+                status: "not_run",
+                actualResult: null,
+                comment: null,
+              },
+            ],
+            artifacts: [],
+            runItem: { currentExecutionId: "exec-2" },
+          }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1") && init?.method === "PATCH") {
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/items/item-1/executions/exec-2") && init?.method === "PATCH") {
+        return {
+          ok: true,
+          json: async () => ({}),
         } as Response;
       }
 
@@ -292,7 +396,7 @@ describe("TestRunsWorkspace", () => {
     });
   });
 
-  it("marks test case as dirty via quick action and saves batch", async () => {
+  it("marks test case as dirty via contextual menu and saves batch", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
@@ -304,7 +408,18 @@ describe("TestRunsWorkspace", () => {
     expect(row).not.toBeNull();
     if (!row) return;
 
-    fireEvent.click(within(row).getByRole("button", { name: "Passed" }));
+    fireEvent.contextMenu(row);
+
+    expect(screen.getByRole("menuitem", { name: "Mark as" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Run again" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Execute case" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Mark as" }));
+    expect(screen.getByRole("menuitem", { name: "Passed" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Failed" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Skipped" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Passed" }));
 
     expect(screen.getByText("1 pending changes")).toBeInTheDocument();
 
@@ -360,7 +475,7 @@ describe("TestRunsWorkspace", () => {
     });
   });
 
-  it("opens simplified execution modal and saves failed status with step evidence", async () => {
+  it("opens execution modal with history selector and saves failed status on current execution", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
@@ -372,18 +487,28 @@ describe("TestRunsWorkspace", () => {
     expect(row).not.toBeNull();
     if (!row) return;
 
-    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
 
     await waitFor(() => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
       expect(screen.getByText("Open login page")).toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Execution history" })).toBeInTheDocument();
       expect(screen.queryByText("Run notes")).not.toBeInTheDocument();
       expect(screen.queryByText("Actual result")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Save progress/i })).not.toBeInTheDocument();
+      expect(screen.getByRole("combobox", { name: "Overall test result" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Pass test" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Fail test" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Pause test" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Block test" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "Not applicable" })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as failed" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Overall test result" }), {
+      target: { value: "fail_test" },
+    });
 
     const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
@@ -398,10 +523,10 @@ describe("TestRunsWorkspace", () => {
       expect(
         fetchMock.mock.calls.some((call) => {
           const [requestUrl, requestInit] = call as [string, RequestInit];
-          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
-          if (requestInit?.method !== "POST") return false;
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
+          if (requestInit?.method !== "PATCH") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.items?.[0]?.status === "failed" && body?.items?.[0]?.testCaseId === "tc-1";
+          return body?.status === "failed";
         }),
       ).toBe(true);
       expect(
@@ -414,7 +539,7 @@ describe("TestRunsWorkspace", () => {
     expect(screen.queryByText("Execute test case")).not.toBeInTheDocument();
   });
 
-  it("derives passed and not_run statuses from step state", async () => {
+  it("uses global selector status even when step statuses differ, including Pause and Not applicable mappings", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
@@ -426,27 +551,33 @@ describe("TestRunsWorkspace", () => {
     expect(row).not.toBeNull();
     if (!row) return;
 
-    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
     await waitFor(() => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
+      expect(screen.getByText("Open login page")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as passed" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Overall test result" }), {
+      target: { value: "pause_test" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some((call) => {
           const [requestUrl, requestInit] = call as [string, RequestInit];
-          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
-          if (requestInit?.method !== "POST") return false;
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
+          if (requestInit?.method !== "PATCH") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.items?.[0]?.status === "passed";
+          return body?.status === "blocked";
         }),
       ).toBe(true);
     });
 
-    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
     await waitFor(() => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
@@ -454,6 +585,9 @@ describe("TestRunsWorkspace", () => {
     const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "evidence-2.png", { type: "image/png" });
     fireEvent.change(stepInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Overall test result" }), {
+      target: { value: "not_applicable" },
+    });
 
     expect(screen.getByText("1")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
@@ -461,16 +595,17 @@ describe("TestRunsWorkspace", () => {
     await waitFor(() => {
       const itemPosts = fetchMock.mock.calls.filter((call) => {
         const [requestUrl, requestInit] = call as [string, RequestInit];
-        return String(requestUrl).endsWith("/api/test-runs/run-1/items") && requestInit?.method === "POST";
+        return String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1") && requestInit?.method === "PATCH";
       });
       const last = itemPosts[itemPosts.length - 1] as [string, RequestInit] | undefined;
       expect(last).toBeDefined();
       const body = last?.[1]?.body ? JSON.parse(String(last[1].body)) : null;
-      expect(body?.items?.[0]?.status).toBe("not_run");
+      expect(body?.status).toBe("skipped");
     });
   });
 
   it("rejects non-image file inside execution modal", async () => {
+    const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
     await waitFor(() => {
@@ -481,7 +616,8 @@ describe("TestRunsWorkspace", () => {
     expect(row).not.toBeNull();
     if (!row) return;
 
-    fireEvent.click(within(row).getByRole("button", { name: /Execute case Login works/i }));
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
 
     await waitFor(() => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
@@ -491,6 +627,10 @@ describe("TestRunsWorkspace", () => {
     const invalid = new File([new Uint8Array([1, 2, 3])], "evidence.txt", { type: "text/plain" });
     fireEvent.change(generalInput, { target: { files: [invalid] } });
 
-    expect(screen.getByText("Only image files are allowed.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
+      ).toBe(false);
+    });
   });
 });

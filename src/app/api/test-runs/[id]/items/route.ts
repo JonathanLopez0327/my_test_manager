@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ArtifactType, TestResultStatus } from "@/generated/prisma/client";
+import { ArtifactType, TestCaseStyle, TestResultStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
@@ -44,103 +44,249 @@ function parseArtifactType(value?: string | null) {
     : null;
 }
 
-export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
-  const { id } = await routeCtx.params;
-  const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_ITEM_LIST, activeOrganizationId, organizationRole);
-  if (access.error) return access.error;
+type StepSnapshot = {
+  stepTextSnapshot: string;
+  expectedSnapshot: string | null;
+};
 
-  const { searchParams } = new URL(req.url);
-  const page = parseNumber(searchParams.get("page"), 1);
-  const pageSize = Math.min(
-    parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
-    MAX_PAGE_SIZE,
-  );
-  const search = searchParams.get("search")?.trim();
-  const status = parseResultStatus(searchParams.get("status")?.trim() ?? null);
-  const testCaseId = searchParams.get("testCaseId")?.trim();
-  const includeArtifacts = searchParams.get("includeArtifacts") === "true";
+function parseStepSnapshots(style: TestCaseStyle, steps: unknown): StepSnapshot[] {
+  if (!steps) return [];
 
-  const filters = [{ runId: id }] as Array<{
-    runId: string;
-    status?: TestResultStatus;
-    testCaseId?: string;
-    testCase?: {
-      OR: Array<{
-        title: { contains: string; mode: "insensitive" };
-      } | {
-        externalKey: { contains: string; mode: "insensitive" };
-      }>;
+  if (style === "step_by_step" && Array.isArray(steps)) {
+    return steps
+      .map((entry) => {
+        if (typeof entry === "string") return { stepTextSnapshot: entry, expectedSnapshot: null };
+        if (!entry || typeof entry !== "object") return null;
+        const value = entry as { step?: unknown; expectedResult?: unknown };
+        return {
+          stepTextSnapshot: typeof value.step === "string" ? value.step : "",
+          expectedSnapshot: typeof value.expectedResult === "string" ? value.expectedResult : null,
+        };
+      })
+      .filter((entry): entry is StepSnapshot => Boolean(entry?.stepTextSnapshot?.trim()));
+  }
+
+  if (style === "gherkin" && Array.isArray(steps)) {
+    return steps
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const value = entry as { keyword?: unknown; text?: unknown };
+        const keyword = typeof value.keyword === "string" ? value.keyword : "";
+        const text = typeof value.text === "string" ? value.text : "";
+        const line = `${keyword} ${text}`.trim();
+        return line ? { stepTextSnapshot: line, expectedSnapshot: null } : null;
+      })
+      .filter((entry): entry is StepSnapshot => Boolean(entry));
+  }
+
+  if (style === "data_driven" && typeof steps === "object" && steps !== null) {
+    const value = steps as { template?: unknown };
+    if (Array.isArray(value.template)) {
+      return value.template
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") return null;
+          const row = entry as { keyword?: unknown; text?: unknown };
+          const keyword = typeof row.keyword === "string" ? row.keyword : "";
+          const text = typeof row.text === "string" ? row.text : "";
+          const line = `${keyword} ${text}`.trim();
+          return line ? { stepTextSnapshot: line, expectedSnapshot: null } : null;
+        })
+        .filter((entry): entry is StepSnapshot => Boolean(entry));
+    }
+  }
+
+  if (style === "api" && typeof steps === "object" && steps !== null) {
+    const value = steps as {
+      request?: { method?: unknown; endpoint?: unknown };
+      expectedResponse?: { status?: unknown };
     };
-  }>;
-
-  if (status) {
-    filters.push({ runId: id, status });
-  }
-  if (testCaseId) {
-    filters.push({ runId: id, testCaseId });
-  }
-  if (search) {
-    filters.push({
-      runId: id,
-      testCase: {
-        OR: [
-          { title: { contains: search, mode: "insensitive" } },
-          { externalKey: { contains: search, mode: "insensitive" } },
-        ],
-      },
-    });
+    const method = typeof value.request?.method === "string" ? value.request.method : "REQUEST";
+    const endpoint = typeof value.request?.endpoint === "string" ? value.request.endpoint : "/";
+    const status = typeof value.expectedResponse?.status === "string" ? value.expectedResponse.status : "N/A";
+    return [{ stepTextSnapshot: `${method} ${endpoint}`, expectedSnapshot: `Expected status ${status}` }];
   }
 
-  const where = filters.length > 1 ? { AND: filters } : filters[0];
+  if (Array.isArray(steps)) {
+    return steps
+      .map((entry) => (typeof entry === "string" ? { stepTextSnapshot: entry, expectedSnapshot: null } : null))
+      .filter((entry): entry is StepSnapshot => Boolean(entry?.stepTextSnapshot?.trim()));
+  }
 
-  const [items, total] = await prisma.$transaction([
-    prisma.testRunItem.findMany({
-      where,
-      include: {
+  return [];
+}
+
+export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
+  try {
+    const { id } = await routeCtx.params;
+    const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_ITEM_LIST, activeOrganizationId, organizationRole);
+    if (access.error) return access.error;
+
+    const { searchParams } = new URL(req.url);
+    const page = parseNumber(searchParams.get("page"), 1);
+    const pageSize = Math.min(
+      parseNumber(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE),
+      MAX_PAGE_SIZE,
+    );
+    const search = searchParams.get("search")?.trim();
+    const status = parseResultStatus(searchParams.get("status")?.trim() ?? null);
+    const testCaseId = searchParams.get("testCaseId")?.trim();
+    const includeArtifacts = searchParams.get("includeArtifacts") === "true";
+
+    const filters = [{ runId: id }] as Array<{
+      runId: string;
+      status?: TestResultStatus;
+      testCaseId?: string;
+      testCase?: {
+        OR: Array<{
+          title: { contains: string; mode: "insensitive" };
+        } | {
+          externalKey: { contains: string; mode: "insensitive" };
+        }>;
+      };
+    }>;
+
+    if (status) {
+      filters.push({ runId: id, status });
+    }
+    if (testCaseId) {
+      filters.push({ runId: id, testCaseId });
+    }
+    if (search) {
+      filters.push({
+        runId: id,
         testCase: {
-          select: {
-            id: true,
-            title: true,
-            externalKey: true,
-            preconditions: true,
-            steps: true,
-            style: true,
-          },
+          OR: [
+            { title: { contains: search, mode: "insensitive" } },
+            { externalKey: { contains: search, mode: "insensitive" } },
+          ],
         },
-        executedBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        artifacts: includeArtifacts
-          ? {
-            select: {
-              id: true,
-              type: true,
-              name: true,
-              url: true,
-              mimeType: true,
-              checksumSha256: true,
-              createdAt: true,
-            },
-          }
-          : false,
-      },
-      orderBy: { createdAt: "asc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.testRunItem.count({ where }),
-  ]);
+      });
+    }
 
-  return NextResponse.json({
-    items,
-    total,
-    page,
-    pageSize,
-  });
+    const where = filters.length > 1 ? { AND: filters } : filters[0];
+
+    let items: unknown[] = [];
+    let total = 0;
+
+    try {
+      const result = await prisma.$transaction([
+        prisma.testRunItem.findMany({
+          where,
+          include: {
+            testCase: {
+              select: {
+                id: true,
+                title: true,
+                externalKey: true,
+                preconditions: true,
+                steps: true,
+                style: true,
+              },
+            },
+            executedBy: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            artifacts: includeArtifacts
+              ? {
+                select: {
+                  id: true,
+                  type: true,
+                  name: true,
+                  url: true,
+                  mimeType: true,
+                  checksumSha256: true,
+                  createdAt: true,
+                },
+              }
+              : false,
+            currentExecution: {
+              select: {
+                id: true,
+                attemptNumber: true,
+              },
+            },
+            _count: {
+              select: {
+                executions: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        prisma.testRunItem.count({ where }),
+      ]);
+      items = result[0];
+      total = result[1];
+    } catch {
+      // Legacy fallback: allows listing run items before execution-history migration is applied.
+      const legacyResult = await prisma.$transaction([
+        prisma.testRunItem.findMany({
+          where,
+          include: {
+            testCase: {
+              select: {
+                id: true,
+                title: true,
+                externalKey: true,
+                preconditions: true,
+                steps: true,
+                style: true,
+              },
+            },
+            executedBy: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+              },
+            },
+            artifacts: includeArtifacts
+              ? {
+                select: {
+                  id: true,
+                  type: true,
+                  name: true,
+                  url: true,
+                  mimeType: true,
+                  checksumSha256: true,
+                  createdAt: true,
+                },
+              }
+              : false,
+          },
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        prisma.testRunItem.count({ where }),
+      ]);
+
+      items = legacyResult[0].map((item) => ({
+        ...item,
+        currentExecution: null,
+        _count: { executions: 0 },
+      }));
+      total = legacyResult[1];
+    }
+
+    return NextResponse.json({
+      items,
+      total,
+      page,
+      pageSize,
+    });
+  } catch {
+    return NextResponse.json(
+      { message: "Could not load run items." },
+      { status: 500 },
+    );
+  }
 });
 
 export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
@@ -227,6 +373,75 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           },
         });
 
+        const runItemWithCase = await tx.testRunItem.findUnique({
+          where: { id: upserted.id },
+          select: {
+            currentExecutionId: true,
+            testCase: {
+              select: {
+                style: true,
+                steps: true,
+              },
+            },
+            executions: {
+              orderBy: [{ attemptNumber: "desc" }],
+              take: 1,
+              select: {
+                attemptNumber: true,
+              },
+            },
+          },
+        });
+        let resolvedExecutionId = runItemWithCase?.currentExecutionId ?? null;
+
+        if (runItemWithCase?.currentExecutionId) {
+          await tx.testRunItemExecution.update({
+            where: { id: runItemWithCase.currentExecutionId },
+            data: {
+              status,
+              durationMs,
+              executedById: item.executedById?.trim() || null,
+              startedAt: executedAt ?? undefined,
+              completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
+              errorMessage: item.errorMessage?.trim() || null,
+            },
+          });
+        } else if (runItemWithCase) {
+          const nextAttempt = (runItemWithCase.executions[0]?.attemptNumber ?? 0) + 1;
+          const createdExecution = await tx.testRunItemExecution.create({
+            data: {
+              runItemId: upserted.id,
+              attemptNumber: nextAttempt,
+              status,
+              durationMs,
+              startedAt: executedAt ?? new Date(),
+              completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
+              executedById: item.executedById?.trim() || null,
+              errorMessage: item.errorMessage?.trim() || null,
+            },
+            select: { id: true },
+          });
+
+          const stepSnapshots = parseStepSnapshots(runItemWithCase.testCase.style, runItemWithCase.testCase.steps);
+          if (stepSnapshots.length > 0) {
+            await tx.testRunItemExecutionStepResult.createMany({
+              data: stepSnapshots.map((step, index) => ({
+                executionId: createdExecution.id,
+                stepIndex: index,
+                stepTextSnapshot: step.stepTextSnapshot,
+                expectedSnapshot: step.expectedSnapshot,
+                status: "not_run",
+              })),
+            });
+          }
+
+          await tx.testRunItem.update({
+            where: { id: upserted.id },
+            data: { currentExecutionId: createdExecution.id },
+          });
+          resolvedExecutionId = createdExecution.id;
+        }
+
         if (item.artifacts && item.artifacts.length > 0) {
           const artifactData = item.artifacts.map((artifact) => {
             const type = parseArtifactType(artifact.type ?? null);
@@ -250,6 +465,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
             return {
               runId: id,
               runItemId: upserted.id,
+              executionId: resolvedExecutionId,
               type,
               name: artifact.name?.trim() || null,
               url,

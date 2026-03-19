@@ -53,6 +53,7 @@ enum TestResultStatus {
   skipped
   blocked
   not_run
+  in_progress
 }
 
 enum ArtifactType {
@@ -111,6 +112,7 @@ model User {
   createdTestCases        TestCase[]           @relation("TestCaseCreatedBy")
   triggeredTestRuns       TestRun[]            @relation("TestRunTriggeredBy")
   executedRunItems        TestRunItem[]        @relation("TestRunItemExecutedBy")
+  executedRunItemExecutions TestRunItemExecution[] @relation("TestRunItemExecutionExecutedBy")
   auditLogEntries         AuditLog[]           @relation("AuditLogActor")
   globalRoles             UserGlobalRole[]
   organizationMemberships OrganizationMember[]
@@ -310,6 +312,7 @@ model TestRunItem {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   runId        String           @map("run_id") @db.Uuid
   testCaseId   String           @map("test_case_id") @db.Uuid
+  currentExecutionId String?    @map("current_execution_id") @db.Uuid
   status       TestResultStatus @default(not_run)
   durationMs   Int?             @map("duration_ms")
   executedById String?          @map("executed_by") @db.Uuid
@@ -321,20 +324,70 @@ model TestRunItem {
   run        TestRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
   testCase   TestCase          @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
   executedBy User?             @relation("TestRunItemExecutedBy", fields: [executedById], references: [id], onDelete: SetNull)
+  currentExecution TestRunItemExecution? @relation("TestRunItemCurrentExecution", fields: [currentExecutionId], references: [id], onDelete: SetNull)
+  executions TestRunItemExecution[] @relation("TestRunItemExecutions")
   artifacts  TestRunArtifact[]
   bugs       Bug[]
 
   @@unique([runId, testCaseId])
   @@index([runId], map: "idx_run_items_run")
   @@index([testCaseId], map: "idx_run_items_case")
+  @@index([currentExecutionId], map: "idx_run_items_current_execution")
   @@index([status], map: "idx_run_items_status")
   @@map("test_run_items")
+}
+
+model TestRunItemExecution {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  runItemId     String           @map("run_item_id") @db.Uuid
+  attemptNumber Int              @map("attempt_number")
+  status        TestResultStatus @default(not_run)
+  startedAt     DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt   DateTime?        @map("completed_at") @db.Timestamptz(6)
+  durationMs    Int?             @map("duration_ms")
+  executedById  String?          @map("executed_by") @db.Uuid
+  summary       String?          @db.Text
+  errorMessage  String?          @map("error_message")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  runItem         TestRunItem                        @relation("TestRunItemExecutions", fields: [runItemId], references: [id], onDelete: Cascade)
+  executedBy      User?                              @relation("TestRunItemExecutionExecutedBy", fields: [executedById], references: [id], onDelete: SetNull)
+  stepResults     TestRunItemExecutionStepResult[]
+  artifacts       TestRunArtifact[]
+  currentForItems TestRunItem[]                      @relation("TestRunItemCurrentExecution")
+
+  @@unique([runItemId, attemptNumber], map: "uq_run_item_attempt_number")
+  @@index([runItemId, attemptNumber(sort: Desc)], map: "idx_execution_run_item_attempt_desc")
+  @@index([status], map: "idx_execution_status")
+  @@map("test_run_item_executions")
+}
+
+model TestRunItemExecutionStepResult {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  executionId     String           @map("execution_id") @db.Uuid
+  stepIndex       Int              @map("step_index")
+  stepTextSnapshot String          @map("step_text_snapshot")
+  expectedSnapshot String?         @map("expected_snapshot")
+  status          TestResultStatus @default(not_run)
+  actualResult    String?          @map("actual_result")
+  comment         String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  execution TestRunItemExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, stepIndex], map: "uq_execution_step_index")
+  @@index([executionId, stepIndex], map: "idx_execution_step_result_execution_step")
+  @@index([status], map: "idx_execution_step_result_status")
+  @@map("test_run_item_execution_step_results")
 }
 
 model TestRunArtifact {
   id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   runId          String?      @map("run_id") @db.Uuid
   runItemId      String?      @map("run_item_id") @db.Uuid
+  executionId    String?      @map("execution_id") @db.Uuid
   type           ArtifactType @default(other)
   name           String?
   url            String
@@ -344,11 +397,13 @@ model TestRunArtifact {
   metadata       Json         @default("{}") @db.JsonB
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  run     TestRun?     @relation(fields: [runId], references: [id], onDelete: Cascade)
-  runItem TestRunItem? @relation(fields: [runItemId], references: [id], onDelete: Cascade)
+  run       TestRun?              @relation(fields: [runId], references: [id], onDelete: Cascade)
+  runItem   TestRunItem?          @relation(fields: [runItemId], references: [id], onDelete: Cascade)
+  execution TestRunItemExecution? @relation(fields: [executionId], references: [id], onDelete: SetNull)
 
   @@index([runId], map: "idx_artifacts_run")
   @@index([runItemId], map: "idx_artifacts_run_item")
+  @@index([executionId], map: "idx_artifacts_execution")
   @@index([metadata], type: Gin, map: "idx_artifacts_meta_gin")
   @@map("test_run_artifacts")
 }

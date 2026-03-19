@@ -1,19 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconEdit, IconFolder, IconPlay, IconPlus } from "@/components/icons";
+import { IconCheck, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { RowActionButton } from "@/components/ui/RowActionButton";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { TableShell } from "@/components/ui/TableShell";
 import { TestRunFormSheet } from "./TestRunFormSheet";
 import {
   TestRunExecutionModal,
-  type ExecutionArtifactRecord,
+  type ExecutionDetailRecord,
+  type ExecutionHistoryResponse,
   type ExecutionItemRecord,
-  type ExecutionStepState,
+  type ExecutionStatus,
 } from "./TestRunExecutionModal";
 import type { TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
 import type { ProjectsResponse } from "@/components/projects/types";
@@ -32,6 +32,16 @@ type RunItemStatus = "passed" | "failed" | "skipped" | "blocked" | "not_run";
 type RunItemRecord = {
   id: string;
   status: RunItemStatus;
+  currentExecutionId?: string | null;
+  latestAttemptNumber?: number | null;
+  attemptCount?: number;
+  currentExecution?: {
+    id: string;
+    attemptNumber: number;
+  } | null;
+  _count?: {
+    executions?: number;
+  };
   durationMs: number | null;
   executedAt: string | null;
   errorMessage: string | null;
@@ -122,6 +132,20 @@ type ExecutionArtifactMeta = {
   kind?: "execution_state" | "execution_evidence";
 };
 
+type RowActionMenuState = {
+  itemId: string;
+  x: number;
+  y: number;
+};
+
+async function parseJsonSafely<T>(response: Response): Promise<T | null> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "No date";
   const parsed = new Date(value);
@@ -181,6 +205,9 @@ export function TestRunsWorkspace() {
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
   const [executionItem, setExecutionItem] = useState<RunItemRecord | null>(null);
+  const [rowActionMenu, setRowActionMenu] = useState<RowActionMenuState | null>(null);
+  const rowActionMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -192,10 +219,40 @@ export function TestRunsWorkspace() {
 
   const canManage = !isReadOnlyGlobal;
 
+  const closeRowActionMenu = useCallback(() => {
+    setRowActionMenu(null);
+    setIsMarkAsSubmenuOpen(false);
+  }, []);
+
   const selectedRun = useMemo(
     () => runs.find((run) => run.id === selectedRunId) ?? runs[0] ?? null,
     [runs, selectedRunId],
   );
+
+  const selectedMenuItem = useMemo(
+    () => items.find((item) => item.id === rowActionMenu?.itemId) ?? null,
+    [items, rowActionMenu?.itemId],
+  );
+
+  const rowActionMenuPosition = useMemo(() => {
+    if (!rowActionMenu) return null;
+    if (typeof window === "undefined") {
+      return { left: rowActionMenu.x, top: rowActionMenu.y };
+    }
+
+    const menuWidth = 220;
+    const menuHeight = 220;
+    const padding = 8;
+    const left = Math.max(
+      padding,
+      Math.min(rowActionMenu.x, window.innerWidth - menuWidth - padding),
+    );
+    const top = Math.max(
+      padding,
+      Math.min(rowActionMenu.y, window.innerHeight - menuHeight - padding),
+    );
+    return { left, top };
+  }, [rowActionMenu]);
 
   const fetchRuns = useCallback(async () => {
     setLoadingRuns(true);
@@ -314,16 +371,19 @@ export function TestRunsWorkspace() {
           pageSize: String(ITEM_PAGE_SIZE),
         });
         const response = await fetch(`/api/test-runs/${runId}/items?${params.toString()}`);
-        const payload = (await response.json()) as {
+        const payload = await parseJsonSafely<{
           items: RunItemRecord[];
           total: number;
           page: number;
           pageSize: number;
           message?: string;
-        };
+        }>(response);
 
         if (!response.ok) {
-          throw new Error(payload.message || "Could not load run items.");
+          throw new Error(payload?.message || "Could not load run items.");
+        }
+        if (!payload) {
+          throw new Error("Could not load run items.");
         }
 
         allItems.push(...payload.items);
@@ -331,10 +391,17 @@ export function TestRunsWorkspace() {
         page += 1;
       }
 
-      setItems(allItems);
+      const normalizedItems = allItems.map((item) => ({
+        ...item,
+        attemptCount: item._count?.executions ?? item.attemptCount ?? 0,
+        latestAttemptNumber: item.currentExecution?.attemptNumber ?? item.latestAttemptNumber ?? null,
+        currentExecutionId: item.currentExecution?.id ?? item.currentExecutionId ?? null,
+      }));
+
+      setItems(normalizedItems);
       setItemEdits(
         Object.fromEntries(
-          allItems.map((item) => [item.id, { status: item.status }]),
+          normalizedItems.map((item) => [item.id, { status: item.status }]),
         ),
       );
       setDirtyItems(new Set());
@@ -362,15 +429,18 @@ export function TestRunsWorkspace() {
           pageSize: String(ARTIFACT_PAGE_SIZE),
         });
         const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
-        const payload = (await response.json()) as {
+        const payload = await parseJsonSafely<{
           items: RunArtifactRecord[];
           total: number;
           page: number;
           pageSize: number;
           message?: string;
-        };
+        }>(response);
         if (!response.ok) {
-          throw new Error(payload.message || "Could not load artifacts.");
+          throw new Error(payload?.message || "Could not load artifacts.");
+        }
+        if (!payload) {
+          throw new Error("Could not load artifacts.");
         }
 
         allArtifacts.push(...payload.items);
@@ -422,7 +492,45 @@ export function TestRunsWorkspace() {
     void fetchRunArtifacts(resolvedRunId);
   }, [selectedRunId, runs, fetchRunItems, fetchRunArtifacts]);
 
-  const handleQuickStatus = (itemId: string, status: "passed" | "failed" | "skipped") => {
+  useEffect(() => {
+    if (!rowActionMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rowActionMenuRef.current) return;
+      if (rowActionMenuRef.current.contains(event.target as Node)) return;
+      closeRowActionMenu();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeRowActionMenu();
+    };
+
+    const closeOnViewportChange = () => closeRowActionMenu();
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    window.addEventListener("resize", closeOnViewportChange);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+      window.removeEventListener("resize", closeOnViewportChange);
+    };
+  }, [closeRowActionMenu, rowActionMenu]);
+
+  useEffect(() => {
+    if (!rowActionMenu) return;
+    const first = rowActionMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    first?.focus();
+  }, [rowActionMenu]);
+
+  useEffect(() => {
+    closeRowActionMenu();
+  }, [activeTab, closeRowActionMenu, selectedRunId]);
+
+  const handleQuickStatus = useCallback((itemId: string, status: "passed" | "failed" | "skipped") => {
     const item = items.find((entry) => entry.id === itemId);
     if (!item) return;
 
@@ -440,7 +548,21 @@ export function TestRunsWorkspace() {
       }
       return next;
     });
-  };
+  }, [items]);
+
+  const openRowActionMenu = useCallback((itemId: string, x: number, y: number) => {
+    if (!canManage) return;
+    setRowActionMenu({ itemId, x, y });
+    setIsMarkAsSubmenuOpen(false);
+  }, [canManage]);
+
+  const handleOpenRowActionMenuFromButton = useCallback(
+    (itemId: string, target: HTMLElement) => {
+      const bounds = target.getBoundingClientRect();
+      openRowActionMenu(itemId, bounds.left, bounds.bottom + 6);
+    },
+    [openRowActionMenu],
+  );
 
   const handleSaveItems = async () => {
     if (!selectedRunId || dirtyItems.size === 0) return;
@@ -521,52 +643,64 @@ export function TestRunsWorkspace() {
     }
   };
 
-  const handleOpenExecution = (item: RunItemRecord) => {
+  const handleOpenExecution = useCallback((item: RunItemRecord) => {
     if (!canManage) return;
     setExecutionItem(item);
     setExecutionModalOpen(true);
-  };
+  }, [canManage]);
 
-  const loadRunItemArtifacts = useCallback(async (runId: string, runItemId: string) => {
-    const allArtifacts: RunArtifactRecord[] = [];
-    let page = 1;
-    let hasMore = true;
-
-    while (hasMore) {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(ARTIFACT_PAGE_SIZE),
-        runItemId,
+  const handleRunAgain = useCallback(async (item: RunItemRecord) => {
+    if (!canManage || !selectedRunId) return;
+    setItemsError(null);
+    try {
+      const response = await fetch(`/api/test-runs/${selectedRunId}/items/${item.id}/executions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "not_run" }),
       });
-      const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
-      const payload = (await response.json()) as {
-        items: RunArtifactRecord[];
-        total: number;
-        pageSize: number;
-        message?: string;
-      };
-
+      const payload = (await response.json()) as { message?: string };
       if (!response.ok) {
-        throw new Error(payload.message || "Could not load run item evidence.");
+        throw new Error(payload.message || "Could not create new execution.");
       }
 
-      allArtifacts.push(...payload.items);
-      hasMore = page * payload.pageSize < payload.total;
-      page += 1;
+      await Promise.all([
+        fetchRunItems(selectedRunId),
+        fetchRunArtifacts(selectedRunId),
+        fetchRuns(),
+      ]);
+      setExecutionItem(item);
+      setExecutionModalOpen(true);
+    } catch (error) {
+      setItemsError(error instanceof Error ? error.message : "Could not create new execution.");
     }
+  }, [canManage, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId]);
 
-    return allArtifacts;
-  }, []);
+  const handleSelectRowStatus = useCallback((status: "passed" | "failed" | "skipped") => {
+    if (!selectedMenuItem) return;
+    handleQuickStatus(selectedMenuItem.id, status);
+    closeRowActionMenu();
+  }, [closeRowActionMenu, handleQuickStatus, selectedMenuItem]);
+
+  const handleSelectRunAgain = useCallback(() => {
+    if (!selectedMenuItem) return;
+    void handleRunAgain(selectedMenuItem);
+    closeRowActionMenu();
+  }, [closeRowActionMenu, handleRunAgain, selectedMenuItem]);
+
+  const handleSelectExecuteCase = useCallback(() => {
+    if (!selectedMenuItem) return;
+    handleOpenExecution(selectedMenuItem);
+    closeRowActionMenu();
+  }, [closeRowActionMenu, handleOpenExecution, selectedMenuItem]);
 
   const handleSaveExecution = useCallback(
     async (payload: {
-      status: "passed" | "failed" | "not_run";
-      stepState: ExecutionStepState[];
+      executionId: string;
+      status: ExecutionStatus;
+      stepResults: Array<{ stepIndex: number; status: "passed" | "failed" | "not_run"; actualResult?: string | null; comment?: string | null }>;
       stepFiles: Record<number, File[]>;
     }) => {
       if (!selectedRunId || !executionItem) return;
-
-      const resolvedStatus = deriveExecutionStatusFromSteps(payload.stepState);
 
       const uploadEntries = Object.entries(payload.stepFiles).flatMap(([stepIndex, files]) =>
         files.map((file) => ({
@@ -579,6 +713,7 @@ export function TestRunsWorkspace() {
         const formData = new FormData();
         formData.append("file", entry.file);
         formData.append("runItemId", executionItem.id);
+        formData.append("executionId", payload.executionId);
         formData.append("type", "screenshot");
         formData.append("metadata", JSON.stringify({ kind: "execution_evidence", ...entry.metadata }));
         formData.append("name", entry.file.name);
@@ -593,16 +728,12 @@ export function TestRunsWorkspace() {
         }
       }
 
-      const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items`, {
-        method: "POST",
+      const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items/${executionItem.id}/executions/${payload.executionId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: [
-            {
-              testCaseId: executionItem.testCase.id,
-              status: resolvedStatus,
-            },
-          ],
+          status: payload.status,
+          stepResults: payload.stepResults,
         }),
       });
       const savePayload = (await saveResponse.json()) as { message?: string };
@@ -618,6 +749,38 @@ export function TestRunsWorkspace() {
     },
     [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId],
   );
+
+  const loadRunItemExecutions = useCallback(async (runId: string, runItemId: string) => {
+    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`);
+    const payload = (await response.json()) as ExecutionHistoryResponse & { message?: string };
+    if (!response.ok) {
+      throw new Error(payload.message || "Could not load execution history.");
+    }
+    return payload;
+  }, []);
+
+  const loadExecutionDetail = useCallback(async (runId: string, runItemId: string, executionId: string) => {
+    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions/${executionId}`);
+    const payload = (await response.json()) as ExecutionDetailRecord & { message?: string };
+    if (!response.ok) {
+      throw new Error(payload.message || "Could not load execution detail.");
+    }
+    return payload;
+  }, []);
+
+  const createExecutionForItem = useCallback(async (runId: string, runItemId: string) => {
+    const response = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "not_run" }),
+    });
+    const payload = (await response.json()) as { id?: string; message?: string };
+    if (!response.ok || !payload.id) {
+      throw new Error(payload.message || "Could not create execution.");
+    }
+    await Promise.all([fetchRunItems(runId), fetchRunArtifacts(runId), fetchRuns()]);
+    return { id: payload.id };
+  }, [fetchRunArtifacts, fetchRunItems, fetchRuns]);
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-background">
@@ -826,6 +989,7 @@ export function TestRunsWorkspace() {
                               <th className="px-3 py-2">Duration</th>
                               <th className="px-3 py-2">Executed by</th>
                               <th className="px-3 py-2">Executed at</th>
+                              <th className="px-3 py-2">Runs</th>
                               <th className="px-3 py-2 text-right">Actions</th>
                             </tr>
                           </thead>
@@ -833,7 +997,15 @@ export function TestRunsWorkspace() {
                             {items.map((item) => {
                               const edit = itemEdits[item.id] ?? { status: item.status };
                               return (
-                                <tr key={item.id} className="transition-colors hover:bg-brand-50/35">
+                                <tr
+                                  key={item.id}
+                                  className="transition-colors hover:bg-brand-50/35"
+                                  onContextMenu={(event) => {
+                                    if (!canManage) return;
+                                    event.preventDefault();
+                                    openRowActionMenu(item.id, event.clientX, event.clientY);
+                                  }}
+                                >
                                   <td className="px-3 py-3">
                                     <p className="font-semibold text-ink">{item.testCase.title}</p>
                                     <p className="text-xs text-ink-muted">{item.testCase.externalKey ?? "No key"}</p>
@@ -848,27 +1020,21 @@ export function TestRunsWorkspace() {
                                     {item.executedBy?.fullName ?? item.executedBy?.email ?? "No executor"}
                                   </td>
                                   <td className="px-3 py-3 text-ink-muted">{formatDate(item.executedAt)}</td>
+                                  <td className="px-3 py-3 text-ink-muted">
+                                    {item.attemptCount ?? 0} runs
+                                  </td>
                                   <td className="px-3 py-3">
                                     <div className="flex items-center justify-end gap-1">
-                                      {quickStatusActions.map((action) => (
-                                        <Button
-                                          key={action.key}
-                                          size="xs"
-                                          variant={edit.status === action.key ? "soft" : "quiet"}
-                                          className="h-7 px-2.5"
-                                          onClick={() => handleQuickStatus(item.id, action.key)}
-                                          disabled={!canManage}
-                                        >
-                                          {action.label}
-                                        </Button>
-                                      ))}
                                       {canManage ? (
-                                        <RowActionButton
-                                          onClick={() => handleOpenExecution(item)}
-                                          icon={<IconPlay className="h-4 w-4" />}
-                                          label={`Execute case ${item.testCase.title}`}
-                                          size="sm"
-                                        />
+                                        <Button
+                                          size="xs"
+                                          variant="quiet"
+                                          className="h-7 w-8 px-0"
+                                          aria-label={`Open actions menu for ${item.testCase.title}`}
+                                          onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
+                                        >
+                                          <IconMenu className="h-4 w-4" />
+                                        </Button>
                                       ) : null}
                                     </div>
                                   </td>
@@ -900,27 +1066,20 @@ export function TestRunsWorkspace() {
                                   <p>Duration: {formatDuration(item.durationMs)}</p>
                                   <p>Executed by: {item.executedBy?.fullName ?? item.executedBy?.email ?? "No executor"}</p>
                                   <p>Executed at: {formatDate(item.executedAt)}</p>
+                                  <p>Runs: {item.attemptCount ?? 0}</p>
                                 </div>
                                 <div className="mt-3 flex flex-wrap items-center gap-1">
-                                  {quickStatusActions.map((action) => (
-                                    <Button
-                                      key={action.key}
-                                      size="xs"
-                                      variant={edit.status === action.key ? "soft" : "quiet"}
-                                      className="h-7 px-2.5"
-                                      onClick={() => handleQuickStatus(item.id, action.key)}
-                                      disabled={!canManage}
-                                    >
-                                      {action.label}
-                                    </Button>
-                                  ))}
                                   {canManage ? (
-                                    <RowActionButton
-                                      onClick={() => handleOpenExecution(item)}
-                                      icon={<IconPlay className="h-4 w-4" />}
-                                      label={`Execute case ${item.testCase.title}`}
-                                      size="sm"
-                                    />
+                                    <Button
+                                      size="xs"
+                                      variant="quiet"
+                                      className="h-7 px-2.5"
+                                      aria-label={`Open actions menu for ${item.testCase.title}`}
+                                      onClick={(event) => handleOpenRowActionMenuFromButton(item.id, event.currentTarget)}
+                                    >
+                                      <IconMenu className="h-4 w-4" />
+                                      <span className="ml-1">Actions</span>
+                                    </Button>
                                   ) : null}
                                 </div>
                               </div>
@@ -1003,6 +1162,96 @@ export function TestRunsWorkspace() {
         )}
       </section>
 
+      {rowActionMenu && selectedMenuItem && rowActionMenuPosition ? (
+        <div
+          ref={rowActionMenuRef}
+          role="menu"
+          aria-label={`Actions for ${selectedMenuItem.testCase.title}`}
+          className="fixed z-50 min-w-[220px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
+          style={{ top: rowActionMenuPosition.top, left: rowActionMenuPosition.left }}
+          onKeyDown={(event) => {
+            const focusable = Array.from(
+              rowActionMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+            );
+            if (focusable.length === 0) return;
+
+            const currentIndex = focusable.findIndex((button) => button === document.activeElement);
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % focusable.length;
+              focusable[nextIndex]?.focus();
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              const nextIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+              focusable[nextIndex]?.focus();
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              (document.activeElement as HTMLButtonElement | null)?.click();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              closeRowActionMenu();
+            }
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={isMarkAsSubmenuOpen}
+            className={cn(
+              "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
+              "text-ink hover:bg-surface-muted",
+            )}
+            onClick={() => setIsMarkAsSubmenuOpen((open) => !open)}
+          >
+            <span>Mark as</span>
+            <IconChevronRight className={cn("h-4 w-4 transition-transform", isMarkAsSubmenuOpen ? "rotate-90" : "")} />
+          </button>
+          {isMarkAsSubmenuOpen ? (
+            <div className="ml-2 mt-1 space-y-1 border-l border-stroke pl-2">
+              {quickStatusActions.map((action) => {
+                const edit = itemEdits[selectedMenuItem.id] ?? { status: selectedMenuItem.status };
+                const isActive = edit.status === action.key;
+                return (
+                  <button
+                    key={action.key}
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm",
+                      isActive
+                        ? "bg-brand-50 text-brand-700"
+                        : "text-ink hover:bg-surface-muted",
+                    )}
+                    onClick={() => handleSelectRowStatus(action.key)}
+                  >
+                    <span>{action.label}</span>
+                    {isActive ? <IconCheck className="h-4 w-4" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className="my-1 h-px bg-stroke" />
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+            onClick={handleSelectRunAgain}
+          >
+            Run again
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+            onClick={handleSelectExecuteCase}
+          >
+            Execute case
+          </button>
+        </div>
+      ) : null}
+
       {canManage ? (
         <TestRunFormSheet
           open={modalOpen}
@@ -1027,9 +1276,9 @@ export function TestRunsWorkspace() {
           setExecutionModalOpen(false);
           setExecutionItem(null);
         }}
-        onLoadArtifacts={async (runId, runItemId) =>
-          (await loadRunItemArtifacts(runId, runItemId)) as ExecutionArtifactRecord[]
-        }
+        onLoadExecutions={loadRunItemExecutions}
+        onLoadExecutionDetail={loadExecutionDetail}
+        onCreateExecution={createExecutionForItem}
         onSave={handleSaveExecution}
       />
     </div>
@@ -1044,10 +1293,4 @@ function parseExecutionArtifactMeta(metadata: unknown): ExecutionArtifactMeta {
       ? raw.kind
       : undefined;
   return { kind };
-}
-
-function deriveExecutionStatusFromSteps(stepState: ExecutionStepState[]) {
-  if (stepState.some((step) => step.status === "failed")) return "failed" as const;
-  if (stepState.length > 0 && stepState.every((step) => step.status === "passed")) return "passed" as const;
-  return "not_run" as const;
 }

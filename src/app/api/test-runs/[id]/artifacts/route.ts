@@ -89,6 +89,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
         id: true,
         runId: true,
         runItemId: true,
+        executionId: true,
         type: true,
         name: true,
         url: true,
@@ -162,6 +163,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const body = (await req.json()) as {
       artifacts?: Array<{
         runItemId?: string | null;
+        executionId?: string | null;
         type?: ArtifactType;
         name?: string | null;
         url?: string;
@@ -226,6 +228,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       return {
         runId: id,
         runItemId: artifact.runItemId?.trim() || null,
+        executionId: artifact.executionId?.trim() || null,
         type,
         name: artifact.name?.trim() || null,
         url,

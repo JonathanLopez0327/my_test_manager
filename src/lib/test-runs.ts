@@ -8,6 +8,7 @@ const RESULT_STATUS_VALUES: TestResultStatus[] = [
   "skipped",
   "blocked",
   "not_run",
+  "in_progress",
 ];
 
 export type RunMetricsData = {
@@ -70,6 +71,7 @@ export async function computeRunMetrics(
     skipped: 0,
     blocked: 0,
     not_run: 0,
+    in_progress: 0,
   };
 
   for (const item of grouped) {
@@ -81,7 +83,8 @@ export async function computeRunMetrics(
     counts.failed +
     counts.skipped +
     counts.blocked +
-    counts.not_run;
+    counts.not_run +
+    counts.in_progress;
 
   const passRateValue = total > 0 ? (counts.passed / total) * 100 : 0;
   const passRate = new Prisma.Decimal(passRateValue.toFixed(2));
