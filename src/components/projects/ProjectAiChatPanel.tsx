@@ -1,7 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { IconSend } from "@/components/icons";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  IconAlert,
+  IconChevronDown,
+  IconChevronUp,
+  IconDocument,
+  IconDownload,
+  IconExternalLink,
+  IconPlus,
+  IconSend,
+} from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
 import type { AiConversationDto, AiConversationsResponse } from "@/components/ai-chat/types";
@@ -63,6 +72,38 @@ type ChatMessage = {
   content: string;
   createdAt: string;
 };
+
+type ThreadDocumentApiResponse =
+  | {
+      status: "missing";
+    }
+  | {
+      status: "pending";
+    }
+  | {
+      status: "ready";
+      url: string;
+      filename: string;
+    };
+
+type ThreadDocumentState =
+  | {
+      status: "missing";
+      message: string;
+    }
+  | {
+      status: "pending";
+      message: string;
+    }
+  | {
+      status: "ready";
+      url: string;
+      filename: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
 
 function extractAssistantDelta(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
@@ -204,10 +245,79 @@ export function ProjectAiChatPanel({
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [isDocumentSectionOpen, setIsDocumentSectionOpen] = useState(false);
+  const [documentState, setDocumentState] = useState<ThreadDocumentState>({
+    status: "missing",
+    message: "No generated document available yet.",
+  });
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
+  const fetchThreadDocument = useCallback(async (threadId: string) => {
+    if (!threadId) return;
+
+    setDocumentState({
+      status: "pending",
+      message: "Checking generated document status...",
+    });
+
+    try {
+      const response = await fetch(`/api/ai-chat/threads/${encodeURIComponent(threadId)}/document`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message || "Could not fetch the generated document.");
+      }
+
+      const payload = (await response.json()) as ThreadDocumentApiResponse;
+      if (unmountedRef.current) return;
+
+      if (payload.status === "ready") {
+        setDocumentState({
+          status: "ready",
+          url: payload.url,
+          filename: payload.filename,
+        });
+        return;
+      }
+
+      if (payload.status === "pending") {
+        setDocumentState({
+          status: "pending",
+          message: "The document is still generating. Retry in a few seconds.",
+        });
+        return;
+      }
+
+      setDocumentState({
+        status: "missing",
+        message: "No generated document available for this conversation.",
+      });
+    } catch (documentError) {
+      if (unmountedRef.current) return;
+      setDocumentState({
+        status: "error",
+        message:
+          documentError instanceof Error
+            ? documentError.message
+            : "Could not fetch the generated document.",
+      });
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -229,15 +339,35 @@ export function ProjectAiChatPanel({
         const latest = payload.items[0] ?? null;
         if (!latest) {
           setActiveConversationId(null);
+          setActiveThreadId(null);
+          setDocumentState({
+            status: "missing",
+            message: "No generated document available yet.",
+          });
           setMessages([]);
           return;
         }
 
         setActiveConversationId(latest.id);
         setMessages(mapConversationMessages(latest));
+        const threadId = latest.threadId?.trim() || null;
+        setActiveThreadId(threadId);
+        if (threadId) {
+          void fetchThreadDocument(threadId);
+        } else {
+          setDocumentState({
+            status: "missing",
+            message: "No generated document available for this conversation.",
+          });
+        }
       } catch (loadError) {
         if (!active) return;
         setActiveConversationId(null);
+        setActiveThreadId(null);
+        setDocumentState({
+          status: "error",
+          message: "Could not load generated document status.",
+        });
         setMessages([]);
         setError(loadError instanceof Error ? loadError.message : "Could not load project chat.");
       } finally {
@@ -249,7 +379,7 @@ export function ProjectAiChatPanel({
     return () => {
       active = false;
     };
-  }, [projectId]);
+  }, [projectId, fetchThreadDocument]);
 
   useEffect(() => {
     const container = viewportRef.current;
@@ -272,12 +402,40 @@ export function ProjectAiChatPanel({
 
       const payload = (await response.json()) as { item: AiConversationDto };
       setActiveConversationId(payload.item.id);
+      const threadId = payload.item.threadId?.trim() || null;
+      setActiveThreadId(threadId);
+      if (threadId) {
+        void fetchThreadDocument(threadId);
+      } else {
+        setDocumentState({
+          status: "missing",
+          message: "No generated document available for this conversation.",
+        });
+      }
       setMessages(mapConversationMessages(payload.item));
+      setError(null);
       return payload.item.id;
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Could not create conversation.");
       return null;
     }
+  };
+
+  const handleCreateNewChat = async () => {
+    if (isSending || isLoadingConversation) return;
+
+    setDraft("");
+    setMessages([]);
+    setError(null);
+    setActiveConversationId(null);
+    setActiveThreadId(null);
+    setDocumentState({
+      status: "missing",
+      message: "No generated document available yet.",
+    });
+
+    await createConversation();
+    promptRef.current?.focus();
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -334,6 +492,13 @@ export function ProjectAiChatPanel({
         throw new Error("The AI response stream is empty.");
       }
 
+      const streamedThreadId = response.headers.get("X-Thread-Id")?.trim() || null;
+      let nextThreadId = activeThreadId;
+      if (streamedThreadId) {
+        nextThreadId = streamedThreadId;
+        setActiveThreadId(streamedThreadId);
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let pending = "";
@@ -381,6 +546,15 @@ export function ProjectAiChatPanel({
             : message,
         ),
       );
+
+      if (nextThreadId) {
+        void fetchThreadDocument(nextThreadId);
+      } else {
+        setDocumentState({
+          status: "missing",
+          message: "No generated document available for this conversation.",
+        });
+      }
     } catch (sendError) {
       const nextError =
         sendError instanceof Error
@@ -406,6 +580,25 @@ export function ProjectAiChatPanel({
 
   return (
     <section className={`flex h-full w-full min-h-0 flex-col overflow-hidden rounded-xl border border-stroke bg-surface-muted/30 p-6 ${className ?? ""}`.trim()}>
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-ink">Project Assistant</p>
+          <p className="text-xs text-ink-muted">Chat in context for {projectName}.</p>
+        </div>
+        <Button
+          type="button"
+          size="xs"
+          variant="secondary"
+          onClick={() => void handleCreateNewChat()}
+          aria-label="Crear nuevo chat"
+          disabled={isSending || isLoadingConversation}
+          className="gap-1.5"
+        >
+          <IconPlus className="h-3.5 w-3.5" />
+          Nuevo chat
+        </Button>
+      </header>
+
       <div
         ref={viewportRef}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-dashed border-stroke bg-surface/70 px-6 py-5"
@@ -470,6 +663,111 @@ export function ProjectAiChatPanel({
         )}
       </div>
 
+      <section
+        className="mt-4 shrink-0 rounded-xl border border-stroke bg-surface px-4 py-3"
+        data-testid="project-generated-document"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <IconDocument className="h-4 w-4 text-brand-600" />
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">
+              Generated document
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setIsDocumentSectionOpen((current) => !current)}
+            aria-label={isDocumentSectionOpen ? "Collapse generated document" : "Expand generated document"}
+            className="gap-1 text-[11px] text-ink-muted"
+          >
+            {isDocumentSectionOpen ? (
+              <>
+                <IconChevronUp className="h-3 w-3" />
+                Collapse
+              </>
+            ) : (
+              <>
+                <IconChevronDown className="h-3 w-3" />
+                Expand
+              </>
+            )}
+          </Button>
+        </div>
+
+        {!isDocumentSectionOpen ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-ink-muted">
+              {documentState.status === "ready"
+                ? `PDF ready: ${documentState.filename}`
+                : documentState.message}
+            </p>
+            {documentState.status !== "ready" && activeThreadId ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                onClick={() => void fetchThreadDocument(activeThreadId)}
+              >
+                Reintentar
+              </Button>
+            ) : null}
+          </div>
+        ) : documentState.status === "ready" ? (
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="truncate text-sm font-semibold text-ink">{documentState.filename}</p>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={documentState.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                >
+                  <IconExternalLink className="h-3.5 w-3.5" />
+                  Open
+                </a>
+                <a
+                  href={documentState.url}
+                  download={documentState.filename}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
+                >
+                  <IconDownload className="h-3.5 w-3.5" />
+                  Download
+                </a>
+              </div>
+            </div>
+
+            <iframe
+              src={documentState.url}
+              title={`Generated PDF ${documentState.filename}`}
+              className="h-72 w-full rounded-lg border border-stroke bg-white"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div className="mt-3 rounded-lg border border-stroke bg-surface-elevated p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-500" />
+                <p className="text-xs text-ink-muted">{documentState.message}</p>
+              </div>
+              {activeThreadId ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => void fetchThreadDocument(activeThreadId)}
+                >
+                  Reintentar
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </section>
+
       <div className="mt-4 shrink-0 flex flex-wrap gap-1.5" data-testid="project-chat-quick-actions">
         {QUICK_ACTIONS.map((action) => (
           <Button
@@ -505,6 +803,7 @@ export function ProjectAiChatPanel({
         <div className="flex items-end gap-2 rounded-xl border border-stroke bg-surface px-3 py-2.5">
           <textarea
             id="project-ai-prompt"
+            ref={promptRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Ask about this project..."

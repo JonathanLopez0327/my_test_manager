@@ -79,12 +79,12 @@ export function DataDrivenEditor({
         </label>
         <div className="flex flex-col gap-3">
           {template.map((item) => (
-            <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-gray-50 p-3">
+            <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-surface-muted p-3">
               <div className="flex items-start justify-between gap-2">
                 <select
                   value={item.keyword}
                   onChange={(e) => onUpdateClause(item.id, "keyword", e.target.value)}
-                  className="h-8 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 text-sm font-medium text-ink"
+                  className="h-8 rounded-lg border border-stroke bg-surface-elevated px-2 text-sm font-medium text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                 >
                   {keywords.map((kw) => (
                     <option key={kw} value={kw}>{kw}</option>
@@ -102,7 +102,7 @@ export function DataDrivenEditor({
                 value={item.text}
                 onChange={(e) => onUpdateClause(item.id, "text", e.target.value)}
                 placeholder='the user enters <username> and <password>'
-                className="min-h-[50px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+                className="min-h-[50px] w-full rounded-lg border border-stroke bg-surface-elevated px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               />
             </div>
           ))}
@@ -117,16 +117,16 @@ export function DataDrivenEditor({
         <label className="text-sm font-semibold text-ink">Examples Table</label>
         {examples.columns.length > 0 ? (
           <div className="overflow-x-auto rounded-lg border border-stroke">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm text-ink">
               <thead>
-                <tr className="bg-gray-50">
+                <tr className="bg-surface-muted">
                   {examples.columns.map((col, colIdx) => (
                     <th key={colIdx} className="border-b border-stroke px-2 py-1.5">
                       <div className="flex items-center gap-1">
                         <input
                           value={col}
                           onChange={(e) => updateColumnName(colIdx, e.target.value)}
-                          className="w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1 text-xs font-medium text-ink outline-none focus:border-brand-300"
+                          className="w-full rounded-lg border border-stroke bg-surface-elevated px-2 py-1 text-xs font-medium text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                         />
                         <button
                           type="button"
@@ -149,7 +149,7 @@ export function DataDrivenEditor({
                         <input
                           value={cell}
                           onChange={(e) => updateCell(rowIdx, colIdx, e.target.value)}
-                          className="w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 py-1 text-xs text-ink outline-none focus:border-brand-300"
+                          className="w-full rounded-lg border border-stroke bg-surface-elevated px-2 py-1 text-xs text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                         />
                       </td>
                     ))}

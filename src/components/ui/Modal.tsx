@@ -12,7 +12,7 @@ type ModalProps = {
   description?: string;
   onClose: () => void;
   children: ReactNode;
-  size?: "sm" | "md" | "lg" | "xl" | "2xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "4xl";
   closeOnEsc?: boolean;
   trapFocus?: boolean;
   initialFocusRef?: RefObject<HTMLElement | null>;
@@ -90,6 +90,7 @@ export function Modal({
     lg: "max-w-lg",
     xl: "max-w-xl",
     "2xl": "max-w-2xl",
+    "4xl": "max-w-4xl",
   }[size];
 
   return (

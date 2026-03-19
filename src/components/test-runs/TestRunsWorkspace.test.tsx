@@ -171,7 +171,7 @@ describe("TestRunsWorkspace", () => {
         } as Response;
       }
 
-      if (url.includes("/api/test-runs/run-1/artifacts?runItemId=item-1")) {
+      if (url.includes("/api/test-runs/run-1/artifacts?") && url.includes("runItemId=item-1")) {
         return {
           ok: true,
           json: async () => ({
@@ -242,6 +242,13 @@ describe("TestRunsWorkspace", () => {
         return {
           ok: true,
           json: async () => ({ id: "new-artifact" }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/artifacts") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({ count: 1 }),
         } as Response;
       }
 
@@ -373,20 +380,25 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Open login page")).toBeInTheDocument();
     });
 
-    const generalInput = screen.getByLabelText("Add general evidence images") as HTMLInputElement;
+    const generalInput = screen.getByLabelText("Attach general evidence") as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
     fireEvent.change(generalInput, { target: { files: [file] } });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Save progress/i }));
 
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
       ).toBe(true);
       expect(
+        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts") && (call[1] as RequestInit)?.method === "POST"),
+      ).toBe(true);
+      expect(
         fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/items") && (call[1] as RequestInit)?.method === "POST"),
       ).toBe(true);
     });
+
+    expect(screen.getByText("Execute test case")).toBeInTheDocument();
   });
 
   it("rejects non-image file inside execution modal", async () => {
@@ -406,7 +418,7 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
 
-    const generalInput = screen.getByLabelText("Add general evidence images") as HTMLInputElement;
+    const generalInput = screen.getByLabelText("Attach general evidence") as HTMLInputElement;
     const invalid = new File([new Uint8Array([1, 2, 3])], "evidence.txt", { type: "text/plain" });
     fireEvent.change(generalInput, { target: { files: [invalid] } });
 

@@ -14,6 +14,7 @@ import {
   type ExecutionArtifactRecord,
   type ExecutionItemRecord,
   type ExecutionStatus,
+  type ExecutionStepSnapshot,
 } from "./TestRunExecutionModal";
 import type { TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
 import type { ProjectsResponse } from "@/components/projects/types";
@@ -117,6 +118,10 @@ const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped"; label: s
   { key: "failed", label: "Failed" },
   { key: "skipped", label: "Skipped" },
 ];
+
+type ExecutionArtifactMeta = {
+  kind?: "execution_state" | "execution_evidence";
+};
 
 function formatDate(value?: string | null) {
   if (!value) return "No date";
@@ -374,7 +379,12 @@ export function TestRunsWorkspace() {
         page += 1;
       }
 
-      setArtifacts(allArtifacts);
+      setArtifacts(
+        allArtifacts.filter((artifact) => {
+          const meta = parseExecutionArtifactMeta(artifact.metadata);
+          return meta.kind !== "execution_state";
+        }),
+      );
     } catch (fetchError) {
       setArtifactsError(
         fetchError instanceof Error ? fetchError.message : "Could not load artifacts.",
@@ -528,6 +538,7 @@ export function TestRunsWorkspace() {
         page: String(page),
         pageSize: String(ARTIFACT_PAGE_SIZE),
         runItemId,
+        includeExecutionState: "true",
       });
       const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
       const payload = (await response.json()) as {
@@ -552,6 +563,9 @@ export function TestRunsWorkspace() {
   const handleSaveExecution = useCallback(
     async (payload: {
       status: ExecutionStatus;
+      runNotes: string;
+      activeStepIndex: number;
+      stepState: ExecutionStepSnapshot[];
       generalFiles: File[];
       stepFiles: Record<number, File[]>;
     }) => {
@@ -575,7 +589,7 @@ export function TestRunsWorkspace() {
         formData.append("file", entry.file);
         formData.append("runItemId", executionItem.id);
         formData.append("type", "screenshot");
-        formData.append("metadata", JSON.stringify(entry.metadata));
+        formData.append("metadata", JSON.stringify({ kind: "execution_evidence", ...entry.metadata }));
         formData.append("name", entry.file.name);
 
         const uploadResponse = await fetch(`/api/test-runs/${selectedRunId}/artifacts/upload`, {
@@ -603,6 +617,33 @@ export function TestRunsWorkspace() {
       const savePayload = (await saveResponse.json()) as { message?: string };
       if (!saveResponse.ok) {
         throw new Error(savePayload.message || "Could not save execution.");
+      }
+
+      const stateResponse = await fetch(`/api/test-runs/${selectedRunId}/artifacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artifacts: [
+            {
+              runItemId: executionItem.id,
+              type: "other",
+              name: "Execution state snapshot",
+              url: `execution-state://${selectedRunId}/${executionItem.id}/${Date.now()}`,
+              metadata: {
+                kind: "execution_state",
+                snapshot: {
+                  runNotes: payload.runNotes,
+                  activeStepIndex: payload.activeStepIndex,
+                  steps: payload.stepState,
+                },
+              },
+            },
+          ],
+        }),
+      });
+      const statePayload = (await stateResponse.json()) as { message?: string };
+      if (!stateResponse.ok) {
+        throw new Error(statePayload.message || "Could not save execution metadata.");
       }
 
       await Promise.all([
@@ -1029,4 +1070,14 @@ export function TestRunsWorkspace() {
       />
     </div>
   );
+}
+
+function parseExecutionArtifactMeta(metadata: unknown): ExecutionArtifactMeta {
+  if (!metadata || typeof metadata !== "object") return {};
+  const raw = metadata as Record<string, unknown>;
+  const kind =
+    raw.kind === "execution_state" || raw.kind === "execution_evidence"
+      ? raw.kind
+      : undefined;
+  return { kind };
 }

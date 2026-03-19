@@ -45,6 +45,7 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   );
   const runItemId = searchParams.get("runItemId")?.trim();
   const type = parseArtifactType(searchParams.get("type")?.trim() ?? null);
+  const includeExecutionState = searchParams.get("includeExecutionState") === "true";
 
   if (searchParams.get("type") && !type) {
     return NextResponse.json(
@@ -127,10 +128,20 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     }),
   );
 
+  const filteredItems = signedItems.filter((item) => {
+    if (includeExecutionState) return true;
+    const metadata = item.metadata;
+    if (!metadata || typeof metadata !== "object") return true;
+    const kind = (metadata as Record<string, unknown>).kind;
+    return kind !== "execution_state";
+  });
+
+  const filteredTotal = includeExecutionState ? total : filteredItems.length;
+
   return NextResponse.json(
     {
-      items: signedItems,
-      total,
+      items: filteredItems,
+      total: filteredTotal,
       page,
       pageSize,
     },
