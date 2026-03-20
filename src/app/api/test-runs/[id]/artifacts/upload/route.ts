@@ -29,6 +29,12 @@ function sanitizeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function isLegacyExecutionSchemaError(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: string }).code;
+  return code === "P2021" || code === "P2022";
+}
+
 export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
   const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_UPLOAD, activeOrganizationId, organizationRole);
@@ -104,43 +110,48 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     let generatedName = name;
 
     if (executionId) {
-      const execution = await prisma.testRunItemExecution.findFirst({
-        where: {
-          id: executionId,
-          runItem: { runId: id },
-        },
-        select: {
-          id: true,
-          runItemId: true,
-          runItem: {
-            select: {
-              testCase: {
-                select: {
-                  title: true,
-                  externalKey: true,
+      try {
+        const execution = await prisma.testRunItemExecution.findFirst({
+          where: {
+            id: executionId,
+            runItem: { runId: id },
+          },
+          select: {
+            id: true,
+            runItemId: true,
+            runItem: {
+              select: {
+                testCase: {
+                  select: {
+                    title: true,
+                    externalKey: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
-      if (!execution) {
-        return NextResponse.json(
-          { message: "Execution does not belong to this run." },
-          { status: 400 },
-        );
+        });
+        if (!execution) {
+          return NextResponse.json(
+            { message: "Execution does not belong to this run." },
+            { status: 400 },
+          );
+        }
+        if (runItemId && runItemId !== execution.runItemId) {
+          return NextResponse.json(
+            { message: "runItemId does not match executionId." },
+            { status: 400 },
+          );
+        }
+        runItemId = execution.runItemId;
+        const caseName = execution.runItem.testCase.externalKey
+          ? `${execution.runItem.testCase.externalKey} ${execution.runItem.testCase.title}`
+          : execution.runItem.testCase.title;
+        generatedName = `${caseName} - ${type} - ${file.name}`;
+      } catch (error) {
+        if (!isLegacyExecutionSchemaError(error)) throw error;
+        // Legacy schema fallback: execution linkage is unavailable until migration is applied.
       }
-      if (runItemId && runItemId !== execution.runItemId) {
-        return NextResponse.json(
-          { message: "runItemId does not match executionId." },
-          { status: 400 },
-        );
-      }
-      runItemId = execution.runItemId;
-      const caseName = execution.runItem.testCase.externalKey
-        ? `${execution.runItem.testCase.externalKey} ${execution.runItem.testCase.title}`
-        : execution.runItem.testCase.title;
-      generatedName = `${caseName} - ${type} - ${file.name}`;
     } else if (runItemId) {
       const belongs = await prisma.testRunItem.findFirst({
         where: { id: runItemId, runId: id },
@@ -188,32 +199,64 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const url = buildS3ObjectUrl("artifacts", key);
 
-    const record = await prisma.testRunArtifact.create({
-      data: {
-        runId: id,
-        runItemId,
-        executionId,
-        type,
-        name: generatedName,
-        url,
-        mimeType: file.type || null,
-        sizeBytes: uploadPolicy.sizeBytes,
-        checksumSha256: hash,
-        metadata,
-      },
-      select: {
-        id: true,
-        runId: true,
-        runItemId: true,
-        type: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        checksumSha256: true,
-        metadata: true,
-        createdAt: true,
-      },
-    });
+    let record;
+    try {
+      record = await prisma.testRunArtifact.create({
+        data: {
+          runId: id,
+          runItemId,
+          executionId,
+          type,
+          name: generatedName,
+          url,
+          mimeType: file.type || null,
+          sizeBytes: uploadPolicy.sizeBytes,
+          checksumSha256: hash,
+          metadata,
+        },
+        select: {
+          id: true,
+          runId: true,
+          runItemId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
+      });
+    } catch (error) {
+      if (!isLegacyExecutionSchemaError(error)) throw error;
+
+      // Legacy schema fallback: write artifact without execution linkage.
+      record = await prisma.testRunArtifact.create({
+        data: {
+          runId: id,
+          runItemId,
+          type,
+          name: generatedName,
+          url,
+          mimeType: file.type || null,
+          sizeBytes: uploadPolicy.sizeBytes,
+          checksumSha256: hash,
+          metadata,
+        },
+        select: {
+          id: true,
+          runId: true,
+          runItemId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
+      });
+    }
 
     return NextResponse.json(record, { status: 201 });
   } catch {

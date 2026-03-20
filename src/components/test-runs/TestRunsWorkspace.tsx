@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { IconCheck, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { Modal } from "@/components/ui/Modal";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { TableShell } from "@/components/ui/TableShell";
@@ -124,11 +125,10 @@ const itemStatusTone: Record<RunItemStatus, "success" | "warning" | "danger" | "
   not_run: "neutral",
 };
 
-const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped" | "not_run"; label: string }> = [
+const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped"; label: string }> = [
   { key: "passed", label: "Passed" },
   { key: "failed", label: "Failed" },
   { key: "skipped", label: "Skipped" },
-  { key: "not_run", label: "Reset" },
 ];
 
 type ExecutionArtifactMeta = {
@@ -208,6 +208,7 @@ export function TestRunsWorkspace() {
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
   const [executionItem, setExecutionItem] = useState<RunItemRecord | null>(null);
+  const [executionStartNew, setExecutionStartNew] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [historyItem, setHistoryItem] = useState<RunItemRecord | null>(null);
   const [historyItems, setHistoryItems] = useState<ExecutionHistoryItemRecord[]>([]);
@@ -216,6 +217,8 @@ export function TestRunsWorkspace() {
   const [rowActionMenu, setRowActionMenu] = useState<RowActionMenuState | null>(null);
   const rowActionMenuRef = useRef<HTMLDivElement | null>(null);
   const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
+  const [resetConfirmItem, setResetConfirmItem] = useState<RunItemRecord | null>(null);
+  const [resettingItem, setResettingItem] = useState(false);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -652,37 +655,26 @@ export function TestRunsWorkspace() {
     }
   };
 
+  const handleDeleteRun = async (run: TestRunRecord) => {
+    const response = await fetch(`/api/test-runs/${run.id}`, {
+      method: "DELETE",
+    });
+    const data = (await response.json()) as { message?: string };
+    if (!response.ok) {
+      throw new Error(data.message || "Could not delete test run.");
+    }
+
+    await fetchRuns();
+    setSelectedRunId((current) => (current === run.id ? null : current));
+  };
+
   const handleOpenExecution = useCallback((item: RunItemRecord) => {
     if (!canManage) return;
+    const hasExistingExecution = Boolean(item.currentExecutionId) || (item.attemptCount ?? 0) > 0;
+    setExecutionStartNew(hasExistingExecution);
     setExecutionItem(item);
     setExecutionModalOpen(true);
   }, [canManage]);
-
-  const handleRunAgain = useCallback(async (item: RunItemRecord) => {
-    if (!canManage || !selectedRunId) return;
-    setItemsError(null);
-    try {
-      const response = await fetch(`/api/test-runs/${selectedRunId}/items/${item.id}/executions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "not_run" }),
-      });
-      const payload = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(payload.message || "Could not create new execution.");
-      }
-
-      await Promise.all([
-        fetchRunItems(selectedRunId),
-        fetchRunArtifacts(selectedRunId),
-        fetchRuns(),
-      ]);
-      setExecutionItem(item);
-      setExecutionModalOpen(true);
-    } catch (error) {
-      setItemsError(error instanceof Error ? error.message : "Could not create new execution.");
-    }
-  }, [canManage, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId]);
 
   const handleSelectRowStatus = useCallback((status: "passed" | "failed" | "skipped" | "not_run") => {
     if (!selectedMenuItem) return;
@@ -690,17 +682,77 @@ export function TestRunsWorkspace() {
     closeRowActionMenu();
   }, [closeRowActionMenu, handleQuickStatus, selectedMenuItem]);
 
-  const handleSelectRunAgain = useCallback(() => {
-    if (!selectedMenuItem) return;
-    void handleRunAgain(selectedMenuItem);
-    closeRowActionMenu();
-  }, [closeRowActionMenu, handleRunAgain, selectedMenuItem]);
-
   const handleSelectExecuteCase = useCallback(() => {
     if (!selectedMenuItem) return;
-    handleOpenExecution(selectedMenuItem);
+    void handleOpenExecution(selectedMenuItem);
     closeRowActionMenu();
   }, [closeRowActionMenu, handleOpenExecution, selectedMenuItem]);
+
+  const handleConfirmReset = useCallback(async () => {
+    if (!selectedRunId || !resetConfirmItem) return;
+
+    setResettingItem(true);
+    setItemsError(null);
+    try {
+      const response = await fetch(`/api/test-runs/${selectedRunId}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              testCaseId: resetConfirmItem.testCase.id,
+              status: "not_run",
+              durationMs: null,
+              executedById: null,
+              executedAt: null,
+              errorMessage: null,
+            },
+          ],
+        }),
+      });
+      const data = await parseJsonSafely<{ message?: string }>(response);
+      if (!response.ok) {
+        throw new Error(data?.message || "Could not reset test case.");
+      }
+
+      await Promise.all([
+        fetchRunItems(selectedRunId),
+        fetchRunArtifacts(selectedRunId),
+        fetchRuns(),
+      ]);
+      setResetConfirmItem(null);
+    } catch (resetError) {
+      setItemsError(
+        resetError instanceof Error ? resetError.message : "Could not reset test case.",
+      );
+    } finally {
+      setResettingItem(false);
+    }
+  }, [fetchRunArtifacts, fetchRunItems, fetchRuns, resetConfirmItem, selectedRunId]);
+
+  const handleSelectReset = useCallback(() => {
+    if (!selectedMenuItem) return;
+    setResetConfirmItem(selectedMenuItem);
+    closeRowActionMenu();
+  }, [closeRowActionMenu, selectedMenuItem]);
+
+  const handleCreateExecution = useCallback(
+    async (runId: string, runItemId: string): Promise<string> => {
+      const createResponse = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "not_run" }),
+      });
+      const createPayload = await parseJsonSafely<{ id?: string; message?: string }>(createResponse);
+      if (!createResponse.ok || !createPayload?.id) {
+        throw new Error(createPayload?.message || "Could not create execution.");
+      }
+      return createPayload.id;
+    },
+    [],
+  );
 
   const handleSaveExecution = useCallback(
     async (payload: {
@@ -740,40 +792,22 @@ export function TestRunsWorkspace() {
         }
       }
 
-      if (payload.executionId) {
-        const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items/${executionItem.id}/executions/${payload.executionId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: payload.status,
-            durationMs: payload.durationMs,
-            stepResults: payload.stepResults,
-          }),
-        });
-        const savePayload = await parseJsonSafely<{ message?: string }>(saveResponse);
-        if (!saveResponse.ok) {
-          throw new Error(savePayload?.message || "Could not save execution.");
-        }
-      } else {
-        const legacyResponse = await fetch(`/api/test-runs/${selectedRunId}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            items: [
-              {
-                testCaseId: executionItem.testCase.id,
-                status: payload.status,
-                durationMs: payload.durationMs,
-                executedById: session?.user?.id ?? null,
-                executedAt: new Date().toISOString(),
-              },
-            ],
-          }),
-        });
-        const legacyPayload = await parseJsonSafely<{ message?: string }>(legacyResponse);
-        if (!legacyResponse.ok) {
-          throw new Error(legacyPayload?.message || "Could not save execution.");
-        }
+      if (!payload.executionId) {
+        throw new Error("No execution ID provided. Cannot save execution.");
+      }
+
+      const saveResponse = await fetch(`/api/test-runs/${selectedRunId}/items/${executionItem.id}/executions/${payload.executionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: payload.status,
+          durationMs: payload.durationMs,
+          stepResults: payload.stepResults,
+        }),
+      });
+      const savePayload = await parseJsonSafely<{ message?: string }>(saveResponse);
+      if (!saveResponse.ok) {
+        throw new Error(savePayload?.message || "Could not save execution.");
       }
 
       await Promise.all([
@@ -782,7 +816,7 @@ export function TestRunsWorkspace() {
         fetchRuns(),
       ]);
     },
-    [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId, session?.user?.id],
+    [executionItem, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId],
   );
 
   const loadRunItemExecutionsReadOnly = useCallback(async (runId: string, runItemId: string) => {
@@ -798,35 +832,14 @@ export function TestRunsWorkspace() {
   }, []);
 
   const loadRunItemExecutionsForExecutionModal = useCallback(async (runId: string, runItemId: string) => {
-    const fetchHistory = async () => {
-      try {
-        const payload = await loadRunItemExecutionsReadOnly(runId, runItemId);
-        return { ok: true as const, payload };
-      } catch {
-        return { ok: false as const, payload: null };
-      }
-    };
-
-    let initial = await fetchHistory();
-    if (initial.ok && initial.payload) return initial.payload;
-
-    // Bootstrap first execution when history is missing/uninitialized.
-    const createResponse = await fetch(`/api/test-runs/${runId}/items/${runItemId}/executions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "not_run" }),
-    });
-    const createPayload = await parseJsonSafely<{ id?: string; message?: string }>(createResponse);
-
-    if (createResponse.ok && createPayload?.id) {
-      initial = await fetchHistory();
-      if (initial.ok && initial.payload) return initial.payload;
+    try {
+      return await loadRunItemExecutionsReadOnly(runId, runItemId);
+    } catch {
+      return {
+        currentExecutionId: null,
+        items: [],
+      };
     }
-
-    return {
-      currentExecutionId: null,
-      items: [],
-    };
   }, [loadRunItemExecutionsReadOnly]);
 
   const loadExecutionDetail = useCallback(async (runId: string, runItemId: string, executionId: string) => {
@@ -1316,17 +1329,17 @@ export function TestRunsWorkspace() {
                 type="button"
                 role="menuitem"
                 className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
-                onClick={handleSelectRunAgain}
+                onClick={handleSelectExecuteCase}
               >
-                Run again
+                Execute case
               </button>
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
-                onClick={handleSelectExecuteCase}
+                className="flex w-full items-center rounded-md px-2.5 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-50 dark:text-danger-500 dark:hover:bg-danger-500/10"
+                onClick={handleSelectReset}
               >
-                Execute case
+                Reset
               </button>
               <div className="my-1 h-px bg-stroke" />
             </>
@@ -1354,6 +1367,7 @@ export function TestRunsWorkspace() {
             setEditingRun(null);
           }}
           onSave={handleSaveRun}
+          onDelete={handleDeleteRun}
         />
       ) : null}
 
@@ -1362,10 +1376,13 @@ export function TestRunsWorkspace() {
         runId={selectedRunId}
         item={executionItem as ExecutionItemRecord | null}
         canManage={canManage}
+        startNewExecution={executionStartNew}
         onClose={() => {
           setExecutionModalOpen(false);
           setExecutionItem(null);
+          setExecutionStartNew(false);
         }}
+        onCreateExecution={handleCreateExecution}
         onLoadExecutions={loadRunItemExecutionsForExecutionModal}
         onLoadExecutionDetail={loadExecutionDetail}
         onSave={handleSaveExecution}
@@ -1431,6 +1448,21 @@ export function TestRunsWorkspace() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmationDialog
+        open={Boolean(resetConfirmItem)}
+        title="Reset execution"
+        description={`This will reset "${resetConfirmItem?.testCase.title ?? "this test case"}" and remove its execution artifacts. Do you want to continue?`}
+        confirmText="Reset"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={handleConfirmReset}
+        onCancel={() => {
+          if (resettingItem) return;
+          setResetConfirmItem(null);
+        }}
+        isConfirming={resettingItem}
+      />
     </div>
   );
 }

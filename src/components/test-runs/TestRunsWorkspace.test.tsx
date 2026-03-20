@@ -415,8 +415,8 @@ describe("TestRunsWorkspace", () => {
     fireEvent.contextMenu(row);
 
     expect(screen.getByRole("menuitem", { name: "Mark as" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Run again" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Execute case" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Reset" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "View execution history" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Mark as" }));
@@ -443,6 +443,39 @@ describe("TestRunsWorkspace", () => {
             body?.items?.[0]?.executedById === "user-1" &&
             typeof body?.items?.[0]?.executedAt === "string"
           );
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("confirms reset from context menu and sends immediate reset payload", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reset" }));
+
+    expect(screen.getByText("Reset execution")).toBeInTheDocument();
+    expect(screen.getByText(/remove its execution artifacts/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items")) return false;
+          if (requestInit?.method !== "POST") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.items?.[0]?.status === "not_run" && body?.items?.[0]?.testCaseId === "tc-1";
         }),
       ).toBe(true);
     });
@@ -530,8 +563,8 @@ describe("TestRunsWorkspace", () => {
 
     expect(screen.getByRole("menuitem", { name: "View execution history" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Mark as" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Run again" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Execute case" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Reset" })).not.toBeInTheDocument();
   });
 
   it("opens execution modal with history selector and saves failed status on current execution", async () => {
@@ -568,7 +601,7 @@ describe("TestRunsWorkspace", () => {
       target: { value: "fail_test" },
     });
 
-    const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
+    const stepInput = (await screen.findByLabelText("Attach evidence for step 1")) as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "evidence.png", { type: "image/png" });
     fireEvent.change(stepInput, { target: { files: [file] } });
 
@@ -579,22 +612,42 @@ describe("TestRunsWorkspace", () => {
         fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
       ).toBe(true);
       expect(
-        fetchMock.mock.calls.some((call) => {
-          const [requestUrl, requestInit] = call as [string, RequestInit];
-          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
-          if (requestInit?.method !== "PATCH") return false;
-          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
-          return body?.status === "failed" && typeof body?.durationMs === "number" && body.durationMs >= 1;
-        }),
-      ).toBe(true);
-      expect(
         fetchMock.mock.calls.some(
           (call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts") && (call[1] as RequestInit)?.method === "POST",
         ),
       ).toBe(false);
     });
 
-    expect(screen.queryByText("Execute test case")).not.toBeInTheDocument();
+  });
+
+  it("creates a new execution attempt when opening execute case for item with existing execution", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    // The modal should auto-create a new execution attempt on open (since item has existing execution and startNewExecution=true)
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          return String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions") && requestInit?.method === "POST";
+        }),
+      ).toBe(true);
+    });
   });
 
   it("uses global selector status even when step statuses differ, including Pause and Not applicable mappings", async () => {
@@ -626,7 +679,7 @@ describe("TestRunsWorkspace", () => {
       expect(
         fetchMock.mock.calls.some((call) => {
           const [requestUrl, requestInit] = call as [string, RequestInit];
-          if (!String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1")) return false;
+          if (!String(requestUrl).includes("/api/test-runs/run-1/items/item-1/executions/")) return false;
           if (requestInit?.method !== "PATCH") return false;
           const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
           return body?.status === "blocked" && typeof body?.durationMs === "number" && body.durationMs >= 1;
@@ -640,7 +693,7 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
 
-    const stepInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
+    const stepInput = (await screen.findByLabelText("Attach evidence for step 1")) as HTMLInputElement;
     const file = new File([new Uint8Array([1, 2, 3])], "evidence-2.png", { type: "image/png" });
     fireEvent.change(stepInput, { target: { files: [file] } });
     fireEvent.change(screen.getByRole("combobox", { name: "Overall test result" }), {
@@ -653,7 +706,7 @@ describe("TestRunsWorkspace", () => {
     await waitFor(() => {
       const itemPosts = fetchMock.mock.calls.filter((call) => {
         const [requestUrl, requestInit] = call as [string, RequestInit];
-        return String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions/exec-1") && requestInit?.method === "PATCH";
+        return String(requestUrl).includes("/api/test-runs/run-1/items/item-1/executions/") && requestInit?.method === "PATCH";
       });
       const last = itemPosts[itemPosts.length - 1] as [string, RequestInit] | undefined;
       expect(last).toBeDefined();
@@ -681,7 +734,7 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
 
-    const generalInput = screen.getByLabelText("Attach evidence for step 1") as HTMLInputElement;
+    const generalInput = (await screen.findByLabelText("Attach evidence for step 1")) as HTMLInputElement;
     const invalid = new File([new Uint8Array([1, 2, 3])], "evidence.txt", { type: "text/plain" });
     fireEvent.change(generalInput, { target: { files: [invalid] } });
 

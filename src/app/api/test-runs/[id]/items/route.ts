@@ -44,6 +44,18 @@ function parseArtifactType(value?: string | null) {
     : null;
 }
 
+function isExecutionEvidenceMetadata(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object") return false;
+  const raw = metadata as Record<string, unknown>;
+  return raw.kind === "execution_evidence";
+}
+
+function isExecutionStateMetadata(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object") return false;
+  const raw = metadata as Record<string, unknown>;
+  return raw.kind === "execution_state";
+}
+
 type StepSnapshot = {
   stepTextSnapshot: string;
   expectedSnapshot: string | null;
@@ -281,11 +293,46 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
         prisma.testRunItem.count({ where }),
       ]);
 
-      items = legacyResult[0].map((item) => ({
-        ...item,
-        currentExecution: null,
-        _count: { executions: 0 },
-      }));
+      const legacyRunItemIds = legacyResult[0].map((item) => item.id);
+      const executionStateAttemptsByItemId = new Map<string, Set<number>>();
+      if (legacyRunItemIds.length > 0) {
+        const stateArtifacts = await prisma.testRunArtifact.findMany({
+          where: {
+            runId: id,
+            runItemId: { in: legacyRunItemIds },
+          },
+          select: {
+            runItemId: true,
+            metadata: true,
+          },
+        });
+
+        for (const artifact of stateArtifacts) {
+          if (!artifact.runItemId) continue;
+          if (!artifact.metadata || typeof artifact.metadata !== "object") continue;
+          const raw = artifact.metadata as Record<string, unknown>;
+          if (raw.kind !== "execution_state") continue;
+          const attemptNumber = Number(raw.attemptNumber);
+          if (!Number.isInteger(attemptNumber) || attemptNumber <= 0) continue;
+          const attempts = executionStateAttemptsByItemId.get(artifact.runItemId) ?? new Set<number>();
+          attempts.add(attemptNumber);
+          executionStateAttemptsByItemId.set(artifact.runItemId, attempts);
+        }
+      }
+
+      items = legacyResult[0].map((item) => {
+        const hasLegacyExecution =
+          item.status !== "not_run"
+          || Boolean(item.executedAt)
+          || item.durationMs !== null;
+        const executionStateCount = executionStateAttemptsByItemId.get(item.id)?.size ?? 0;
+        const totalExecutionCount = (hasLegacyExecution ? 1 : 0) + executionStateCount;
+        return {
+          ...item,
+          currentExecution: null,
+          _count: { executions: totalExecutionCount },
+        };
+      });
       total = legacyResult[1];
     }
 
@@ -399,6 +446,33 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           },
         });
 
+        if (status === "not_run") {
+          const existingArtifacts = await tx.testRunArtifact.findMany({
+            where: {
+              runId: id,
+              runItemId: upserted.id,
+            },
+            select: {
+              id: true,
+              metadata: true,
+            },
+          });
+          const executionArtifactIds = existingArtifacts
+            .filter(
+              (artifact) =>
+                isExecutionEvidenceMetadata(artifact.metadata)
+                || isExecutionStateMetadata(artifact.metadata),
+            )
+            .map((artifact) => artifact.id);
+          if (executionArtifactIds.length > 0) {
+            await tx.testRunArtifact.deleteMany({
+              where: {
+                id: { in: executionArtifactIds },
+              },
+            });
+          }
+        }
+
         if (item.artifacts && item.artifacts.length > 0) {
           const artifactData = item.artifacts.map((artifact) => {
             const type = parseArtifactType(artifact.type ?? null);
@@ -510,6 +584,55 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
             createdAt: true,
           },
         });
+
+        if (status === "not_run") {
+          const existingArtifacts = await tx.testRunArtifact.findMany({
+            where: {
+              runId: id,
+              runItemId: upserted.id,
+            },
+            select: {
+              id: true,
+              executionId: true,
+              metadata: true,
+            },
+          });
+          const executionArtifactIds = existingArtifacts
+            .filter(
+              (artifact) =>
+                Boolean(artifact.executionId)
+                || isExecutionEvidenceMetadata(artifact.metadata)
+                || isExecutionStateMetadata(artifact.metadata),
+            )
+            .map((artifact) => artifact.id);
+          if (executionArtifactIds.length > 0) {
+            await tx.testRunArtifact.deleteMany({
+              where: {
+                id: { in: executionArtifactIds },
+              },
+            });
+          }
+
+          await tx.testRunItemExecutionStepResult.deleteMany({
+            where: {
+              execution: {
+                runItemId: upserted.id,
+              },
+            },
+          });
+          await tx.testRunItemExecution.deleteMany({
+            where: {
+              runItemId: upserted.id,
+            },
+          });
+          await tx.testRunItem.update({
+            where: { id: upserted.id },
+            data: { currentExecutionId: null },
+          });
+
+          updatedItems.push(upserted);
+          continue;
+        }
 
         const runItemWithCase = await tx.testRunItem.findUnique({
           where: { id: upserted.id },

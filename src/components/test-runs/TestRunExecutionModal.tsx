@@ -100,7 +100,9 @@ type TestRunExecutionModalProps = {
   runId: string | null;
   item: ExecutionItemRecord | null;
   canManage: boolean;
+  startNewExecution?: boolean;
   onClose: () => void;
+  onCreateExecution: (runId: string, runItemId: string) => Promise<string>;
   onLoadExecutions: (runId: string, runItemId: string) => Promise<ExecutionHistoryResponse>;
   onLoadExecutionDetail: (runId: string, runItemId: string, executionId: string) => Promise<ExecutionDetailRecord>;
   onSave: (payload: ExecutionSavePayload) => Promise<void>;
@@ -142,7 +144,9 @@ export function TestRunExecutionModal({
   runId,
   item,
   canManage,
+  startNewExecution,
   onClose,
+  onCreateExecution,
   onLoadExecutions,
   onLoadExecutionDetail,
   onSave,
@@ -168,6 +172,7 @@ export function TestRunExecutionModal({
   const [modalOpenedAt, setModalOpenedAt] = useState<number | null>(null);
 
   const selectedGlobalStatus = mapGlobalResultToStatus(selectedGlobalResult);
+  const isResultSelected = selectedGlobalResult !== "not_run" && selectedGlobalResult !== "in_progress";
   const parsedFromItem = useMemo(
     () => parseSteps(item?.testCase.style, item?.testCase.steps),
     [item?.testCase.style, item?.testCase.steps],
@@ -196,15 +201,7 @@ export function TestRunExecutionModal({
 
   useEffect(() => {
     if (!open || !item || !runId) return;
-    const shouldLoadExecutionHistory = Boolean(item.currentExecutionId) || (item.attemptCount ?? 0) > 0;
-
-    if (!shouldLoadExecutionHistory) {
-      setExecutions([]);
-      setCurrentExecutionId(null);
-      setSelectedExecutionId(null);
-      setLoadingExecutions(false);
-      return;
-    }
+    const hasExistingExecutions = Boolean(item.currentExecutionId) || (item.attemptCount ?? 0) > 0;
 
     let canceled = false;
     setLoadingExecutions(true);
@@ -213,26 +210,44 @@ export function TestRunExecutionModal({
     setFileError(null);
     setStepDraftFiles({});
 
-    void onLoadExecutions(runId, item.id)
-      .then((payload) => {
-        if (canceled) return;
-        setExecutions(payload.items);
-        setCurrentExecutionId(payload.currentExecutionId);
-        setSelectedExecutionId(payload.currentExecutionId ?? payload.items[0]?.id ?? null);
-      })
-      .catch((error) => {
+    void (async () => {
+      try {
+        // Case A: No existing execution → create the first one
+        // Case B: startNewExecution + existing executions → create a new attempt
+        const shouldCreateNew = !hasExistingExecutions || (startNewExecution && hasExistingExecutions);
+
+        if (shouldCreateNew) {
+          const newId = await onCreateExecution(runId, item.id);
+          if (canceled) return;
+
+          // Load the updated history after creation
+          const payload = await onLoadExecutions(runId, item.id);
+          if (canceled) return;
+          setExecutions(payload.items);
+          setCurrentExecutionId(newId);
+          setSelectedExecutionId(newId);
+        } else {
+          // Just load existing history (viewing an existing execution without re-executing)
+          const payload = await onLoadExecutions(runId, item.id);
+          if (canceled) return;
+          setExecutions(payload.items);
+          setCurrentExecutionId(payload.currentExecutionId);
+          setSelectedExecutionId(payload.currentExecutionId ?? payload.items[0]?.id ?? null);
+        }
+      } catch (error) {
         if (canceled) return;
         setArtifactsError(error instanceof Error ? error.message : "Could not load execution history.");
-      })
-      .finally(() => {
+      } finally {
         if (canceled) return;
         setLoadingExecutions(false);
-      });
+      }
+    })();
 
     return () => {
       canceled = true;
     };
-  }, [item, onLoadExecutions, open, runId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item, open, runId]);
 
   useEffect(() => {
     if (!open) {
@@ -293,7 +308,7 @@ export function TestRunExecutionModal({
   }, [item, onLoadExecutionDetail, open, parsedFromItem.length, runId, selectedExecutionId]);
 
   const handlePersist = async () => {
-    if (!canManage || !item || !runId || !selectedExecutionId || isReadOnlyExecution || !hasChanges) return;
+    if (!canManage || !item || !runId || !selectedExecutionId || isReadOnlyExecution || !hasChanges || !isResultSelected) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -391,11 +406,25 @@ export function TestRunExecutionModal({
                           return next;
                         });
                       }}
+                      draftFiles={stepDraftFiles[index] ?? []}
                       onAttachFiles={(files) => {
                         setStepDraftFiles((prev) => ({
                           ...prev,
                           [index]: [...(prev[index] ?? []), ...files],
                         }));
+                      }}
+                      onRemoveFile={(fileIndex) => {
+                        setStepDraftFiles((prev) => {
+                          const next = { ...prev };
+                          const files = [...(next[index] ?? [])];
+                          files.splice(fileIndex, 1);
+                          if (files.length === 0) {
+                            delete next[index];
+                          } else {
+                            next[index] = files;
+                          }
+                          return next;
+                        });
                       }}
                       onInvalidFiles={() => setFileError("Only image files are allowed.")}
                     />
@@ -447,7 +476,7 @@ export function TestRunExecutionModal({
               <Button type="button" variant="quiet" onClick={onClose} disabled={saving}>
                 Cancel
               </Button>
-              <Button type="button" onClick={() => void handlePersist()} disabled={!canManage || saving || isReadOnlyExecution || !hasChanges}>
+              <Button type="button" onClick={() => void handlePersist()} disabled={!canManage || saving || isReadOnlyExecution || !hasChanges || !isResultSelected}>
                 {saving ? "Saving..." : "Save"}
               </Button>
             </div>
@@ -465,8 +494,10 @@ type StepExecutionRowProps = {
   evidenceCount: number;
   canManage: boolean;
   saving: boolean;
+  draftFiles: File[];
   onSetStatus: (status: StepStatus) => void;
   onAttachFiles: (files: File[]) => void;
+  onRemoveFile: (fileIndex: number) => void;
   onInvalidFiles: () => void;
 };
 
@@ -477,8 +508,10 @@ function StepExecutionRow({
   evidenceCount,
   canManage,
   saving,
+  draftFiles,
   onSetStatus,
   onAttachFiles,
+  onRemoveFile,
   onInvalidFiles,
 }: StepExecutionRowProps) {
   const inputId = useId();
@@ -568,6 +601,23 @@ function StepExecutionRow({
           ) : null}
         </div>
       </div>
+      {draftFiles.length > 0 && canManage && !saving ? (
+        <ul className="mt-2 space-y-1">
+          {draftFiles.map((file, fileIndex) => (
+            <li key={`${file.name}-${fileIndex}`} className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <span className="truncate">{file.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveFile(fileIndex)}
+                aria-label={`Remove ${file.name}`}
+                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded hover:bg-danger-500/15 hover:text-danger-500"
+              >
+                <IconX className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </article>
   );
 }
@@ -650,6 +700,7 @@ function collectImageFiles(list: FileList | null): { ok: true; files: File[] } |
   const onlyImages = files.every((file) => file.type.startsWith("image/"));
   if (!onlyImages) return { ok: false };
   return { ok: true, files };
+
 }
 
 function parseSteps(style: ExecutionItemRecord["testCase"]["style"] | undefined, steps: unknown): ParsedStep[] {

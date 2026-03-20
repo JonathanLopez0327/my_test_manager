@@ -95,6 +95,13 @@ async function ensureRunItemInRun(runId: string, runItemId: string) {
             steps: true,
           },
         },
+        executedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
         currentExecution: {
           select: {
             id: true,
@@ -124,6 +131,13 @@ async function ensureRunItemInRun(runId: string, runItemId: string) {
         errorMessage: true,
         stacktrace: true,
         createdAt: true,
+        executedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
         testCase: {
           select: {
             id: true,
@@ -186,11 +200,89 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrga
     });
   } catch (error) {
     if (!isLegacyExecutionSchemaError(error)) throw error;
+    const stateArtifacts = await prisma.testRunArtifact.findMany({
+      where: { runId, runItemId },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        createdAt: true,
+        metadata: true,
+      },
+    });
+
+    const attemptFromState = new Map<number, { id: string; status: TestResultStatus; createdAt: Date }>();
+    for (const artifact of stateArtifacts) {
+      if (!artifact.metadata || typeof artifact.metadata !== "object") continue;
+      const raw = artifact.metadata as Record<string, unknown>;
+      if (raw.kind !== "execution_state") continue;
+      const attemptNumber = Number(raw.attemptNumber);
+      if (!Number.isInteger(attemptNumber) || attemptNumber <= 0) continue;
+      const status = parseResultStatus(typeof raw.status === "string" ? raw.status : null) ?? "not_run";
+      attemptFromState.set(attemptNumber, {
+        id: artifact.id,
+        status,
+        createdAt: artifact.createdAt,
+      });
+    }
+
+    const hasLegacyExecution =
+      runItem.status !== "not_run"
+      || Boolean(runItem.executedAt)
+      || runItem.durationMs !== null;
+    const totalAttempts = Math.max(
+      hasLegacyExecution ? 1 : 0,
+      attemptFromState.size > 0 ? Math.max(...attemptFromState.keys()) : 0,
+    );
+
     executions = [];
+    for (let attempt = totalAttempts; attempt >= 1; attempt -= 1) {
+      const fromState = attemptFromState.get(attempt);
+      if (fromState) {
+        executions.push({
+          id: `legacy-${runItem.id}-${attempt}`,
+          attemptNumber: attempt,
+          status: fromState.status,
+          startedAt: fromState.createdAt,
+          completedAt: fromState.status === "not_run" || fromState.status === "in_progress"
+            ? null
+            : fromState.createdAt,
+          durationMs: attempt === 1 ? (runItem.durationMs ?? null) : null,
+          executedById: attempt === 1 ? (runItem.executedById ?? null) : null,
+          summary: null,
+          errorMessage: attempt === 1 ? (runItem.errorMessage ?? null) : null,
+          createdAt: fromState.createdAt,
+          updatedAt: fromState.createdAt,
+          executedBy: attempt === 1 ? (runItem.executedBy ?? null) : null,
+          _count: { stepResults: 0, artifacts: 0 },
+        });
+        continue;
+      }
+
+      if (attempt === 1 && hasLegacyExecution) {
+        executions.push({
+          id: `legacy-${runItem.id}-1`,
+          attemptNumber: 1,
+          status: runItem.status,
+          startedAt: runItem.executedAt ? new Date(runItem.executedAt) : null,
+          completedAt: runItem.executedAt ? new Date(runItem.executedAt) : null,
+          durationMs: runItem.durationMs ?? null,
+          executedById: runItem.executedById ?? null,
+          summary: null,
+          errorMessage: runItem.errorMessage ?? null,
+          createdAt: runItem.createdAt,
+          updatedAt: runItem.createdAt,
+          executedBy: runItem.executedBy ?? null,
+          _count: { stepResults: 0, artifacts: 0 },
+        });
+      }
+    }
   }
 
+  const legacyCurrentExecutionId =
+    executions[0]?.id?.startsWith("legacy-") ? executions[0].id : null;
+
   return NextResponse.json({
-    currentExecutionId: runItem.currentExecutionId,
+    currentExecutionId: runItem.currentExecutionId ?? legacyCurrentExecutionId,
     items: executions,
   });
 });
@@ -215,48 +307,121 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   const stepSnapshots = parseStepSnapshots(runItem.testCase.style, runItem.testCase.steps);
   const now = new Date();
   const completedAt = requestedStatus === "not_run" || requestedStatus === "in_progress" ? null : now;
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const execution = await tx.testRunItemExecution.create({
+        data: {
+          runItemId,
+          attemptNumber: nextAttemptNumber,
+          status: requestedStatus,
+          startedAt: now,
+          completedAt,
+          executedById: userId,
+          summary: body.summary?.trim() || null,
+        },
+        select: { id: true },
+      });
 
-  const result = await prisma.$transaction(async (tx) => {
-    const execution = await tx.testRunItemExecution.create({
-      data: {
-        runItemId,
-        attemptNumber: nextAttemptNumber,
-        status: requestedStatus,
-        startedAt: now,
-        completedAt,
-        executedById: userId,
-        summary: body.summary?.trim() || null,
-      },
-      select: { id: true },
+      if (stepSnapshots.length > 0) {
+        await tx.testRunItemExecutionStepResult.createMany({
+          data: stepSnapshots.map((step, index) => ({
+            executionId: execution.id,
+            stepIndex: index,
+            stepTextSnapshot: step.stepTextSnapshot,
+            expectedSnapshot: step.expectedSnapshot,
+            status: "not_run",
+          })),
+        });
+      }
+
+      await tx.testRunItem.update({
+        where: { id: runItemId },
+        data: {
+          currentExecutionId: execution.id,
+          status: requestedStatus,
+          executedAt: completedAt,
+          executedById: userId,
+          errorMessage: null,
+        },
+      });
+
+      await upsertRunMetrics(tx, runId);
+
+      return execution;
     });
 
-    if (stepSnapshots.length > 0) {
-      await tx.testRunItemExecutionStepResult.createMany({
-        data: stepSnapshots.map((step, index) => ({
-          executionId: execution.id,
-          stepIndex: index,
-          stepTextSnapshot: step.stepTextSnapshot,
-          expectedSnapshot: step.expectedSnapshot,
-          status: "not_run",
-        })),
-      });
+    return NextResponse.json({ id: result.id, attemptNumber: nextAttemptNumber }, { status: 201 });
+  } catch (error) {
+    if (!isLegacyExecutionSchemaError(error)) {
+      throw error;
     }
 
-    await tx.testRunItem.update({
-      where: { id: runItemId },
-      data: {
-        currentExecutionId: execution.id,
-        status: requestedStatus,
-        executedAt: completedAt,
-        executedById: userId,
-        errorMessage: null,
+    // Legacy schema fallback: no execution-attempt tables yet.
+    const legacyHasExecution =
+      runItem.status !== "not_run"
+      || Boolean(runItem.executedAt)
+      || runItem.durationMs !== null;
+    const stateArtifacts = await prisma.testRunArtifact.findMany({
+      where: { runId, runItemId },
+      select: {
+        metadata: true,
       },
     });
+    let maxAttemptFromState = 0;
+    for (const artifact of stateArtifacts) {
+      if (!artifact.metadata || typeof artifact.metadata !== "object") continue;
+      const raw = artifact.metadata as Record<string, unknown>;
+      if (raw.kind !== "execution_state") continue;
+      const attemptNumber = Number(raw.attemptNumber);
+      if (!Number.isInteger(attemptNumber) || attemptNumber <= 0) continue;
+      if (attemptNumber > maxAttemptFromState) maxAttemptFromState = attemptNumber;
+    }
+    const baseAttempt = legacyHasExecution ? 1 : 0;
+    const legacyAttemptNumber = Math.max(baseAttempt, maxAttemptFromState) + 1;
+    const preserveLegacySnapshot = requestedStatus === "not_run" && legacyHasExecution;
 
-    await upsertRunMetrics(tx, runId);
+    await prisma.$transaction(async (tx) => {
+      await tx.testRunItem.update({
+        where: { id: runItemId },
+        data: {
+          status: preserveLegacySnapshot ? runItem.status : requestedStatus,
+          executedAt: preserveLegacySnapshot ? runItem.executedAt : completedAt,
+          executedById: preserveLegacySnapshot
+            ? runItem.executedById
+            : (requestedStatus === "not_run" ? null : userId),
+          durationMs: preserveLegacySnapshot
+            ? runItem.durationMs
+            : (requestedStatus === "not_run" ? null : runItem.durationMs),
+          errorMessage: preserveLegacySnapshot ? runItem.errorMessage : null,
+        },
+        select: {
+          id: true,
+        },
+      });
 
-    return execution;
-  });
+      await tx.testRunArtifact.createMany({
+        data: [{
+          runId,
+          runItemId,
+          type: "other",
+          name: `Execution #${legacyAttemptNumber} state`,
+          url: `legacy://execution-state/${runId}/${runItemId}/${Date.now()}`,
+          metadata: {
+            kind: "execution_state",
+            attemptNumber: legacyAttemptNumber,
+            status: requestedStatus,
+            source: "legacy_fallback",
+            createdAt: now.toISOString(),
+          },
+        }],
+      });
 
-  return NextResponse.json({ id: result.id, attemptNumber: nextAttemptNumber }, { status: 201 });
+      await upsertRunMetrics(tx, runId);
+    });
+
+    return NextResponse.json(
+      { id: `legacy-${runItemId}-${legacyAttemptNumber}`, attemptNumber: legacyAttemptNumber },
+      { status: 201 },
+    );
+  }
 });
