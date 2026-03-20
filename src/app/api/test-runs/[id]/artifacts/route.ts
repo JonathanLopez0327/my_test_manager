@@ -32,6 +32,15 @@ function parseArtifactType(value?: string | null) {
     : null;
 }
 
+function isMissingColumnError(error: unknown) {
+  return (
+    typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error as { code?: string }).code === "P2022"
+  );
+}
+
 export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
   const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.ARTIFACT_LIST, activeOrganizationId, organizationRole);
@@ -82,28 +91,80 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
 
   const where = filters.length > 1 ? { AND: filters } : filters[0];
 
-  const [items, total] = await prisma.$transaction([
-    prisma.testRunArtifact.findMany({
-      where,
-      select: {
-        id: true,
-        runId: true,
-        runItemId: true,
-        executionId: true,
-        type: true,
-        name: true,
-        url: true,
-        mimeType: true,
-        checksumSha256: true,
-        metadata: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    }),
-    prisma.testRunArtifact.count({ where }),
-  ]);
+  let items: Array<{
+    id: string;
+    runId: string | null;
+    runItemId: string | null;
+    executionId: string | null;
+    type: ArtifactType;
+    name: string | null;
+    url: string;
+    mimeType: string | null;
+    checksumSha256: string | null;
+    metadata: unknown;
+    createdAt: Date;
+  }> = [];
+  let total = 0;
+
+  try {
+    const result = await prisma.$transaction([
+      prisma.testRunArtifact.findMany({
+        where,
+        select: {
+          id: true,
+          runId: true,
+          runItemId: true,
+          executionId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.testRunArtifact.count({ where }),
+    ]);
+    items = result[0];
+    total = result[1];
+  } catch (error) {
+    if (!isMissingColumnError(error)) {
+      throw error;
+    }
+
+    // Legacy fallback: allows listing artifacts before execution-history migration is applied.
+    const legacyResult = await prisma.$transaction([
+      prisma.testRunArtifact.findMany({
+        where,
+        select: {
+          id: true,
+          runId: true,
+          runItemId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.testRunArtifact.count({ where }),
+    ]);
+
+    items = legacyResult[0].map((item) => ({
+      ...item,
+      executionId: null,
+    }));
+    total = legacyResult[1];
+  }
 
   // Sign URLs
   const { bucket, endpoint } = getS3Config("artifacts");

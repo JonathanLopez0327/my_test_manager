@@ -77,30 +77,72 @@ function parseStepSnapshots(style: TestCaseStyle, steps: unknown): StepSnapshot[
   return [];
 }
 
+function isLegacyExecutionSchemaError(error: unknown) {
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  const code = (error as { code?: string }).code;
+  return code === "P2021" || code === "P2022";
+}
+
 async function ensureRunItemInRun(runId: string, runItemId: string) {
-  return prisma.testRunItem.findFirst({
-    where: { id: runItemId, runId },
-    include: {
-      testCase: {
-        select: {
-          id: true,
-          style: true,
-          steps: true,
+  try {
+    return await prisma.testRunItem.findFirst({
+      where: { id: runItemId, runId },
+      include: {
+        testCase: {
+          select: {
+            id: true,
+            style: true,
+            steps: true,
+          },
+        },
+        currentExecution: {
+          select: {
+            id: true,
+            attemptNumber: true,
+          },
+        },
+        executions: {
+          orderBy: [{ attemptNumber: "desc" }],
+          take: 1,
+          select: { attemptNumber: true },
         },
       },
-      currentExecution: {
-        select: {
-          id: true,
-          attemptNumber: true,
+    });
+  } catch (error) {
+    if (!isLegacyExecutionSchemaError(error)) throw error;
+
+    const legacy = await prisma.testRunItem.findFirst({
+      where: { id: runItemId, runId },
+      select: {
+        id: true,
+        runId: true,
+        testCaseId: true,
+        status: true,
+        durationMs: true,
+        executedById: true,
+        executedAt: true,
+        errorMessage: true,
+        stacktrace: true,
+        createdAt: true,
+        testCase: {
+          select: {
+            id: true,
+            style: true,
+            steps: true,
+          },
         },
       },
-      executions: {
-        orderBy: [{ attemptNumber: "desc" }],
-        take: 1,
-        select: { attemptNumber: true },
-      },
-    },
-  });
+    });
+
+    if (!legacy) return null;
+
+    return {
+      ...legacy,
+      currentExecutionId: null,
+      currentExecution: null,
+      executions: [],
+    };
+  }
 }
 
 export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
@@ -113,18 +155,39 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrga
     return NextResponse.json({ message: "Run item not found." }, { status: 404 });
   }
 
-  const executions = await prisma.testRunItemExecution.findMany({
-    where: { runItemId },
-    orderBy: [{ attemptNumber: "desc" }],
-    include: {
-      executedBy: {
-        select: { id: true, fullName: true, email: true },
+  let executions: Array<{
+    id: string;
+    attemptNumber: number;
+    status: TestResultStatus;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    durationMs: number | null;
+    executedById: string | null;
+    summary: string | null;
+    errorMessage: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    executedBy: { id: string; fullName: string | null; email: string } | null;
+    _count: { stepResults: number; artifacts: number };
+  }> = [];
+
+  try {
+    executions = await prisma.testRunItemExecution.findMany({
+      where: { runItemId },
+      orderBy: [{ attemptNumber: "desc" }],
+      include: {
+        executedBy: {
+          select: { id: true, fullName: true, email: true },
+        },
+        _count: {
+          select: { stepResults: true, artifacts: true },
+        },
       },
-      _count: {
-        select: { stepResults: true, artifacts: true },
-      },
-    },
-  });
+    });
+  } catch (error) {
+    if (!isLegacyExecutionSchemaError(error)) throw error;
+    executions = [];
+  }
 
   return NextResponse.json({
     currentExecutionId: runItem.currentExecutionId,

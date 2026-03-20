@@ -190,19 +190,21 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
                 email: true,
               },
             },
-            artifacts: includeArtifacts
+            ...(includeArtifacts
               ? {
-                select: {
-                  id: true,
-                  type: true,
-                  name: true,
-                  url: true,
-                  mimeType: true,
-                  checksumSha256: true,
-                  createdAt: true,
+                artifacts: {
+                  select: {
+                    id: true,
+                    type: true,
+                    name: true,
+                    url: true,
+                    mimeType: true,
+                    checksumSha256: true,
+                    createdAt: true,
+                  },
                 },
               }
-              : false,
+              : {}),
             currentExecution: {
               select: {
                 id: true,
@@ -228,7 +230,17 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       const legacyResult = await prisma.$transaction([
         prisma.testRunItem.findMany({
           where,
-          include: {
+          select: {
+            id: true,
+            runId: true,
+            testCaseId: true,
+            status: true,
+            durationMs: true,
+            executedById: true,
+            executedAt: true,
+            errorMessage: true,
+            stacktrace: true,
+            createdAt: true,
             testCase: {
               select: {
                 id: true,
@@ -246,19 +258,21 @@ export const GET = withAuth(null, async (req, { userId, globalRoles, activeOrgan
                 email: true,
               },
             },
-            artifacts: includeArtifacts
+            ...(includeArtifacts
               ? {
-                select: {
-                  id: true,
-                  type: true,
-                  name: true,
-                  url: true,
-                  mimeType: true,
-                  checksumSha256: true,
-                  createdAt: true,
+                artifacts: {
+                  select: {
+                    id: true,
+                    type: true,
+                    name: true,
+                    url: true,
+                    mimeType: true,
+                    checksumSha256: true,
+                    createdAt: true,
+                  },
                 },
               }
-              : false,
+              : {}),
           },
           orderBy: { createdAt: "asc" },
           skip: (page - 1) * pageSize,
@@ -371,6 +385,18 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
           },
+          select: {
+            id: true,
+            runId: true,
+            testCaseId: true,
+            status: true,
+            durationMs: true,
+            executedById: true,
+            executedAt: true,
+            errorMessage: true,
+            stacktrace: true,
+            createdAt: true,
+          },
         });
 
         if (item.artifacts && item.artifacts.length > 0) {
@@ -470,6 +496,18 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
             executedAt,
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
+          },
+          select: {
+            id: true,
+            runId: true,
+            testCaseId: true,
+            status: true,
+            durationMs: true,
+            executedById: true,
+            executedAt: true,
+            errorMessage: true,
+            stacktrace: true,
+            createdAt: true,
           },
         });
 

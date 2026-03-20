@@ -124,10 +124,11 @@ const itemStatusTone: Record<RunItemStatus, "success" | "warning" | "danger" | "
   not_run: "neutral",
 };
 
-const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped"; label: string }> = [
+const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped" | "not_run"; label: string }> = [
   { key: "passed", label: "Passed" },
   { key: "failed", label: "Failed" },
   { key: "skipped", label: "Skipped" },
+  { key: "not_run", label: "Reset" },
 ];
 
 type ExecutionArtifactMeta = {
@@ -537,7 +538,7 @@ export function TestRunsWorkspace() {
     closeRowActionMenu();
   }, [activeTab, closeRowActionMenu, selectedRunId]);
 
-  const handleQuickStatus = useCallback((itemId: string, status: "passed" | "failed" | "skipped") => {
+  const handleQuickStatus = useCallback((itemId: string, status: "passed" | "failed" | "skipped" | "not_run") => {
     const item = items.find((entry) => entry.id === itemId);
     if (!item) return;
 
@@ -683,7 +684,7 @@ export function TestRunsWorkspace() {
     }
   }, [canManage, fetchRunArtifacts, fetchRunItems, fetchRuns, selectedRunId]);
 
-  const handleSelectRowStatus = useCallback((status: "passed" | "failed" | "skipped") => {
+  const handleSelectRowStatus = useCallback((status: "passed" | "failed" | "skipped" | "not_run") => {
     if (!selectedMenuItem) return;
     handleQuickStatus(selectedMenuItem.id, status);
     closeRowActionMenu();
