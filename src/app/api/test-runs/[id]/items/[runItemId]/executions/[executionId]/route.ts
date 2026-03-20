@@ -110,6 +110,10 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrga
 
     return NextResponse.json({
       ...execution,
+      artifacts: execution.artifacts.map((a) => ({
+        ...a,
+        sizeBytes: a.sizeBytes != null ? Number(a.sizeBytes) : null,
+      })),
       isCurrent: execution.runItem.currentExecutionId === execution.id,
     });
   } catch (error) {

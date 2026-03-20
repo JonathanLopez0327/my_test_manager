@@ -209,30 +209,26 @@ export function TestRunExecutionModal({
     setSaveError(null);
     setFileError(null);
     setStepDraftFiles({});
+    setExecutionDetail(null);
+    setStepExistingCounts({});
+    setStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const })));
+    setBaselineStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const })));
+    setSelectedGlobalResult("not_run");
+    setBaselineGlobalStatus("not_run");
 
     void (async () => {
       try {
-        // Case A: No existing execution → create the first one
-        // Case B: startNewExecution + existing executions → create a new attempt
-        const shouldCreateNew = !hasExistingExecutions || (startNewExecution && hasExistingExecutions);
-
-        if (shouldCreateNew) {
-          const newId = await onCreateExecution(runId, item.id);
-          if (canceled) return;
-
-          // Load the updated history after creation
-          const payload = await onLoadExecutions(runId, item.id);
-          if (canceled) return;
-          setExecutions(payload.items);
-          setCurrentExecutionId(newId);
-          setSelectedExecutionId(newId);
-        } else {
-          // Just load existing history (viewing an existing execution without re-executing)
+        if (hasExistingExecutions) {
           const payload = await onLoadExecutions(runId, item.id);
           if (canceled) return;
           setExecutions(payload.items);
           setCurrentExecutionId(payload.currentExecutionId);
           setSelectedExecutionId(payload.currentExecutionId ?? payload.items[0]?.id ?? null);
+        } else {
+          // No existing executions — start with clean state; execution created on save
+          setExecutions([]);
+          setCurrentExecutionId(null);
+          setSelectedExecutionId(null);
         }
       } catch (error) {
         if (canceled) return;
@@ -308,13 +304,21 @@ export function TestRunExecutionModal({
   }, [item, onLoadExecutionDetail, open, parsedFromItem.length, runId, selectedExecutionId]);
 
   const handlePersist = async () => {
-    if (!canManage || !item || !runId || !selectedExecutionId || isReadOnlyExecution || !hasChanges || !isResultSelected) return;
+    if (!canManage || !item || !runId || isReadOnlyExecution || !hasChanges || !isResultSelected) return;
     setSaving(true);
     setSaveError(null);
     try {
+      // Create execution on save if none exists or a new attempt is requested
+      let execId = selectedExecutionId;
+      if (!execId || startNewExecution) {
+        execId = await onCreateExecution(runId, item.id);
+        setSelectedExecutionId(execId);
+        setCurrentExecutionId(execId);
+      }
+
       const durationMs = Math.max(1, Date.now() - (modalOpenedAt ?? Date.now()));
       await onSave({
-        executionId: selectedExecutionId,
+        executionId: execId,
         status: selectedGlobalStatus,
         durationMs,
         stepResults: stepState.map((step, stepIndex) => ({
@@ -324,20 +328,18 @@ export function TestRunExecutionModal({
         stepFiles: stepDraftFiles,
       });
 
-      if (selectedExecutionId) {
-        const [history, detail] = await Promise.all([
-          onLoadExecutions(runId, item.id),
-          onLoadExecutionDetail(runId, item.id, selectedExecutionId),
-        ]);
-        setExecutions(history.items);
-        setCurrentExecutionId(history.currentExecutionId);
-        setExecutionDetail(detail);
-        setBaselineGlobalStatus(detail.status);
-        const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
-        setStepState(mergedStepState);
-        setBaselineStepState(mergedStepState);
-        setStepDraftFiles({});
-      }
+      const [history, detail] = await Promise.all([
+        onLoadExecutions(runId, item.id),
+        onLoadExecutionDetail(runId, item.id, execId),
+      ]);
+      setExecutions(history.items);
+      setCurrentExecutionId(history.currentExecutionId);
+      setExecutionDetail(detail);
+      setBaselineGlobalStatus(detail.status);
+      const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
+      setStepState(mergedStepState);
+      setBaselineStepState(mergedStepState);
+      setStepDraftFiles({});
       onClose();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save execution.");
@@ -381,12 +383,12 @@ export function TestRunExecutionModal({
                 <IconPlay className="h-3.5 w-3.5" />
                 Steps
               </div>
-              <span className="text-xs text-ink-muted">{stepsForRendering.length} total</span>
+              <span className="text-xs text-ink-muted">
+                {stepsForRendering.length} total{loadingExecutions || loadingExecutionDetail ? " · loading..." : ""}
+              </span>
             </div>
             <div className="max-h-[60vh] overflow-y-auto p-2">
-              {loadingExecutions || loadingExecutionDetail ? (
-                <p className="px-2 py-4 text-sm text-ink-muted">Loading execution...</p>
-              ) : stepsForRendering.length === 0 ? (
+              {stepsForRendering.length === 0 && !loadingExecutions && !loadingExecutionDetail ? (
                 <p className="px-2 py-4 text-sm text-ink-muted">No steps available for this case.</p>
               ) : (
                 <div className="space-y-2">

@@ -307,17 +307,35 @@ describe("TestRunsWorkspace", () => {
         return {
           ok: true,
           json: async () => ({
-            items: [
+            groups: [
               {
-                id: "a1",
-                runItemId: "item-1",
-                type: "log",
-                name: "log.txt",
-                url: "https://example.com/log.txt",
-                mimeType: "text/plain",
-                createdAt: "2026-03-16T00:00:00.000Z",
-                sizeBytes: 120,
-                metadata: {},
+                testId: "tc-1",
+                testName: "Login works",
+                totalArtifacts: 1,
+                lastArtifactAt: "2026-03-16T00:00:00.000Z",
+                executions: [
+                  {
+                    runId: "exec-1",
+                    runLabel: "Execution #1",
+                    runNumber: 1,
+                    status: "failed",
+                    executedAt: "2026-03-16T00:00:00.000Z",
+                    artifacts: [
+                      {
+                        id: "a1",
+                        runItemId: "item-1",
+                        executionId: "exec-1",
+                        type: "log",
+                        name: "log.txt",
+                        url: "https://example.com/log.txt",
+                        mimeType: "text/plain",
+                        createdAt: "2026-03-16T00:00:00.000Z",
+                        sizeBytes: 120,
+                        metadata: {},
+                      },
+                    ],
+                  },
+                ],
               },
             ],
             total: 1,
@@ -331,7 +349,7 @@ describe("TestRunsWorkspace", () => {
         return {
           ok: true,
           json: async () => ({
-            items: [],
+            groups: [],
             total: 0,
             page: 1,
             pageSize: 100,
@@ -491,6 +509,14 @@ describe("TestRunsWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Artifacts" }));
 
     await waitFor(() => {
+      expect(screen.getByText("Login works")).toBeInTheDocument();
+      expect(screen.getByText(/1\s+artifact/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Login works/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execution #1")).toBeInTheDocument();
       expect(screen.getByText("log.txt")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Open" })).toBeInTheDocument();
     });
@@ -620,7 +646,7 @@ describe("TestRunsWorkspace", () => {
 
   });
 
-  it("creates a new execution attempt when opening execute case for item with existing execution", async () => {
+  it("creates a new execution attempt only on save, not on modal open", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
 
@@ -639,7 +665,19 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByText("Execute test case")).toBeInTheDocument();
     });
 
-    // The modal should auto-create a new execution attempt on open (since item has existing execution and startNewExecution=true)
+    // Opening the modal should NOT create a new execution attempt
+    const postCallsOnOpen = fetchMock.mock.calls.filter((call) => {
+      const [requestUrl, requestInit] = call as [string, RequestInit];
+      return String(requestUrl).endsWith("/api/test-runs/run-1/items/item-1/executions") && requestInit?.method === "POST";
+    });
+    expect(postCallsOnOpen).toHaveLength(0);
+
+    // Make a change and save — execution should be created now
+    fireEvent.change(screen.getByRole("combobox", { name: "Overall test result" }), {
+      target: { value: "fail_test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some((call) => {

@@ -36,6 +36,9 @@ jest.mock("@/lib/prisma", () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    testRunItemExecution: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -48,6 +51,9 @@ type PrismaMock = {
   $transaction: jest.Mock;
   testRunItem: {
     findFirst: jest.Mock;
+    findMany: jest.Mock;
+  };
+  testRunItemExecution: {
     findMany: jest.Mock;
   };
   testRunArtifact: {
@@ -67,6 +73,7 @@ describe("POST /api/test-runs/[id]/artifacts", () => {
     prismaMock.$transaction.mockImplementation(async (ops: Array<Promise<unknown>>) => Promise.all(ops));
     prismaMock.testRunItem.findMany.mockResolvedValue([]);
     prismaMock.testRunItem.findFirst.mockResolvedValue({ id: "item-1" });
+    prismaMock.testRunItemExecution.findMany.mockResolvedValue([]);
     prismaMock.testRunArtifact.findMany.mockResolvedValue([]);
     prismaMock.testRunArtifact.count.mockResolvedValue(0);
     prismaMock.testRunArtifact.createMany.mockResolvedValue({ count: 1 });
@@ -200,5 +207,61 @@ describe("GET /api/test-runs/[id]/artifacts", () => {
     expect(response.status).toBe(200);
     expect(body.items.map((item) => item.id)).toEqual(["a-state"]);
     expect(body.total).toBe(1);
+  });
+
+  it("returns grouped artifacts by test when groupBy=test", async () => {
+    prismaMock.testRunArtifact.findMany.mockResolvedValue([
+      {
+        id: "a-visible",
+        runId: "run-1",
+        runItemId: "item-1",
+        executionId: "exec-1",
+        type: "screenshot",
+        name: "proof.png",
+        url: "http://localhost/proof.png",
+        mimeType: "image/png",
+        checksumSha256: null,
+        sizeBytes: 120n,
+        metadata: { kind: "execution_evidence", scope: "step", stepIndex: 0 },
+        createdAt: new Date("2026-03-17T00:00:00.000Z"),
+      },
+    ]);
+    prismaMock.testRunArtifact.count.mockResolvedValue(1);
+    prismaMock.testRunItem.findMany.mockResolvedValue([
+      {
+        id: "item-1",
+        testCase: { id: "tc-1", title: "Login works" },
+      },
+    ]);
+    prismaMock.testRunItemExecution.findMany.mockResolvedValue([
+      {
+        id: "exec-1",
+        attemptNumber: 2,
+        status: "failed",
+        completedAt: new Date("2026-03-17T00:00:00.000Z"),
+      },
+    ]);
+
+    const response = await GET(
+      new Request("http://localhost/api/test-runs/run-1/artifacts?page=1&pageSize=20&groupBy=test"),
+      {
+        params: Promise.resolve({ id: "run-1" }),
+      } as { params: Promise<Record<string, string>> },
+    );
+
+    const body = (await response.json()) as {
+      groups: Array<{
+        testName: string;
+        executions: Array<{ runLabel: string; artifacts: Array<{ id: string }> }>;
+      }>;
+      total: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.total).toBe(1);
+    expect(body.groups).toHaveLength(1);
+    expect(body.groups[0]?.testName).toBe("Login works");
+    expect(body.groups[0]?.executions[0]?.runLabel).toBe("Execution #2");
+    expect(body.groups[0]?.executions[0]?.artifacts.map((artifact) => artifact.id)).toEqual(["a-visible"]);
   });
 });

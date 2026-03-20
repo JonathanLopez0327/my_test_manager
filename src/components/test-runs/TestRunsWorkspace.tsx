@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconCheck, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
+import { IconCheck, IconChevronDown, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
@@ -66,13 +66,31 @@ type RunItemRecord = {
 type RunArtifactRecord = {
   id: string;
   runItemId: string | null;
+  executionId?: string | null;
   type: string | null;
   name: string | null;
   url: string;
   mimeType: string | null;
   createdAt: string;
-  sizeBytes?: number | string | null;
+  sizeBytes?: number | string | bigint | null;
   metadata?: unknown;
+};
+
+type ArtifactExecutionGroupRecord = {
+  runId: string | null;
+  runLabel: string;
+  runNumber: number | null;
+  status: string | null;
+  executedAt: string | null;
+  artifacts: RunArtifactRecord[];
+};
+
+type ArtifactByTestGroupRecord = {
+  testId: string;
+  testName: string;
+  totalArtifacts: number;
+  lastArtifactAt: string;
+  executions: ArtifactExecutionGroupRecord[];
 };
 
 type RunItemEditState = {
@@ -131,10 +149,6 @@ const quickStatusActions: Array<{ key: "passed" | "failed" | "skipped"; label: s
   { key: "skipped", label: "Skipped" },
 ];
 
-type ExecutionArtifactMeta = {
-  kind?: "execution_state" | "execution_evidence";
-};
-
 type RowActionMenuState = {
   itemId: string;
   x: number;
@@ -188,6 +202,7 @@ export function TestRunsWorkspace() {
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [runsError, setRunsError] = useState<string | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const activeRunIdRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("test-cases");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRun, setEditingRun] = useState<TestRunRecord | null>(null);
@@ -199,7 +214,8 @@ export function TestRunsWorkspace() {
   const [itemsError, setItemsError] = useState<string | null>(null);
   const [savingItems, setSavingItems] = useState(false);
 
-  const [artifacts, setArtifacts] = useState<RunArtifactRecord[]>([]);
+  const [artifactGroups, setArtifactGroups] = useState<ArtifactByTestGroupRecord[]>([]);
+  const [expandedArtifactTests, setExpandedArtifactTests] = useState<Set<string>>(new Set());
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
   const [artifactsError, setArtifactsError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -265,6 +281,16 @@ export function TestRunsWorkspace() {
     return { left, top };
   }, [rowActionMenu]);
 
+  const totalArtifacts = useMemo(
+    () =>
+      artifactGroups.reduce(
+        (sum, group) =>
+          sum + group.executions.reduce((executionSum, execution) => executionSum + execution.artifacts.length, 0),
+        0,
+      ),
+    [artifactGroups],
+  );
+
   const fetchRuns = useCallback(async () => {
     setLoadingRuns(true);
     setRunsError(null);
@@ -281,9 +307,12 @@ export function TestRunsWorkspace() {
           query,
         });
         const response = await fetch(`/api/test-runs?${params.toString()}`);
-        const payload = (await response.json()) as TestRunsResponse & { message?: string };
+        const payload = await parseJsonSafely<TestRunsResponse & { message?: string }>(response);
         if (!response.ok) {
-          throw new Error(payload.message || "Could not load test runs.");
+          throw new Error(payload?.message || "Could not load test runs.");
+        }
+        if (!payload) {
+          throw new Error("Could not load test runs.");
         }
 
         allRuns.push(...payload.items);
@@ -315,25 +344,24 @@ export function TestRunsWorkspace() {
         fetch(`/api/test-suites?${params.toString()}`),
       ]);
 
-      const [projectsData, plansData, suitesData] = await Promise.all([
-        projectsResponse.json(),
-        plansResponse.json(),
-        suitesResponse.json(),
+      const [projectsPayload, plansPayload, suitesPayload] = await Promise.all([
+        parseJsonSafely<ProjectsResponse & { message?: string }>(projectsResponse),
+        parseJsonSafely<TestPlansResponse & { message?: string }>(plansResponse),
+        parseJsonSafely<TestSuitesResponse & { message?: string }>(suitesResponse),
       ]);
 
       if (!projectsResponse.ok) {
-        throw new Error((projectsData as { message?: string }).message || "Could not load projects.");
+        throw new Error(projectsPayload?.message || "Could not load projects.");
       }
       if (!plansResponse.ok) {
-        throw new Error((plansData as { message?: string }).message || "Could not load plans.");
+        throw new Error(plansPayload?.message || "Could not load plans.");
       }
       if (!suitesResponse.ok) {
-        throw new Error((suitesData as { message?: string }).message || "Could not load suites.");
+        throw new Error(suitesPayload?.message || "Could not load suites.");
       }
-
-      const projectsPayload = projectsData as ProjectsResponse;
-      const plansPayload = plansData as TestPlansResponse;
-      const suitesPayload = suitesData as TestSuitesResponse;
+      if (!projectsPayload || !plansPayload || !suitesPayload) {
+        throw new Error("Could not load supporting data.");
+      }
 
       setProjects(
         projectsPayload.items.map((project) => ({
@@ -402,6 +430,9 @@ export function TestRunsWorkspace() {
         page += 1;
       }
 
+      // Discard stale response if user already switched to a different run
+      if (activeRunIdRef.current !== runId) return;
+
       const normalizedItems = allItems.map((item) => ({
         ...item,
         attemptCount: item._count?.executions ?? item.attemptCount ?? 0,
@@ -417,11 +448,12 @@ export function TestRunsWorkspace() {
       );
       setDirtyItems(new Set());
     } catch (fetchError) {
+      if (activeRunIdRef.current !== runId) return;
       setItemsError(
         fetchError instanceof Error ? fetchError.message : "Could not load run items.",
       );
     } finally {
-      setLoadingItems(false);
+      if (activeRunIdRef.current === runId) setLoadingItems(false);
     }
   }, []);
 
@@ -430,47 +462,43 @@ export function TestRunsWorkspace() {
     setArtifactsError(null);
 
     try {
-      const allArtifacts: RunArtifactRecord[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const params = new URLSearchParams({
-          page: String(page),
-          pageSize: String(ARTIFACT_PAGE_SIZE),
-        });
-        const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
-        const payload = await parseJsonSafely<{
-          items: RunArtifactRecord[];
-          total: number;
-          page: number;
-          pageSize: number;
-          message?: string;
-        }>(response);
-        if (!response.ok) {
-          throw new Error(payload?.message || "Could not load artifacts.");
-        }
-        if (!payload) {
-          throw new Error("Could not load artifacts.");
-        }
-
-        allArtifacts.push(...payload.items);
-        hasMore = page * payload.pageSize < payload.total;
-        page += 1;
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: String(ARTIFACT_PAGE_SIZE),
+        groupBy: "test",
+      });
+      const response = await fetch(`/api/test-runs/${runId}/artifacts?${params.toString()}`);
+      const payload = await parseJsonSafely<{
+        groups?: ArtifactByTestGroupRecord[];
+        message?: string;
+      }>(response);
+      if (!response.ok) {
+        throw new Error(payload?.message || "Could not load artifacts.");
+      }
+      if (!payload) {
+        throw new Error("Could not load artifacts.");
       }
 
-      setArtifacts(
-        allArtifacts.filter((artifact) => {
-          const meta = parseExecutionArtifactMeta(artifact.metadata);
-          return meta.kind !== "execution_state";
-        }),
-      );
+      if (activeRunIdRef.current !== runId) return;
+
+      const groups = (payload.groups ?? []).filter((group) => group.totalArtifacts > 0);
+      setArtifactGroups(groups);
+      setExpandedArtifactTests((previous) => {
+        const next = new Set<string>();
+        for (const group of groups) {
+          if (previous.has(group.testId)) {
+            next.add(group.testId);
+          }
+        }
+        return next;
+      });
     } catch (fetchError) {
+      if (activeRunIdRef.current !== runId) return;
       setArtifactsError(
         fetchError instanceof Error ? fetchError.message : "Could not load artifacts.",
       );
     } finally {
-      setLoadingArtifacts(false);
+      if (activeRunIdRef.current === runId) setLoadingArtifacts(false);
     }
   }, []);
 
@@ -490,14 +518,23 @@ export function TestRunsWorkspace() {
   }, [runs]);
 
   useEffect(() => {
-    const resolvedRunId = selectedRunId ?? runs[0]?.id;
+    const resolvedRunId = selectedRunId ?? runs[0]?.id ?? null;
+    activeRunIdRef.current = resolvedRunId;
+
     if (!resolvedRunId) {
       setItems([]);
       setItemEdits({});
       setDirtyItems(new Set());
-      setArtifacts([]);
+      setArtifactGroups([]);
+      setExpandedArtifactTests(new Set());
       return;
     }
+
+    // Clear previous data immediately to avoid showing stale items
+    setItems([]);
+    setItemEdits({});
+    setDirtyItems(new Set());
+    setArtifactGroups([]);
 
     void fetchRunItems(resolvedRunId);
     void fetchRunArtifacts(resolvedRunId);
@@ -564,6 +601,18 @@ export function TestRunsWorkspace() {
   const openRowActionMenu = useCallback((itemId: string, x: number, y: number) => {
     setRowActionMenu({ itemId, x, y });
     setIsMarkAsSubmenuOpen(false);
+  }, []);
+
+  const toggleArtifactTestGroup = useCallback((testId: string) => {
+    setExpandedArtifactTests((prev) => {
+      const next = new Set(prev);
+      if (next.has(testId)) {
+        next.delete(testId);
+      } else {
+        next.add(testId);
+      }
+      return next;
+    });
   }, []);
 
   const handleOpenRowActionMenuFromButton = useCallback(
@@ -1184,66 +1233,114 @@ export function TestRunsWorkspace() {
                 <div className="space-y-4">
                   {artifactsError ? (
                     <div className="rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
-                      {artifactsError}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{artifactsError}</span>
+                        {selectedRunId ? (
+                          <Button
+                            size="xs"
+                            variant="quiet"
+                            className="h-7 px-2.5"
+                            onClick={() => void fetchRunArtifacts(selectedRunId)}
+                          >
+                            Retry
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
 
-                  <div className="rounded-xl border border-stroke bg-surface p-4">
-                    <div className="mb-3 text-xs font-medium text-ink-soft">
-                      {loadingArtifacts ? "Updating..." : `Total: ${artifacts.length}`}
-                    </div>
-                    <div className="overflow-hidden rounded-lg border border-stroke">
-                    <table className="w-full border-collapse text-[13px]">
-                      <thead className="bg-surface-elevated dark:bg-surface-muted">
-                        <tr className="text-left text-[13px] font-medium text-ink-soft">
-                          <th className="px-3 py-2">Name</th>
-                          <th className="px-3 py-2">Type</th>
-                          <th className="px-3 py-2">Size</th>
-                          <th className="px-3 py-2">Created</th>
-                          <th className="px-3 py-2 text-right">Link</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {loadingArtifacts ? (
-                          <tr>
-                            <td className="px-3 py-6 text-center text-sm text-ink-muted" colSpan={5}>
-                              Loading artifacts...
-                            </td>
-                          </tr>
-                        ) : artifacts.length === 0 ? (
-                          <tr>
-                            <td className="px-3 py-6 text-center text-sm text-ink-muted" colSpan={5}>
-                              No artifacts found.
-                            </td>
-                          </tr>
-                        ) : (
-                          artifacts.map((artifact) => (
-                            <tr key={artifact.id} className="border-t border-stroke transition-colors hover:bg-brand-50/20">
-                              <td className="px-3 py-3">
-                                <p className="font-semibold text-ink">
-                                  {artifact.name?.trim() || `Artifact ${artifact.id.slice(0, 8)}`}
+                  <div className="text-xs font-medium text-ink-soft">
+                    {loadingArtifacts ? "Updating..." : `Total: ${totalArtifacts}`}
+                  </div>
+                  <div className="divide-y divide-stroke">
+                    {loadingArtifacts ? (
+                      <div className="space-y-2 py-2">
+                        <div className="h-12 animate-pulse rounded-md bg-surface-muted" />
+                        <div className="h-12 animate-pulse rounded-md bg-surface-muted" />
+                        <div className="h-12 animate-pulse rounded-md bg-surface-muted" />
+                      </div>
+                    ) : artifactGroups.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-ink-muted">
+                        No artifacts found.
+                      </div>
+                    ) : (
+                      artifactGroups.map((group) => {
+                        const isExpanded = expandedArtifactTests.has(group.testId);
+                        const panelId = `artifact-group-${group.testId}`;
+                        return (
+                          <div key={group.testId}>
+                            <button
+                              type="button"
+                              className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-brand-50/20"
+                              aria-expanded={isExpanded}
+                              aria-controls={panelId}
+                              onClick={() => toggleArtifactTestGroup(group.testId)}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-ink">{group.testName}</p>
+                                <p className="text-xs text-ink-muted">
+                                  {group.totalArtifacts} artifact{group.totalArtifacts === 1 ? "" : "s"} · Last update {formatDate(group.lastArtifactAt)}
                                 </p>
-                                <p className="text-xs text-ink-muted">{artifact.mimeType ?? "Unknown mime"}</p>
-                              </td>
-                              <td className="px-3 py-3 text-ink-muted">{artifact.type ?? "other"}</td>
-                              <td className="px-3 py-3 text-ink-muted">{formatSize(artifact.sizeBytes)}</td>
-                              <td className="px-3 py-3 text-ink-muted">{formatDate(artifact.createdAt)}</td>
-                              <td className="px-3 py-3 text-right">
-                                <a
-                                  href={artifact.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-semibold text-brand-700 underline-offset-2 hover:underline"
-                                >
-                                  Open
-                                </a>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                    </div>
+                              </div>
+                              {isExpanded ? <IconChevronDown className="h-4 w-4 text-ink-muted" /> : <IconChevronRight className="h-4 w-4 text-ink-muted" />}
+                            </button>
+
+                            {isExpanded ? (
+                              <div id={panelId} className="space-y-3 border-t border-stroke py-3">
+                                {group.executions.map((execution, executionIndex) => (
+                                  <div key={`${execution.runId ?? executionIndex}-${execution.runLabel}`}>
+                                    <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                                      <span className="font-semibold text-ink">{execution.runLabel}</span>
+                                      <span>{execution.status ? execution.status.replaceAll("_", " ") : "unknown status"}</span>
+                                      <span>·</span>
+                                      <span>{formatDate(execution.executedAt)}</span>
+                                    </div>
+                                    <div className="overflow-hidden rounded-md border border-stroke">
+                                      <table className="w-full border-collapse text-[13px]">
+                                        <thead className="bg-surface-muted">
+                                          <tr className="text-left text-xs font-medium text-ink-soft">
+                                            <th className="px-3 py-2">Name</th>
+                                            <th className="px-3 py-2">Type</th>
+                                            <th className="px-3 py-2">Size</th>
+                                            <th className="px-3 py-2">Created</th>
+                                            <th className="px-3 py-2 text-right">Link</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {execution.artifacts.map((artifact) => (
+                                            <tr key={artifact.id} className="border-t border-stroke first:border-0">
+                                              <td className="px-3 py-2">
+                                                <p className="font-semibold text-ink">
+                                                  {artifact.name?.trim() || `Artifact ${artifact.id.slice(0, 8)}`}
+                                                </p>
+                                                <p className="text-xs text-ink-muted">{artifact.mimeType ?? "Unknown mime"}</p>
+                                              </td>
+                                              <td className="px-3 py-2 text-ink-muted">{artifact.type ?? "other"}</td>
+                                              <td className="px-3 py-2 text-ink-muted">{formatSize(artifact.sizeBytes)}</td>
+                                              <td className="px-3 py-2 text-ink-muted">{formatDate(artifact.createdAt)}</td>
+                                              <td className="px-3 py-2 text-right">
+                                                <a
+                                                  href={artifact.url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-sm font-semibold text-brand-700 underline-offset-2 hover:underline"
+                                                >
+                                                  Open
+                                                </a>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}
@@ -1465,14 +1562,4 @@ export function TestRunsWorkspace() {
       />
     </div>
   );
-}
-
-function parseExecutionArtifactMeta(metadata: unknown): ExecutionArtifactMeta {
-  if (!metadata || typeof metadata !== "object") return {};
-  const raw = metadata as Record<string, unknown>;
-  const kind =
-    raw.kind === "execution_state" || raw.kind === "execution_evidence"
-      ? raw.kind
-      : undefined;
-  return { kind };
 }
