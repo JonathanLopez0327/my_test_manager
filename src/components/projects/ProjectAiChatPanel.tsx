@@ -2,17 +2,13 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  IconAlert,
-  IconChevronDown,
-  IconChevronUp,
   IconDocument,
-  IconDownload,
-  IconExternalLink,
   IconPlus,
   IconSend,
 } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
+import { ProjectGeneratedDocumentSheet } from "@/components/projects/ProjectGeneratedDocumentSheet";
 import type { AiConversationDto, AiConversationsResponse } from "@/components/ai-chat/types";
 import { cn } from "@/lib/utils";
 
@@ -246,7 +242,7 @@ export function ProjectAiChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [isDocumentSectionOpen, setIsDocumentSectionOpen] = useState(false);
+  const [isDocumentPanelOpen, setIsDocumentPanelOpen] = useState(false);
   const [documentState, setDocumentState] = useState<ThreadDocumentState>({
     status: "missing",
     message: "No generated document available yet.",
@@ -585,23 +581,36 @@ export function ProjectAiChatPanel({
           <p className="text-sm font-semibold text-ink">Project Assistant</p>
           <p className="text-xs text-ink-muted">Chat in context for {projectName}.</p>
         </div>
-        <Button
-          type="button"
-          size="xs"
-          variant="secondary"
-          onClick={() => void handleCreateNewChat()}
-          aria-label="Crear nuevo chat"
-          disabled={isSending || isLoadingConversation}
-          className="gap-1.5"
-        >
-          <IconPlus className="h-3.5 w-3.5" />
-          Nuevo chat
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setIsDocumentPanelOpen(true)}
+            aria-label="Open generated document panel"
+            className="gap-1.5 text-ink-muted"
+          >
+            <IconDocument className="h-3.5 w-3.5 text-brand-600" />
+            Generated document
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="secondary"
+            onClick={() => void handleCreateNewChat()}
+            aria-label="Crear nuevo chat"
+            disabled={isSending || isLoadingConversation}
+            className="gap-1.5"
+          >
+            <IconPlus className="h-3.5 w-3.5" />
+            Nuevo chat
+          </Button>
+        </div>
       </header>
 
       <div
         ref={viewportRef}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-xl border border-dashed border-stroke bg-surface/70 px-6 py-5"
+        className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto rounded-xl border border-dashed border-stroke bg-surface/70 px-6 py-5"
       >
         {isLoadingConversation ? (
           <div className="flex h-full items-center justify-center">
@@ -663,111 +672,6 @@ export function ProjectAiChatPanel({
         )}
       </div>
 
-      <section
-        className="mt-4 shrink-0 rounded-xl border border-stroke bg-surface px-4 py-3"
-        data-testid="project-generated-document"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <IconDocument className="h-4 w-4 text-brand-600" />
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">
-              Generated document
-            </p>
-          </div>
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            onClick={() => setIsDocumentSectionOpen((current) => !current)}
-            aria-label={isDocumentSectionOpen ? "Collapse generated document" : "Expand generated document"}
-            className="gap-1 text-[11px] text-ink-muted"
-          >
-            {isDocumentSectionOpen ? (
-              <>
-                <IconChevronUp className="h-3 w-3" />
-                Collapse
-              </>
-            ) : (
-              <>
-                <IconChevronDown className="h-3 w-3" />
-                Expand
-              </>
-            )}
-          </Button>
-        </div>
-
-        {!isDocumentSectionOpen ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-ink-muted">
-              {documentState.status === "ready"
-                ? `PDF ready: ${documentState.filename}`
-                : documentState.message}
-            </p>
-            {documentState.status !== "ready" && activeThreadId ? (
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                onClick={() => void fetchThreadDocument(activeThreadId)}
-              >
-                Reintentar
-              </Button>
-            ) : null}
-          </div>
-        ) : documentState.status === "ready" ? (
-          <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="truncate text-sm font-semibold text-ink">{documentState.filename}</p>
-              <div className="flex items-center gap-1.5">
-                <a
-                  href={documentState.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
-                >
-                  <IconExternalLink className="h-3.5 w-3.5" />
-                  Open
-                </a>
-                <a
-                  href={documentState.url}
-                  download={documentState.filename}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-stroke-strong bg-transparent px-3 text-xs font-semibold text-ink transition-all hover:border-brand-500/55 hover:bg-brand-50/35"
-                >
-                  <IconDownload className="h-3.5 w-3.5" />
-                  Download
-                </a>
-              </div>
-            </div>
-
-            <iframe
-              src={documentState.url}
-              title={`Generated PDF ${documentState.filename}`}
-              className="h-72 w-full rounded-lg border border-stroke bg-white"
-              loading="lazy"
-            />
-          </div>
-        ) : (
-          <div className="mt-3 rounded-lg border border-stroke bg-surface-elevated p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2">
-                <IconAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-500" />
-                <p className="text-xs text-ink-muted">{documentState.message}</p>
-              </div>
-              {activeThreadId ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="secondary"
-                  onClick={() => void fetchThreadDocument(activeThreadId)}
-                >
-                  Reintentar
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </section>
-
       <div className="mt-4 shrink-0 flex flex-wrap gap-1.5" data-testid="project-chat-quick-actions">
         {QUICK_ACTIONS.map((action) => (
           <Button
@@ -821,6 +725,17 @@ export function ProjectAiChatPanel({
           </Button>
         </div>
       </form>
+
+      <ProjectGeneratedDocumentSheet
+        open={isDocumentPanelOpen}
+        onClose={() => setIsDocumentPanelOpen(false)}
+        documentState={documentState}
+        activeThreadId={activeThreadId}
+        onRetry={() => {
+          if (!activeThreadId) return;
+          void fetchThreadDocument(activeThreadId);
+        }}
+      />
     </section>
   );
 }

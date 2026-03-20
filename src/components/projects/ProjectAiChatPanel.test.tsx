@@ -549,10 +549,12 @@ describe("ProjectAiChatPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("PDF ready: test-cases-v1.pdf")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open generated document panel" })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Expand generated document" }));
+    expect(screen.queryByTestId("project-generated-document-sheet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open generated document panel" }));
+    expect(screen.getByText("test-cases-v1.pdf")).toBeInTheDocument();
 
     const openLink = screen.getByRole("link", { name: "Open" });
     const downloadLink = screen.getByRole("link", { name: "Download" });
@@ -635,6 +637,8 @@ describe("ProjectAiChatPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
+    fireEvent.click(screen.getByRole("button", { name: "Open generated document panel" }));
+
     await waitFor(() => {
       expect(screen.getByText("The document is still generating. Retry in a few seconds.")).toBeInTheDocument();
     });
@@ -642,7 +646,7 @@ describe("ProjectAiChatPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
 
     await waitFor(() => {
-      expect(screen.getByText("PDF ready: thread-pending-final.pdf")).toBeInTheDocument();
+      expect(screen.getByText("thread-pending-final.pdf")).toBeInTheDocument();
     });
   });
 
@@ -690,10 +694,12 @@ describe("ProjectAiChatPanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Could not fetch the generated document.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open generated document panel" })).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Open generated document panel" }));
+    expect(screen.getByText("Could not fetch the generated document.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reintentar" })).toBeInTheDocument();
-    expect(screen.getByTestId("project-generated-document")).toBeInTheDocument();
+    expect(screen.getByTestId("project-generated-document-sheet")).toBeInTheDocument();
   });
 });
