@@ -149,6 +149,57 @@ describe("TestRunsWorkspace", () => {
         } as Response;
       }
 
+      if (url.includes("/api/test-runs/run-1/metrics?refresh=true")) {
+        return {
+          ok: true,
+          json: async () => ({
+            total: 2,
+            passed: 1,
+            failed: 1,
+            skipped: 0,
+            blocked: 0,
+            notRun: 0,
+            passRate: "50.00",
+            durationMs: "1200",
+            createdAt: "2026-03-20T00:00:00.000Z",
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-1/metrics")) {
+        return {
+          ok: true,
+          json: async () => ({
+            total: 1,
+            passed: 0,
+            failed: 1,
+            skipped: 0,
+            blocked: 0,
+            notRun: 0,
+            passRate: "0.00",
+            durationMs: "1000",
+            createdAt: "2026-03-20T00:00:00.000Z",
+          }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-runs/run-2/metrics")) {
+        return {
+          ok: true,
+          json: async () => ({
+            total: 0,
+            passed: 0,
+            failed: 0,
+            skipped: 0,
+            blocked: 0,
+            notRun: 0,
+            passRate: "0.00",
+            durationMs: null,
+            createdAt: "2026-03-20T00:00:00.000Z",
+          }),
+        } as Response;
+      }
+
       if (url.includes("/api/test-runs/run-2/items?")) {
         return {
           ok: true,
@@ -400,7 +451,42 @@ describe("TestRunsWorkspace", () => {
 
     expect(screen.getByRole("heading", { name: "Run One" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Test Cases" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Metrics" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Artifacts" })).toBeInTheDocument();
+  });
+
+  it("loads and renders metrics tab and supports refresh", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run One.*WEB/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Metrics" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Status distribution")).toBeInTheDocument();
+      expect(screen.getByText("Pass rate")).toBeInTheDocument();
+      expect(screen.getByText("0.00%")).toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/test-runs/run-1/metrics")),
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh metrics" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) =>
+          String(call[0]).includes("/api/test-runs/run-1/metrics?refresh=true")),
+      ).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("50.00%")).toBeInTheDocument();
+    });
   });
 
   it("changes right panel when selecting a different run", async () => {
@@ -634,9 +720,6 @@ describe("TestRunsWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
     await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some((call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts/upload")),
-      ).toBe(true);
       expect(
         fetchMock.mock.calls.some(
           (call) => String(call[0]).endsWith("/api/test-runs/run-1/artifacts") && (call[1] as RequestInit)?.method === "POST",

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
+import { IconCheck, IconChevronDown, IconChevronRight, IconDownload, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
 import { Modal } from "@/components/ui/Modal";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { TableShell } from "@/components/ui/TableShell";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { TestRunFormSheet } from "./TestRunFormSheet";
 import {
   TestRunExecutionModal,
@@ -18,7 +19,7 @@ import {
   type ExecutionItemRecord,
   type ExecutionStatus,
 } from "./TestRunExecutionModal";
-import type { TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
+import type { TestRunMetricsRecord, TestRunPayload, TestRunRecord, TestRunsResponse } from "./types";
 import type { ProjectsResponse } from "@/components/projects/types";
 import type { TestPlansResponse } from "@/components/test-plans/types";
 import type { TestSuitesResponse } from "@/components/test-suites/types";
@@ -28,7 +29,7 @@ const LIST_PAGE_SIZE = 50;
 const ITEM_PAGE_SIZE = 100;
 const ARTIFACT_PAGE_SIZE = 100;
 
-type WorkspaceTab = "test-cases" | "artifacts";
+type WorkspaceTab = "test-cases" | "metrics" | "artifacts";
 
 type RunItemStatus = "passed" | "failed" | "skipped" | "blocked" | "not_run";
 
@@ -176,6 +177,12 @@ function formatDuration(value?: number | null) {
   return `${Math.round(value / 1000)}s`;
 }
 
+function formatMetricsDuration(value?: string | number | null) {
+  const parsed = Number(value ?? NaN);
+  if (!Number.isFinite(parsed) || parsed <= 0) return "No duration";
+  return formatDuration(parsed);
+}
+
 function formatSize(value?: number | string | null) {
   const parsed = Number(value ?? NaN);
   if (!Number.isFinite(parsed) || parsed <= 0) return "Unknown size";
@@ -218,6 +225,10 @@ export function TestRunsWorkspace() {
   const [expandedArtifactTests, setExpandedArtifactTests] = useState<Set<string>>(new Set());
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
   const [artifactsError, setArtifactsError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<TestRunMetricsRecord | null>(null);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [refreshingMetrics, setRefreshingMetrics] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [plans, setPlans] = useState<TestPlanOption[]>([]);
   const [suites, setSuites] = useState<TestSuiteOption[]>([]);
@@ -235,6 +246,8 @@ export function TestRunsWorkspace() {
   const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
   const [resetConfirmItem, setResetConfirmItem] = useState<RunItemRecord | null>(null);
   const [resettingItem, setResettingItem] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -290,6 +303,34 @@ export function TestRunsWorkspace() {
       ),
     [artifactGroups],
   );
+
+  const metricsCards = useMemo(() => {
+    if (!metrics) return [];
+    return [
+      { key: "total", label: "Total", value: metrics.total },
+      { key: "passed", label: "Passed", value: metrics.passed },
+      { key: "failed", label: "Failed", value: metrics.failed },
+      { key: "skipped", label: "Skipped", value: metrics.skipped },
+      { key: "blocked", label: "Blocked", value: metrics.blocked },
+      { key: "notRun", label: "Not Run", value: metrics.notRun },
+      { key: "passRate", label: "Pass rate", value: `${metrics.passRate}%` },
+      { key: "durationMs", label: "Duration", value: formatMetricsDuration(metrics.durationMs) },
+    ];
+  }, [metrics]);
+
+  const metricsBars = useMemo(() => {
+    if (!metrics) return [];
+    const total = metrics.total > 0 ? metrics.total : 0;
+    const toPercent = (value: number) =>
+      total > 0 ? Math.round((value / total) * 100) : 0;
+    return [
+      { key: "passed", label: "Passed", count: metrics.passed, percent: toPercent(metrics.passed), color: "#22C55E" },
+      { key: "failed", label: "Failed", count: metrics.failed, percent: toPercent(metrics.failed), color: "#EF4444" },
+      { key: "skipped", label: "Skipped", count: metrics.skipped, percent: toPercent(metrics.skipped), color: "#94A3B8" },
+      { key: "blocked", label: "Blocked", count: metrics.blocked, percent: toPercent(metrics.blocked), color: "#F59E0B" },
+      { key: "notRun", label: "Not Run", count: metrics.notRun, percent: toPercent(metrics.notRun), color: "#3B82F6" },
+    ];
+  }, [metrics]);
 
   const fetchRuns = useCallback(async () => {
     setLoadingRuns(true);
@@ -502,6 +543,46 @@ export function TestRunsWorkspace() {
     }
   }, []);
 
+  const fetchRunMetrics = useCallback(async (runId: string, refresh = false) => {
+    if (refresh) {
+      setRefreshingMetrics(true);
+    } else {
+      setLoadingMetrics(true);
+    }
+    setMetricsError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (refresh) {
+        params.set("refresh", "true");
+      }
+      const suffix = params.toString();
+      const response = await fetch(`/api/test-runs/${runId}/metrics${suffix ? `?${suffix}` : ""}`);
+      const payload = await parseJsonSafely<(TestRunMetricsRecord & { message?: string }) | { message?: string }>(response);
+      if (!response.ok) {
+        throw new Error(("message" in (payload ?? {}) ? payload?.message : undefined) || "Could not load metrics.");
+      }
+      if (!payload || !("total" in payload)) {
+        throw new Error("Could not load metrics.");
+      }
+
+      if (activeRunIdRef.current !== runId) return;
+      setMetrics(payload as TestRunMetricsRecord);
+    } catch (fetchError) {
+      if (activeRunIdRef.current !== runId) return;
+      setMetricsError(
+        fetchError instanceof Error ? fetchError.message : "Could not load metrics.",
+      );
+    } finally {
+      if (activeRunIdRef.current !== runId) return;
+      if (refresh) {
+        setRefreshingMetrics(false);
+      } else {
+        setLoadingMetrics(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     void fetchRuns();
   }, [fetchRuns]);
@@ -527,6 +608,10 @@ export function TestRunsWorkspace() {
       setDirtyItems(new Set());
       setArtifactGroups([]);
       setExpandedArtifactTests(new Set());
+      setMetrics(null);
+      setMetricsError(null);
+      setLoadingMetrics(false);
+      setRefreshingMetrics(false);
       return;
     }
 
@@ -535,10 +620,21 @@ export function TestRunsWorkspace() {
     setItemEdits({});
     setDirtyItems(new Set());
     setArtifactGroups([]);
+    setMetrics(null);
+    setMetricsError(null);
+    setLoadingMetrics(false);
+    setRefreshingMetrics(false);
 
     void fetchRunItems(resolvedRunId);
     void fetchRunArtifacts(resolvedRunId);
   }, [selectedRunId, runs, fetchRunItems, fetchRunArtifacts]);
+
+  useEffect(() => {
+    if (activeTab !== "metrics") return;
+    const resolvedRunId = selectedRunId ?? runs[0]?.id ?? null;
+    if (!resolvedRunId) return;
+    void fetchRunMetrics(resolvedRunId);
+  }, [activeTab, selectedRunId, runs, fetchRunMetrics]);
 
   useEffect(() => {
     if (!rowActionMenu) return;
@@ -577,6 +673,29 @@ export function TestRunsWorkspace() {
   useEffect(() => {
     closeRowActionMenu();
   }, [activeTab, closeRowActionMenu, selectedRunId]);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (exportMenuRef.current?.contains(event.target as Node)) return;
+      setExportMenuOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExportMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [exportMenuOpen]);
+
+  const handleExport = useCallback((mode: string, format: string) => {
+    setExportMenuOpen(false);
+    if (!selectedRunId) return;
+    window.open(`/api/test-runs/${selectedRunId}/export?format=${format}&mode=${mode}`, "_blank");
+  }, [selectedRunId]);
 
   const handleQuickStatus = useCallback((itemId: string, status: "passed" | "failed" | "skipped" | "not_run") => {
     const item = items.find((entry) => entry.id === itemId);
@@ -1052,6 +1171,39 @@ export function TestRunsWorkspace() {
                     <IconEdit className="h-4 w-4 shrink-0" />
                   </Button>
                 ) : null}
+                <div className="relative" ref={exportMenuRef}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="quiet"
+                    className="flex h-8 items-center gap-0.5 rounded-lg px-1.5 text-ink-soft hover:bg-surface-muted hover:text-ink"
+                    onClick={() => setExportMenuOpen((o) => !o)}
+                    aria-label="Export test run"
+                    title="Export"
+                  >
+                    <IconDownload className="h-4 w-4" />
+                    <IconChevronDown className="h-3 w-3" />
+                  </Button>
+                  {exportMenuOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-stroke bg-surface-elevated p-1 shadow-lg">
+                      {[
+                        { label: "Simple PDF", mode: "simple", format: "pdf" },
+                        { label: "Simple HTML", mode: "simple", format: "html" },
+                        { label: "Complete PDF", mode: "complete", format: "pdf" },
+                        { label: "Complete HTML", mode: "complete", format: "html" },
+                      ].map((opt) => (
+                        <button
+                          key={`${opt.mode}-${opt.format}`}
+                          type="button"
+                          className="w-full rounded-md px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                          onClick={() => handleExport(opt.mode, opt.format)}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <p className="mt-1.5 text-sm text-ink-muted">
                 {selectedRun.project.key} · {selectedRun.testPlan?.name ?? "No plan"} · {selectedRun.suite?.name ?? "No suite"}
@@ -1070,6 +1222,18 @@ export function TestRunsWorkspace() {
                 onClick={() => setActiveTab("test-cases")}
               >
                 Test Cases
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                  activeTab === "metrics"
+                    ? "bg-brand-50 text-brand-700"
+                    : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                )}
+                onClick={() => setActiveTab("metrics")}
+              >
+                Metrics
               </button>
               <button
                 type="button"
@@ -1228,6 +1392,119 @@ export function TestRunsWorkspace() {
                       )}
                     />
                   </div>
+                </div>
+              ) : activeTab === "metrics" ? (
+                <div className="space-y-4">
+                  {metricsError ? (
+                    <div className="rounded-lg border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm text-danger-600">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{metricsError}</span>
+                        {selectedRunId ? (
+                          <Button
+                            size="xs"
+                            variant="quiet"
+                            className="h-7 px-2.5"
+                            onClick={() => void fetchRunMetrics(selectedRunId)}
+                          >
+                            Retry
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs font-medium text-ink-soft">
+                      {loadingMetrics ? "Updating..." : `Total: ${metrics?.total ?? 0}`}
+                    </div>
+                    <Button
+                      size="xs"
+                      variant="quiet"
+                      className="h-7 px-2.5"
+                      disabled={!selectedRunId || refreshingMetrics}
+                      onClick={() => {
+                        if (!selectedRunId) return;
+                        void fetchRunMetrics(selectedRunId, true);
+                      }}
+                    >
+                      {refreshingMetrics ? "Refreshing..." : "Refresh metrics"}
+                    </Button>
+                  </div>
+
+                  {loadingMetrics ? (
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {Array.from({ length: 8 }).map((_, index) => (
+                        <div key={`metrics-skeleton-${index}`} className="h-20 animate-pulse rounded-lg bg-surface-muted" />
+                      ))}
+                    </div>
+                  ) : !metrics ? (
+                    <div className="rounded-lg border border-stroke px-4 py-8 text-center text-sm text-ink-muted">
+                      No metrics available for this run.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {metricsCards.map((card) => (
+                          <div key={card.key} className="rounded-lg border border-stroke bg-surface-elevated p-3">
+                            <p className="text-xs text-ink-soft">{card.label}</p>
+                            <p className="mt-1 text-base font-semibold text-ink">{card.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-3 rounded-lg border border-stroke bg-surface-elevated p-4">
+                        <p className="text-sm font-semibold text-ink">Status distribution</p>
+                        <div className="grid gap-4 md:grid-cols-[minmax(220px,300px)_1fr] md:items-center">
+                          <div className="relative h-[220px] w-full">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={220} minHeight={220}>
+                              <PieChart>
+                                <Pie
+                                  data={metricsBars}
+                                  dataKey="count"
+                                  nameKey="label"
+                                  innerRadius={52}
+                                  outerRadius={82}
+                                  paddingAngle={2}
+                                  strokeWidth={0}
+                                >
+                                  {metricsBars.map((entry) => (
+                                    <Cell key={entry.key} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip
+                                  formatter={(value: number | string, name: string, item) => {
+                                    const percent = (item?.payload as { percent?: number } | undefined)?.percent ?? 0;
+                                    return [`${value} (${percent}%)`, name];
+                                  }}
+                                  contentStyle={{
+                                    backgroundColor: "var(--surface-elevated)",
+                                    border: "1px solid var(--stroke)",
+                                    borderRadius: 8,
+                                    fontSize: 12,
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                              <span className="text-2xl font-bold text-ink">{metrics.total}</span>
+                              <span className="text-[10px] font-medium text-ink-muted">Total</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            {metricsBars.map((entry) => (
+                              <div key={entry.key} className="flex items-center justify-between gap-3 text-xs text-ink-muted">
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                  {entry.label}
+                                </span>
+                                <span>{entry.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
