@@ -19,6 +19,8 @@ describe("TestRunsWorkspace", () => {
       },
     });
 
+    let runOneStatus: "running" | "completed" = "running";
+
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
 
@@ -29,7 +31,7 @@ describe("TestRunsWorkspace", () => {
           {
             id: "run-1",
             name: "Run One",
-            status: "running",
+            status: runOneStatus,
             runType: "manual",
             project: { id: "p1", key: "WEB", name: "Web" },
             testPlan: { id: "tp1", name: "Plan A" },
@@ -61,6 +63,14 @@ describe("TestRunsWorkspace", () => {
             page: 1,
             pageSize: 50,
           }),
+        } as Response;
+      }
+
+      if (url.endsWith("/api/test-runs/run-1/complete") && init?.method === "POST") {
+        runOneStatus = "completed";
+        return {
+          ok: true,
+          json: async () => ({ ok: true, status: "completed" }),
         } as Response;
       }
 
@@ -455,6 +465,29 @@ describe("TestRunsWorkspace", () => {
     expect(screen.getByRole("button", { name: "Artifacts" })).toBeInTheDocument();
   });
 
+  it("marks run as completed from header action", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Run actions" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Run actions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark as completed" }));
+    expect(screen.getByText(/cannot be edited or executed again/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mark completed" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          return String(requestUrl).endsWith("/api/test-runs/run-1/complete") && requestInit?.method === "POST";
+        }),
+      ).toBe(true);
+    });
+  });
+
   it("loads and renders metrics tab and supports refresh", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
@@ -502,6 +535,35 @@ describe("TestRunsWorkspace", () => {
       expect(screen.getByRole("heading", { name: "Run Two" })).toBeInTheDocument();
       expect(screen.getAllByText("Checkout works").length).toBeGreaterThan(0);
     });
+  });
+
+  it("locks edit and execution actions when selected run is completed", async () => {
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Run One.*WEB/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Run Two/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Run completed. Editing and execution are locked.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Run actions" }));
+    expect(screen.queryByRole("button", { name: "Mark as completed" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit test run" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+
+    const row = screen.getAllByText("Checkout works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    expect(screen.getByRole("menuitem", { name: "View execution history" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Mark as" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Execute case" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Reset" })).not.toBeInTheDocument();
   });
 
   it("marks test case as dirty via contextual menu and saves batch", async () => {

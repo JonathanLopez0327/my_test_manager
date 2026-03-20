@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconDownload, IconEdit, IconFolder, IconMenu, IconPlus } from "@/components/icons";
+import { IconCheck, IconChevronDown, IconChevronRight, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
@@ -246,7 +246,10 @@ export function TestRunsWorkspace() {
   const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
   const [resetConfirmItem, setResetConfirmItem] = useState<RunItemRecord | null>(null);
   const [resettingItem, setResettingItem] = useState(false);
+  const [completeRunConfirmOpen, setCompleteRunConfirmOpen] = useState(false);
+  const [completingRun, setCompletingRun] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [isExportSubmenuOpen, setIsExportSubmenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   const isReadOnlyGlobal = useMemo(
@@ -273,6 +276,7 @@ export function TestRunsWorkspace() {
     () => items.find((item) => item.id === rowActionMenu?.itemId) ?? null,
     [items, rowActionMenu?.itemId],
   );
+  const isRunLocked = selectedRun?.status === "completed";
 
   const rowActionMenuPosition = useMemo(() => {
     if (!rowActionMenu) return null;
@@ -679,9 +683,13 @@ export function TestRunsWorkspace() {
     const handlePointerDown = (event: MouseEvent) => {
       if (exportMenuRef.current?.contains(event.target as Node)) return;
       setExportMenuOpen(false);
+      setIsExportSubmenuOpen(false);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExportMenuOpen(false);
+      if (event.key === "Escape") {
+        setExportMenuOpen(false);
+        setIsExportSubmenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
@@ -693,11 +701,13 @@ export function TestRunsWorkspace() {
 
   const handleExport = useCallback((mode: string, format: string) => {
     setExportMenuOpen(false);
+    setIsExportSubmenuOpen(false);
     if (!selectedRunId) return;
     window.open(`/api/test-runs/${selectedRunId}/export?format=${format}&mode=${mode}`, "_blank");
   }, [selectedRunId]);
 
   const handleQuickStatus = useCallback((itemId: string, status: "passed" | "failed" | "skipped" | "not_run") => {
+    if (isRunLocked) return;
     const item = items.find((entry) => entry.id === itemId);
     if (!item) return;
 
@@ -715,7 +725,7 @@ export function TestRunsWorkspace() {
       }
       return next;
     });
-  }, [items]);
+  }, [isRunLocked, items]);
 
   const openRowActionMenu = useCallback((itemId: string, x: number, y: number) => {
     setRowActionMenu({ itemId, x, y });
@@ -743,6 +753,7 @@ export function TestRunsWorkspace() {
   );
 
   const handleSaveItems = async () => {
+    if (isRunLocked) return;
     if (!selectedRunId || dirtyItems.size === 0) return;
 
     setSavingItems(true);
@@ -796,7 +807,7 @@ export function TestRunsWorkspace() {
   };
 
   const handleEditRun = () => {
-    if (!canManage || !selectedRun) return;
+    if (!canManage || !selectedRun || isRunLocked) return;
     setEditingRun(selectedRun);
     setModalOpen(true);
   };
@@ -837,12 +848,12 @@ export function TestRunsWorkspace() {
   };
 
   const handleOpenExecution = useCallback((item: RunItemRecord) => {
-    if (!canManage) return;
+    if (!canManage || isRunLocked) return;
     const hasExistingExecution = Boolean(item.currentExecutionId) || (item.attemptCount ?? 0) > 0;
     setExecutionStartNew(hasExistingExecution);
     setExecutionItem(item);
     setExecutionModalOpen(true);
-  }, [canManage]);
+  }, [canManage, isRunLocked]);
 
   const handleSelectRowStatus = useCallback((status: "passed" | "failed" | "skipped" | "not_run") => {
     if (!selectedMenuItem) return;
@@ -857,6 +868,7 @@ export function TestRunsWorkspace() {
   }, [closeRowActionMenu, handleOpenExecution, selectedMenuItem]);
 
   const handleConfirmReset = useCallback(async () => {
+    if (isRunLocked) return;
     if (!selectedRunId || !resetConfirmItem) return;
 
     setResettingItem(true);
@@ -898,13 +910,42 @@ export function TestRunsWorkspace() {
     } finally {
       setResettingItem(false);
     }
-  }, [fetchRunArtifacts, fetchRunItems, fetchRuns, resetConfirmItem, selectedRunId]);
+  }, [fetchRunArtifacts, fetchRunItems, fetchRuns, isRunLocked, resetConfirmItem, selectedRunId]);
 
   const handleSelectReset = useCallback(() => {
     if (!selectedMenuItem) return;
     setResetConfirmItem(selectedMenuItem);
     closeRowActionMenu();
   }, [closeRowActionMenu, selectedMenuItem]);
+
+  const handleMarkRunCompleted = useCallback(async () => {
+    if (!selectedRunId || isRunLocked) return;
+    setCompletingRun(true);
+    setRunsError(null);
+    try {
+      const response = await fetch(`/api/test-runs/${selectedRunId}/complete`, {
+        method: "POST",
+      });
+      const data = await parseJsonSafely<{ message?: string }>(response);
+      if (!response.ok) {
+        throw new Error(data?.message || "Could not complete test run.");
+      }
+
+      await Promise.all([
+        fetchRuns(),
+        fetchRunItems(selectedRunId),
+        fetchRunArtifacts(selectedRunId),
+        fetchRunMetrics(selectedRunId),
+      ]);
+      setCompleteRunConfirmOpen(false);
+    } catch (error) {
+      setRunsError(
+        error instanceof Error ? error.message : "Could not complete test run.",
+      );
+    } finally {
+      setCompletingRun(false);
+    }
+  }, [fetchRunArtifacts, fetchRunItems, fetchRunMetrics, fetchRuns, isRunLocked, selectedRunId]);
 
   const handleCreateExecution = useCallback(
     async (runId: string, runItemId: string): Promise<string> => {
@@ -1158,49 +1199,82 @@ export function TestRunsWorkspace() {
             <header className="border-b border-stroke px-8 py-6">
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold tracking-tight text-ink">{getRunTitle(selectedRun)}</h2>
-                {canManage ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="quiet"
-                    className="h-8 w-8 rounded-lg p-0 text-ink-soft hover:bg-surface-muted hover:text-ink"
-                    onClick={handleEditRun}
-                    aria-label={`Edit test run ${getRunTitle(selectedRun)}`}
-                    title="Edit test run"
-                  >
-                    <IconEdit className="h-4 w-4 shrink-0" />
-                  </Button>
-                ) : null}
                 <div className="relative" ref={exportMenuRef}>
                   <Button
                     type="button"
                     size="sm"
                     variant="quiet"
                     className="flex h-8 items-center gap-0.5 rounded-lg px-1.5 text-ink-soft hover:bg-surface-muted hover:text-ink"
-                    onClick={() => setExportMenuOpen((o) => !o)}
-                    aria-label="Export test run"
-                    title="Export"
+                    onClick={() => {
+                      setExportMenuOpen((open) => {
+                        const next = !open;
+                        if (!next) setIsExportSubmenuOpen(false);
+                        return next;
+                      });
+                    }}
+                    aria-label="Run actions"
+                    title="Run actions"
                   >
-                    <IconDownload className="h-4 w-4" />
+                    <IconMenu className="h-4 w-4" />
                     <IconChevronDown className="h-3 w-3" />
                   </Button>
                   {exportMenuOpen && (
                     <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-stroke bg-surface-elevated p-1 shadow-lg">
-                      {[
-                        { label: "Simple PDF", mode: "simple", format: "pdf" },
-                        { label: "Simple HTML", mode: "simple", format: "html" },
-                        { label: "Complete PDF", mode: "complete", format: "pdf" },
-                        { label: "Complete HTML", mode: "complete", format: "html" },
-                      ].map((opt) => (
-                        <button
-                          key={`${opt.mode}-${opt.format}`}
-                          type="button"
-                          className="w-full rounded-md px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
-                          onClick={() => handleExport(opt.mode, opt.format)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
+                      {canManage && !isRunLocked ? (
+                        <>
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                            onClick={() => {
+                              setExportMenuOpen(false);
+                              setIsExportSubmenuOpen(false);
+                              handleEditRun();
+                            }}
+                          >
+                            Edit test run
+                          </button>
+                          <button
+                            type="button"
+                            className="w-full rounded-md px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                            disabled={completingRun}
+                            onClick={() => {
+                              setExportMenuOpen(false);
+                              setIsExportSubmenuOpen(false);
+                              setCompleteRunConfirmOpen(true);
+                            }}
+                          >
+                            Mark as completed
+                          </button>
+                          <div className="my-1 h-px bg-stroke" />
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                        onClick={() => setIsExportSubmenuOpen((open) => !open)}
+                      >
+                        <span>Export</span>
+                        <IconChevronRight className={cn("h-4 w-4 transition-transform", isExportSubmenuOpen ? "rotate-90" : "")} />
+                      </button>
+                      {isExportSubmenuOpen ? (
+                        <div className="ml-2 mt-1 space-y-1 border-l border-stroke pl-2">
+                          {[
+                            { label: "Simple PDF", mode: "simple", format: "pdf" },
+                            { label: "Simple HTML", mode: "simple", format: "html" },
+                            { label: "Complete PDF", mode: "complete", format: "pdf" },
+                            { label: "Complete HTML", mode: "complete", format: "html" },
+                          ].map((opt) => (
+                            <button
+                              key={`${opt.mode}-${opt.format}`}
+                              type="button"
+                              className="w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                              onClick={() => handleExport(opt.mode, opt.format)}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -1253,6 +1327,11 @@ export function TestRunsWorkspace() {
               {activeTab === "test-cases" ? (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-stroke bg-surface p-4">
+                    {isRunLocked ? (
+                      <div className="mb-3 rounded-lg border border-warning-500/20 bg-warning-500/10 px-4 py-3 text-sm text-warning-600">
+                        Run completed. Editing and execution are locked.
+                      </div>
+                    ) : null}
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className="text-xs font-medium text-ink-soft">
                         {loadingItems ? "Updating..." : `Total: ${items.length}`}
@@ -1267,7 +1346,7 @@ export function TestRunsWorkspace() {
                           <Button
                             size="sm"
                             onClick={() => void handleSaveItems()}
-                            disabled={savingItems || dirtyItems.size === 0}
+                            disabled={isRunLocked || savingItems || dirtyItems.size === 0}
                           >
                             {savingItems ? "Saving..." : "Save changes"}
                           </Button>
@@ -1492,12 +1571,11 @@ export function TestRunsWorkspace() {
                           </div>
                           <div className="space-y-2">
                             {metricsBars.map((entry) => (
-                              <div key={entry.key} className="flex items-center justify-between gap-3 text-xs text-ink-muted">
+                              <div key={entry.key} className="flex items-center gap-3 text-xs text-ink-muted">
                                 <span className="inline-flex items-center gap-2">
                                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
                                   {entry.label}
                                 </span>
-                                <span>{entry.count}</span>
                               </div>
                             ))}
                           </div>
@@ -1657,7 +1735,7 @@ export function TestRunsWorkspace() {
             }
           }}
         >
-          {canManage ? (
+          {canManage && !isRunLocked ? (
             <>
               <button
                 type="button"
@@ -1836,6 +1914,20 @@ export function TestRunsWorkspace() {
           setResetConfirmItem(null);
         }}
         isConfirming={resettingItem}
+      />
+
+      <ConfirmationDialog
+        open={completeRunConfirmOpen}
+        title={`Mark "${selectedRun ? getRunTitle(selectedRun) : "this run"}" as completed?`}
+        description="Once completed, this run cannot be edited or executed again."
+        confirmText="Mark completed"
+        cancelText="Cancel"
+        onConfirm={() => void handleMarkRunCompleted()}
+        onCancel={() => {
+          if (completingRun) return;
+          setCompleteRunConfirmOpen(false);
+        }}
+        isConfirming={completingRun}
       />
     </div>
   );

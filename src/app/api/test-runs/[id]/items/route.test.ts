@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { GET } from "./route";
+import { GET, POST } from "./route";
 import { prisma } from "@/lib/prisma";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 
@@ -27,6 +27,9 @@ jest.mock("@/lib/auth/require-run-permission", () => ({
 jest.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: jest.fn(),
+    testRun: {
+      findUnique: jest.fn(),
+    },
     testRunItem: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -36,6 +39,9 @@ jest.mock("@/lib/prisma", () => ({
 
 type PrismaMock = {
   $transaction: jest.Mock;
+  testRun: {
+    findUnique: jest.Mock;
+  };
   testRunItem: {
     findMany: jest.Mock;
     count: jest.Mock;
@@ -49,6 +55,7 @@ describe("GET /api/test-runs/[id]/items", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     requireRunPermissionMock.mockResolvedValue({ run: { id: "run-1", projectId: "project-1" } });
+    prismaMock.testRun.findUnique.mockResolvedValue({ status: "running" });
     prismaMock.testRunItem.findMany.mockResolvedValue([
       {
         id: "item-1",
@@ -102,5 +109,27 @@ describe("GET /api/test-runs/[id]/items", () => {
     expect(body.items[0]?.testCase.preconditions).toBe("User exists");
     expect(body.items[0]?.testCase.style).toBe("step_by_step");
     expect(Array.isArray(body.items[0]?.testCase.steps)).toBe(true);
+  });
+
+  it("blocks item updates when run is completed", async () => {
+    prismaMock.testRun.findUnique.mockResolvedValue({ status: "completed" });
+
+    const response = await POST(
+      new Request("http://localhost/api/test-runs/run-1/items", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          items: [{ testCaseId: "tc-1", status: "passed" }],
+        }),
+      }),
+      {
+        params: Promise.resolve({ id: "run-1" }),
+      } as { params: Promise<Record<string, string>> },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Completed runs cannot be modified.",
+    });
   });
 });

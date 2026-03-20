@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { parseResultStatus, upsertRunMetrics } from "@/lib/test-runs";
 import type { TestCaseStyle, TestResultStatus } from "@/generated/prisma/client";
+import { ensureRunMutable } from "@/lib/auth/ensure-run-mutable";
 
 type StepSnapshot = {
   stepTextSnapshot: string;
@@ -291,6 +292,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   const { id: runId, runItemId } = await routeCtx.params;
   const access = await requireRunPermission(userId, globalRoles, runId, PERMISSIONS.TEST_RUN_ITEM_UPDATE, activeOrganizationId, organizationRole);
   if (access.error) return access.error;
+  const mutableError = await ensureRunMutable(runId);
+  if (mutableError) return mutableError;
 
   const body = (await req.json().catch(() => ({}))) as {
     status?: TestResultStatus;

@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { parseResultStatus, upsertRunMetrics } from "@/lib/test-runs";
+import { ensureRunMutable } from "@/lib/auth/ensure-run-mutable";
 
 export const dynamic = "force-dynamic";
 
@@ -354,6 +355,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
   const { id } = await routeCtx.params;
   const access = await requireRunPermission(userId, globalRoles, id, PERMISSIONS.TEST_RUN_ITEM_UPDATE, activeOrganizationId, organizationRole);
   if (access.error) return access.error;
+  const mutableError = await ensureRunMutable(id);
+  if (mutableError) return mutableError;
 
   try {
     const body = (await req.json()) as {

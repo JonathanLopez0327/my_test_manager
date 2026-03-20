@@ -4,6 +4,7 @@ import { TestRunStatus, TestRunType } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { COMPLETED_RUN_LOCK_MESSAGE } from "@/lib/auth/ensure-run-mutable";
 
 const STATUS_VALUES: TestRunStatus[] = [
   "queued",
@@ -40,13 +41,20 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
   try {
     const existing = await prisma.testRun.findUnique({
       where: { id },
-      select: { projectId: true },
+      select: { projectId: true, status: true },
     });
 
     if (!existing) {
       return NextResponse.json(
         { message: "Run not found." },
         { status: 404 },
+      );
+    }
+
+    if (existing.status === "completed") {
+      return NextResponse.json(
+        { message: COMPLETED_RUN_LOCK_MESSAGE },
+        { status: 409 },
       );
     }
 
