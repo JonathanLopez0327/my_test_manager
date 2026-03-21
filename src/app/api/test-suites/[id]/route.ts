@@ -99,6 +99,25 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
           { status: 400 },
         );
       }
+
+      // Prevent indirect cycles in the hierarchy (A -> ... -> B, then setting A.parent = B)
+      let cursorId: string | null = parentSuiteId;
+      const visited = new Set<string>();
+      while (cursorId) {
+        if (cursorId === id) {
+          return NextResponse.json(
+            { message: "Invalid parent suite: cyclical hierarchy is not allowed." },
+            { status: 400 },
+          );
+        }
+        if (visited.has(cursorId)) break;
+        visited.add(cursorId);
+        const cursorSuite = await prisma.testSuite.findUnique({
+          where: { id: cursorId },
+          select: { parentSuiteId: true },
+        });
+        cursorId = cursorSuite?.parentSuiteId ?? null;
+      }
     }
 
     const suite = await prisma.testSuite.update({

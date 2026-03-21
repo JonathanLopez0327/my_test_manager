@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { IconChevronDown, IconEdit, IconFolder, IconPlus } from "@/components/icons";
@@ -91,6 +91,22 @@ function buildSuiteTree(suites: TestSuiteRecord[]): SuiteTreeNode[] {
   return roots;
 }
 
+function getSuiteDescendantIds(
+  suiteId: string,
+  childrenByParent: Map<string, string[]>,
+): Set<string> {
+  const descendants = new Set<string>();
+  const stack = [...(childrenByParent.get(suiteId) ?? [])];
+  while (stack.length > 0) {
+    const currentId = stack.pop();
+    if (!currentId || descendants.has(currentId)) continue;
+    descendants.add(currentId);
+    const children = childrenByParent.get(currentId) ?? [];
+    for (const childId of children) stack.push(childId);
+  }
+  return descendants;
+}
+
 export function TestManagementWorkspace() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -139,6 +155,10 @@ export function TestManagementWorkspace() {
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [planSaveError, setPlanSaveError] = useState<string | null>(null);
   const [suiteSaveError, setSuiteSaveError] = useState<string | null>(null);
+  const [draggingSuiteId, setDraggingSuiteId] = useState<string | null>(null);
+  const [dropTargetSuiteId, setDropTargetSuiteId] = useState<string | null>(null);
+  const [dropTargetPlanId, setDropTargetPlanId] = useState<string | null>(null);
+  const [movingSuiteId, setMovingSuiteId] = useState<string | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     open: boolean;
     id: string | null;
@@ -191,6 +211,24 @@ export function TestManagementWorkspace() {
     () => suites.find((suite) => suite.id === selectedSuiteId) ?? null,
     [suites, selectedSuiteId],
   );
+  const suiteById = useMemo(
+    () => new Map(suites.map((suite) => [suite.id, suite])),
+    [suites],
+  );
+  const descendantIdsBySuiteId = useMemo(() => {
+    const childrenByParent = new Map<string, string[]>();
+    for (const suite of suites) {
+      if (!suite.parentSuiteId) continue;
+      const siblings = childrenByParent.get(suite.parentSuiteId) ?? [];
+      siblings.push(suite.id);
+      childrenByParent.set(suite.parentSuiteId, siblings);
+    }
+    const descendants = new Map<string, Set<string>>();
+    for (const suite of suites) {
+      descendants.set(suite.id, getSuiteDescendantIds(suite.id, childrenByParent));
+    }
+    return descendants;
+  }, [suites]);
   const isInlineCreating = inlinePlanId !== null;
 
   const fetchAllPlansAndSuites = useCallback(async () => {
@@ -561,34 +599,37 @@ export function TestManagementWorkspace() {
     });
   };
 
-  const handleSaveSuite = async (payload: TestSuitePayload, suiteId?: string) => {
-    setSuiteSaveError(null);
-    const method = suiteId ? "PUT" : "POST";
-    const endpoint = suiteId ? `/api/test-suites/${suiteId}` : "/api/test-suites";
-    const response = await fetch(endpoint, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = (await response.json()) as
-      | { message?: string; item?: TestSuiteRecord }
-      | (TestSuiteRecord & { message?: string });
-    if (!response.ok) {
-      const message = data.message ?? "Could not save test suite.";
-      setSuiteSaveError(message);
-      throw new Error(message);
-    }
+  const handleSaveSuite = useCallback(
+    async (payload: TestSuitePayload, suiteId?: string) => {
+      setSuiteSaveError(null);
+      const method = suiteId ? "PUT" : "POST";
+      const endpoint = suiteId ? `/api/test-suites/${suiteId}` : "/api/test-suites";
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response.json()) as
+        | { message?: string; item?: TestSuiteRecord }
+        | (TestSuiteRecord & { message?: string });
+      if (!response.ok) {
+        const message = data.message ?? "Could not save test suite.";
+        setSuiteSaveError(message);
+        throw new Error(message);
+      }
 
-    await fetchAllPlansAndSuites();
-    const createdSuite = "item" in data ? data.item : data;
-    if (createdSuite) {
-      setSelectedPlanId(createdSuite.testPlanId);
-      setSelectedSuiteId(createdSuite.id);
-      setExpandedPlanIds((prev) => ({ ...prev, [createdSuite.testPlanId]: true }));
-    }
-  };
+      await fetchAllPlansAndSuites();
+      const createdSuite = "item" in data ? data.item : data;
+      if (createdSuite) {
+        setSelectedPlanId(createdSuite.testPlanId);
+        setSelectedSuiteId(createdSuite.id);
+        setExpandedPlanIds((prev) => ({ ...prev, [createdSuite.testPlanId]: true }));
+      }
+    },
+    [fetchAllPlansAndSuites],
+  );
 
   const resolveInlineParentSuiteId = useCallback((_planId: string): string | null => {
     return null;
@@ -704,6 +745,144 @@ export function TestManagementWorkspace() {
     [handleSaveSuite, resetInlineEditState],
   );
 
+  const getDropValidationMessage = useCallback(
+    (sourceSuiteId: string | null, targetSuiteId: string): string | null => {
+      if (!sourceSuiteId) return "No suite is being moved.";
+      if (sourceSuiteId === targetSuiteId) return "A suite cannot be dropped onto itself.";
+      const sourceSuite = suiteById.get(sourceSuiteId);
+      const targetSuite = suiteById.get(targetSuiteId);
+      if (!sourceSuite || !targetSuite) return "Could not resolve source or target suite.";
+      if (sourceSuite.testPlanId !== targetSuite.testPlanId) {
+        return "Suites can only be nested within the same test plan.";
+      }
+      if (sourceSuite.parentSuiteId === targetSuite.id) return "Suite is already nested under the target.";
+      if (descendantIdsBySuiteId.get(sourceSuite.id)?.has(targetSuite.id)) {
+        return "You cannot move a suite into one of its descendants.";
+      }
+      return null;
+    },
+    [descendantIdsBySuiteId, suiteById],
+  );
+
+  const handleDropOnSuite = useCallback(
+    async (targetSuiteId: string) => {
+      if (!canManage || isInlineSaving || isInlineEditingSaving) return;
+
+      const sourceSuiteId = draggingSuiteId;
+      const validationMessage = getDropValidationMessage(sourceSuiteId, targetSuiteId);
+      if (validationMessage) {
+        if (validationMessage !== "Suite is already nested under the target.") {
+          setSuiteSaveError(validationMessage);
+        } else {
+          setSuiteSaveError(null);
+        }
+        return;
+      }
+
+      if (!sourceSuiteId) return;
+      const sourceSuite = suiteById.get(sourceSuiteId);
+      const targetSuite = suiteById.get(targetSuiteId);
+      if (!sourceSuite || !targetSuite) {
+        setSuiteSaveError("Could not resolve source or target suite.");
+        return;
+      }
+
+      setSuiteSaveError(null);
+      setMovingSuiteId(sourceSuiteId);
+      try {
+        await handleSaveSuite(
+          {
+            testPlanId: sourceSuite.testPlanId,
+            parentSuiteId: targetSuite.id,
+            name: sourceSuite.name,
+            description: sourceSuite.description,
+            displayOrder: sourceSuite.displayOrder,
+          },
+          sourceSuite.id,
+        );
+      } catch (moveError) {
+        setSuiteSaveError(moveError instanceof Error ? moveError.message : "Could not move test suite.");
+      } finally {
+        setMovingSuiteId(null);
+      }
+    },
+    [
+      canManage,
+      draggingSuiteId,
+      getDropValidationMessage,
+      handleSaveSuite,
+      isInlineEditingSaving,
+      isInlineSaving,
+      suiteById,
+    ],
+  );
+
+  const getRootDropValidationMessage = useCallback(
+    (sourceSuiteId: string | null, targetPlanId: string): string | null => {
+      if (!sourceSuiteId) return "No suite is being moved.";
+      const sourceSuite = suiteById.get(sourceSuiteId);
+      if (!sourceSuite) return "Could not resolve source suite.";
+      if (sourceSuite.testPlanId !== targetPlanId) {
+        return "Suites can only be moved to root within the same test plan.";
+      }
+      if (sourceSuite.parentSuiteId === null) return "Suite is already at root level.";
+      return null;
+    },
+    [suiteById],
+  );
+
+  const handleDropToPlanRoot = useCallback(
+    async (targetPlanId: string) => {
+      if (!canManage || isInlineSaving || isInlineEditingSaving) return;
+
+      const sourceSuiteId = draggingSuiteId;
+      const validationMessage = getRootDropValidationMessage(sourceSuiteId, targetPlanId);
+      if (validationMessage) {
+        if (validationMessage !== "Suite is already at root level.") {
+          setSuiteSaveError(validationMessage);
+        } else {
+          setSuiteSaveError(null);
+        }
+        return;
+      }
+
+      if (!sourceSuiteId) return;
+      const sourceSuite = suiteById.get(sourceSuiteId);
+      if (!sourceSuite) {
+        setSuiteSaveError("Could not resolve source suite.");
+        return;
+      }
+
+      setSuiteSaveError(null);
+      setMovingSuiteId(sourceSuiteId);
+      try {
+        await handleSaveSuite(
+          {
+            testPlanId: sourceSuite.testPlanId,
+            parentSuiteId: null,
+            name: sourceSuite.name,
+            description: sourceSuite.description,
+            displayOrder: sourceSuite.displayOrder,
+          },
+          sourceSuite.id,
+        );
+      } catch (moveError) {
+        setSuiteSaveError(moveError instanceof Error ? moveError.message : "Could not move test suite.");
+      } finally {
+        setMovingSuiteId(null);
+      }
+    },
+    [
+      canManage,
+      draggingSuiteId,
+      getRootDropValidationMessage,
+      handleSaveSuite,
+      isInlineEditingSaving,
+      isInlineSaving,
+      suiteById,
+    ],
+  );
+
   const buildExportUrl = useCallback((format: "xlsx" | "pdf") => {
     const params = new URLSearchParams();
     params.set("format", format);
@@ -733,6 +912,11 @@ export function TestManagementWorkspace() {
     nodes.map((suite) => {
       const isSelected = selectedSuiteId === suite.id;
       const isEditingThisSuite = editingSuiteId === suite.id;
+      const isDropTarget = dropTargetSuiteId === suite.id;
+      const dropValidationMessage = getDropValidationMessage(draggingSuiteId, suite.id);
+      const canAcceptDrop = draggingSuiteId !== null && dropValidationMessage === null;
+      const isDraggingThisSuite = draggingSuiteId === suite.id;
+      const isMovingThisSuite = movingSuiteId === suite.id;
       return (
         <div key={suite.id}>
           {isEditingThisSuite ? (
@@ -775,17 +959,62 @@ export function TestManagementWorkspace() {
           ) : (
             <button
               type="button"
+              draggable={canManage && !isInlineSaving && !isInlineEditingSaving}
               onClick={() => {
-                if (isInlineEditingSaving) return;
+                if (isInlineEditingSaving || isMovingThisSuite) return;
                 setSelectedPlanId(planId);
                 setSelectedSuiteId(suite.id);
               }}
               onDoubleClick={() => handleStartInlineEdit(suite, planId)}
+              onDragStart={(event: DragEvent<HTMLButtonElement>) => {
+                if (!canManage || isInlineSaving || isInlineEditingSaving || movingSuiteId !== null) {
+                  event.preventDefault();
+                  return;
+                }
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", suite.id);
+                setSuiteSaveError(null);
+                setDraggingSuiteId(suite.id);
+                setDropTargetSuiteId(null);
+                setDropTargetPlanId(null);
+              }}
+              onDragEnd={() => {
+                setDraggingSuiteId(null);
+                setDropTargetSuiteId(null);
+                setDropTargetPlanId(null);
+              }}
+              onDragOver={(event: DragEvent<HTMLButtonElement>) => {
+                if (!draggingSuiteId) return;
+                event.preventDefault();
+                event.stopPropagation();
+                event.dataTransfer.dropEffect = canAcceptDrop ? "move" : "none";
+                setDropTargetSuiteId(suite.id);
+                setDropTargetPlanId(null);
+              }}
+              onDragLeave={(event: DragEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                if (dropTargetSuiteId === suite.id) {
+                  setDropTargetSuiteId(null);
+                }
+              }}
+              onDrop={(event: DragEvent<HTMLButtonElement>) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleDropOnSuite(suite.id);
+                setDraggingSuiteId(null);
+                setDropTargetSuiteId(null);
+                setDropTargetPlanId(null);
+              }}
+              aria-label={suite.name}
               className={cn(
                 "flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition-colors",
                 isSelected
                   ? "bg-brand-50/70 font-semibold text-brand-700"
                   : "text-ink-muted hover:bg-brand-50/40 hover:text-ink",
+                isDraggingThisSuite ? "opacity-60" : "",
+                isDropTarget && canAcceptDrop ? "ring-2 ring-brand-300 bg-brand-50/60" : "",
+                isDropTarget && !canAcceptDrop ? "ring-2 ring-danger-300 bg-danger-500/10" : "",
+                canManage ? "cursor-grab active:cursor-grabbing" : "",
               )}
               style={{ paddingLeft: `${12 + depth * 18}px` }}
             >
@@ -871,6 +1100,9 @@ export function TestManagementWorkspace() {
             {plans.map((plan) => {
               const isOpen = expandedPlanIds[plan.id] ?? false;
               const isPlanSelected = selectedPlanId === plan.id;
+              const rootDropValidationMessage = getRootDropValidationMessage(draggingSuiteId, plan.id);
+              const canAcceptRootDrop = draggingSuiteId !== null && rootDropValidationMessage === null;
+              const isPlanRootDropTarget = dropTargetPlanId === plan.id;
               return (
                 <div key={plan.id} className="rounded-xl border border-stroke bg-surface-elevated">
                   <div className="flex items-center gap-1 pr-2">
@@ -926,7 +1158,32 @@ export function TestManagementWorkspace() {
                     ) : null}
                   </div>
                   {isOpen ? (
-                    <div className="pb-2">
+                    <div
+                      data-testid={`plan-root-drop-${plan.id}`}
+                      onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                        if (!draggingSuiteId) return;
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = canAcceptRootDrop ? "move" : "none";
+                        setDropTargetPlanId(plan.id);
+                        setDropTargetSuiteId(null);
+                      }}
+                      onDragLeave={(event: DragEvent<HTMLDivElement>) => {
+                        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                        if (dropTargetPlanId === plan.id) setDropTargetPlanId(null);
+                      }}
+                      onDrop={(event: DragEvent<HTMLDivElement>) => {
+                        event.preventDefault();
+                        void handleDropToPlanRoot(plan.id);
+                        setDraggingSuiteId(null);
+                        setDropTargetPlanId(null);
+                        setDropTargetSuiteId(null);
+                      }}
+                      className={cn(
+                        "pb-2",
+                        isPlanRootDropTarget && canAcceptRootDrop ? "rounded-b-xl ring-2 ring-brand-300" : "",
+                        isPlanRootDropTarget && !canAcceptRootDrop ? "rounded-b-xl ring-2 ring-danger-300" : "",
+                      )}
+                    >
                       {inlinePlanId === plan.id ? (
                         <div className="px-3 pb-2">
                           <input

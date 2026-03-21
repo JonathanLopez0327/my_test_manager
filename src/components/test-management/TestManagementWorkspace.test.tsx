@@ -40,6 +40,22 @@ describe("TestManagementWorkspace", () => {
           name: "Web App",
         },
       },
+      {
+        id: "plan-2",
+        projectId: "proj-2",
+        name: "Mobile Plan",
+        description: null,
+        status: "active",
+        startsOn: null,
+        endsOn: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        project: {
+          id: "proj-2",
+          key: "MOB",
+          name: "Mobile App",
+        },
+      },
     ];
 
     const suites: Array<{
@@ -98,6 +114,46 @@ describe("TestManagementWorkspace", () => {
           },
         },
       },
+      {
+        id: "suite-sibling",
+        testPlanId: "plan-1",
+        parentSuiteId: null,
+        name: "Orders",
+        description: null,
+        displayOrder: 3,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        parent: null,
+        testPlan: {
+          id: "plan-1",
+          name: "Regression Plan",
+          project: {
+            id: "proj-1",
+            key: "WEB",
+            name: "Web App",
+          },
+        },
+      },
+      {
+        id: "suite-other-plan",
+        testPlanId: "plan-2",
+        parentSuiteId: null,
+        name: "Auth",
+        description: null,
+        displayOrder: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        parent: null,
+        testPlan: {
+          id: "plan-2",
+          name: "Mobile Plan",
+          project: {
+            id: "proj-2",
+            key: "MOB",
+            name: "Mobile App",
+          },
+        },
+      },
     ];
 
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -109,7 +165,7 @@ describe("TestManagementWorkspace", () => {
           ok: true,
           json: async () => ({
             items: plans,
-            total: 1,
+            total: plans.length,
             page: 1,
             pageSize: 50,
           }),
@@ -130,8 +186,17 @@ describe("TestManagementWorkspace", () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
               },
+              {
+                id: "proj-2",
+                key: "MOB",
+                name: "Mobile App",
+                description: null,
+                status: "active",
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
             ],
-            total: 1,
+            total: 2,
             page: 1,
             pageSize: 100,
           }),
@@ -584,6 +649,183 @@ describe("TestManagementWorkspace", () => {
       expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
       expect(screen.getByLabelText("New suite name for Regression Plan")).toBeInTheDocument();
     });
+  });
+
+  it("reparents suite by drag and drop within the same plan", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Orders" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Checkout" })).toBeInTheDocument();
+    });
+
+    const source = screen.getByRole("button", { name: "Orders" });
+    const target = screen.getByRole("button", { name: "Checkout" });
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn(),
+      clearData: jest.fn(),
+      effectAllowed: "move",
+      dropEffect: "move",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (String(requestUrl) !== "/api/test-suites/suite-sibling") return false;
+          if (requestInit?.method !== "PUT") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.parentSuiteId === "suite-parent" && body?.testPlanId === "plan-1";
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("blocks drag-drop when target is a descendant of source suite", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Checkout" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+
+    const source = screen.getByRole("button", { name: "Checkout" });
+    const target = screen.getByRole("button", { name: "Payment" });
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn(),
+      clearData: jest.fn(),
+      effectAllowed: "move",
+      dropEffect: "move",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
+
+    await waitFor(() => {
+      expect(screen.getByText("You cannot move a suite into one of its descendants.")).toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).includes("/api/test-suites/") && requestInit?.method === "PUT";
+      }),
+    ).toBe(false);
+  });
+
+  it("blocks drag-drop across different plans", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Orders" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Auth" })).toBeInTheDocument();
+    });
+
+    const source = screen.getByRole("button", { name: "Orders" });
+    const target = screen.getByRole("button", { name: "Auth" });
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn(),
+      clearData: jest.fn(),
+      effectAllowed: "move",
+      dropEffect: "move",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
+
+    await waitFor(() => {
+      expect(screen.getByText("Suites can only be nested within the same test plan.")).toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).includes("/api/test-suites/") && requestInit?.method === "PUT";
+      }),
+    ).toBe(false);
+  });
+
+  it("moves a child suite to root when dropped on the plan container", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+      expect(screen.getByTestId("plan-root-drop-plan-1")).toBeInTheDocument();
+    });
+
+    const source = screen.getByRole("button", { name: "Payment" });
+    const rootDropZone = screen.getByTestId("plan-root-drop-plan-1");
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn(),
+      clearData: jest.fn(),
+      effectAllowed: "move",
+      dropEffect: "move",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(rootDropZone, { dataTransfer });
+    fireEvent.drop(rootDropZone, { dataTransfer });
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) => {
+          const [requestUrl, requestInit] = call as [string, RequestInit];
+          if (String(requestUrl) !== "/api/test-suites/suite-child") return false;
+          if (requestInit?.method !== "PUT") return false;
+          const body = requestInit?.body ? JSON.parse(String(requestInit.body)) : null;
+          return body?.parentSuiteId === null && body?.testPlanId === "plan-1";
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it("blocks moving a suite to root of a different plan", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+      expect(screen.getByTestId("plan-root-drop-plan-2")).toBeInTheDocument();
+    });
+
+    const source = screen.getByRole("button", { name: "Payment" });
+    const otherPlanRootDropZone = screen.getByTestId("plan-root-drop-plan-2");
+    const dataTransfer = {
+      setData: jest.fn(),
+      getData: jest.fn(),
+      clearData: jest.fn(),
+      effectAllowed: "move",
+      dropEffect: "move",
+    } as unknown as DataTransfer;
+
+    fireEvent.dragStart(source, { dataTransfer });
+    fireEvent.dragOver(otherPlanRootDropZone, { dataTransfer });
+    fireEvent.drop(otherPlanRootDropZone, { dataTransfer });
+
+    await waitFor(() => {
+      expect(screen.getByText("Suites can only be moved to root within the same test plan.")).toBeInTheDocument();
+    });
+
+    expect(
+      fetchMock.mock.calls.some((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).includes("/api/test-suites/") && requestInit?.method === "PUT";
+      }),
+    ).toBe(false);
   });
 
   it("loads suite cases when a suite is selected", async () => {
