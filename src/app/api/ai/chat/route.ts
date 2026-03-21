@@ -154,7 +154,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     );
   }
 
-  const { message, projectId, conversationId } = parsed.data;
+  const { message, projectId, conversationId, entityContext } = parsed.data;
   const { userId, activeOrganizationId, organizationRole } = authCtx;
 
   if (!activeOrganizationId) {
@@ -277,6 +277,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
             configurable: {
               project_id: projectId,
               mtm_api_token: mtmApiToken,
+              ...(entityContext ? { entity_context: entityContext } : {}),
             },
           },
           stream_mode: "messages",

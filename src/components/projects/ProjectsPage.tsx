@@ -7,7 +7,7 @@ import { ProjectFormSheet } from "./ProjectFormSheet";
 import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
-import { ProjectAiChatPanel } from "./ProjectAiChatPanel";
+import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
@@ -305,8 +305,17 @@ export function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-8">
-                <ProjectAiChatPanel projectId={project.id} projectName={project.name} />
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden p-8">
+                <div className="text-center">
+                  <p className="text-sm text-ink-muted">
+                    Use the QA Assistant to analyze this project, generate test plans, or review coverage.
+                  </p>
+                </div>
+                <AssistantHubTrigger
+                  context={{ type: "project", projectId: project.id, projectName: project.name }}
+                  label="Open QA Assistant"
+                  variant="button"
+                />
               </div>
             </>
           );
