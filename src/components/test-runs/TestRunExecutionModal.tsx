@@ -401,7 +401,8 @@ export function TestRunExecutionModal({
                       onSetStatus={(status) => {
                         setStepState((prev) => {
                           const next = [...prev];
-                          next[index] = { status };
+                          const currentStatus = next[index]?.status ?? "not_run";
+                          next[index] = { status: currentStatus === status ? "not_run" : status };
                           return next;
                         });
                       }}
@@ -543,8 +544,10 @@ function StepExecutionRow({
       />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-soft">Step {index + 1}</p>
-          <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{step.text}</p>
+          <p className="whitespace-pre-wrap text-sm text-ink">
+            <span className="mr-1 text-ink-soft">{index + 1}.</span>
+            {step.text}
+          </p>
           {step.expected ? (
             <p className="mt-1 text-xs text-ink-muted">Expected: {step.expected}</p>
           ) : null}

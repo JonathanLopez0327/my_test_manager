@@ -898,6 +898,88 @@ describe("TestRunsWorkspace", () => {
     });
   });
 
+  it("toggles passed step back to not_run without changing global result", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    const globalResult = screen.getByRole("combobox", { name: "Overall test result" });
+    fireEvent.change(globalResult, { target: { value: "fail_test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as passed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as passed" }));
+
+    expect(globalResult).toHaveValue("fail_test");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      const itemPatches = fetchMock.mock.calls.filter((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).includes("/api/test-runs/run-1/items/item-1/executions/") && requestInit?.method === "PATCH";
+      });
+      const last = itemPatches[itemPatches.length - 1] as [string, RequestInit] | undefined;
+      expect(last).toBeDefined();
+      const body = last?.[1]?.body ? JSON.parse(String(last[1].body)) : null;
+      expect(body?.status).toBe("failed");
+      expect(body?.stepResults?.[0]?.status).toBe("not_run");
+    });
+  });
+
+  it("toggles failed step back to not_run without changing global result", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestRunsWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Login works").length).toBeGreaterThan(0);
+    });
+
+    const row = screen.getAllByText("Login works")[0]?.closest("tr");
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Execute case" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Execute test case")).toBeInTheDocument();
+    });
+
+    const globalResult = screen.getByRole("combobox", { name: "Overall test result" });
+    fireEvent.change(globalResult, { target: { value: "pass_test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as failed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark step 1 as failed" }));
+
+    expect(globalResult).toHaveValue("pass_test");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => {
+      const itemPatches = fetchMock.mock.calls.filter((call) => {
+        const [requestUrl, requestInit] = call as [string, RequestInit];
+        return String(requestUrl).includes("/api/test-runs/run-1/items/item-1/executions/") && requestInit?.method === "PATCH";
+      });
+      const last = itemPatches[itemPatches.length - 1] as [string, RequestInit] | undefined;
+      expect(last).toBeDefined();
+      const body = last?.[1]?.body ? JSON.parse(String(last[1].body)) : null;
+      expect(body?.status).toBe("passed");
+      expect(body?.stepResults?.[0]?.status).toBe("not_run");
+    });
+  });
+
   it("rejects non-image file inside execution modal", async () => {
     const fetchMock = global.fetch as jest.Mock;
     render(<TestRunsWorkspace />);
