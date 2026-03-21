@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
 import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
+import { useAssistantHub } from "@/lib/assistant-hub";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
@@ -52,6 +53,15 @@ export function ProjectsPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const { actions: hubActions } = useAssistantHub();
+
+  // Auto-sync assistant hub context when a project is selected
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    const project = items.find((p) => p.id === selectedProjectId);
+    if (!project) return;
+    hubActions.setContext({ type: "project", projectId: project.id, projectName: project.name });
+  }, [selectedProjectId, items, hubActions]);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
