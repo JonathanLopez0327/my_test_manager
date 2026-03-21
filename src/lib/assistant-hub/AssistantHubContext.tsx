@@ -363,16 +363,12 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
     const createConversation = async (): Promise<string | null> => {
       const s = stateRef.current;
       const pid = getProjectIdFromContext(s.context);
-      if (!pid) {
-        dispatch({ type: "SET_ERROR", error: "Select a project context before creating a conversation." });
-        return null;
-      }
 
       try {
         const response = await fetch("/api/ai/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: pid, environment: "DEV" }),
+          body: JSON.stringify({ ...(pid ? { projectId: pid } : {}), environment: "DEV" }),
         });
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -412,11 +408,6 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
 
       let chatId = s.activeConversationId;
       if (!chatId) {
-        // Creating a new conversation requires a project context
-        if (!pid) {
-          dispatch({ type: "SET_ERROR", error: "Select a project context before sending a message." });
-          return;
-        }
         const createdId = await createConversation();
         if (!createdId) return;
         chatId = createdId;
