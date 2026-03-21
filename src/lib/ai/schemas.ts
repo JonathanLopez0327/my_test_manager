@@ -7,7 +7,7 @@ export const entityContextSchema = z.object({
 
 export const aiChatRequestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
-  projectId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   conversationId: z.string().uuid(),
   entityContext: entityContextSchema,
 });
