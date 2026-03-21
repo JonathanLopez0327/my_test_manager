@@ -9,6 +9,7 @@ import { WorkspaceShell } from "../ui/WorkspaceShell";
 import { AssistantHubProvider } from "@/lib/assistant-hub";
 import { AssistantHubPanel } from "@/components/assistant-hub/AssistantHubPanel";
 import { AssistantHubFab } from "@/components/assistant-hub/AssistantHubFab";
+import { AssistantHubRouteSync } from "@/components/assistant-hub/AssistantHubRouteSync";
 
 type ManagerShellProps = {
   children: ReactNode;
@@ -34,6 +35,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
 
   return (
     <AssistantHubProvider>
+      <AssistantHubRouteSync pathname={pathname} />
       <div className="flex h-screen w-full overflow-hidden bg-background">
         <div className="h-full shrink-0">
           <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((prev) => !prev)} />
