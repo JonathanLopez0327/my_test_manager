@@ -6,6 +6,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { IconTrash } from "../icons";
 import type { BugRecord, BugCommentRecord, BugStatus, BugSeverity } from "./types";
+import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 
 type BugDetailSheetProps = {
   open: boolean;
@@ -120,6 +121,13 @@ export function BugDetailSheet({
 
   return (
     <Sheet open={open} title={bug.title} description={`${bug.project.key} · ${bug.project.name}`} onClose={onClose} width="2xl">
+      <div className="mb-4 flex items-center justify-end">
+        <AssistantHubTrigger
+          context={{ type: "bug", bugId: bug.id, bugTitle: bug.title, projectId: bug.projectId }}
+          label="Ask AI"
+          variant="button"
+        />
+      </div>
       {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-lg border border-stroke bg-surface-muted p-1">
         <button

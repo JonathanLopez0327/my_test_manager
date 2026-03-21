@@ -11,7 +11,6 @@ import {
   IconLayers,
   IconOrganization,
   IconSettings,
-  IconSpark,
 } from "../icons";
 import { Badge } from "../ui/Badge";
 import { BrandLogo } from "../ui/BrandLogo";
@@ -99,15 +98,6 @@ const navSections: NavSection[] = [
           { id: "users", label: "Users", href: "/manager/users", permission: PERMISSIONS.USER_LIST },
         ],
       },
-      {
-        type: "item",
-        id: "ai-assistant",
-        label: "QA Assistant",
-        icon: IconSpark,
-        href: "/manager/ai-chat",
-        permission: PERMISSIONS.PROJECT_LIST,
-        badge: 4,
-      }
     ],
   },
 ];
