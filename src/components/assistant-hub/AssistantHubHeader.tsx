@@ -8,7 +8,6 @@ import {
   XMarkIcon,
   ClockIcon,
   ChevronDownIcon,
-  MinusIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 
@@ -32,26 +31,15 @@ export function AssistantHubHeader() {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={actions.close}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-            aria-label="Minimize assistant"
-            title="Minimize"
-          >
-            <MinusIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={actions.close}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors hover:bg-danger-500/10 hover:text-danger-600"
-            aria-label="Close assistant"
-            title="Close"
-          >
-            <XMarkIcon className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={actions.close}
+          className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+          aria-label="Close assistant"
+          title="Close"
+        >
+          <XMarkIcon className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Action bar: new chat + history toggle */}
