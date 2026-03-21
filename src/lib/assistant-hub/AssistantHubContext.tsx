@@ -171,11 +171,8 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
   const projectId = getProjectIdFromContext(state.context);
 
   useEffect(() => {
-    if (!projectId) {
-      dispatch({ type: "SET_CONVERSATIONS", conversations: [] });
-      dispatch({ type: "SELECT_CONVERSATION", id: "" });
-      return;
-    }
+    // When context is global, keep existing conversations — don't clear them
+    if (!projectId) return;
 
     let active = true;
 
@@ -412,13 +409,14 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       if (!content || s.isSending) return;
 
       const pid = getProjectIdFromContext(s.context);
-      if (!pid) {
-        dispatch({ type: "SET_ERROR", error: "Select a project context before sending a message." });
-        return;
-      }
 
       let chatId = s.activeConversationId;
       if (!chatId) {
+        // Creating a new conversation requires a project context
+        if (!pid) {
+          dispatch({ type: "SET_ERROR", error: "Select a project context before sending a message." });
+          return;
+        }
         const createdId = await createConversation();
         if (!createdId) return;
         chatId = createdId;
@@ -453,7 +451,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, projectId: pid, conversationId: chatId }),
+          body: JSON.stringify({ message: content, conversationId: chatId, ...(pid ? { projectId: pid } : {}) }),
         });
 
         if (!response.ok) {
