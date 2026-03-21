@@ -10,20 +10,24 @@ import {
   ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
+import { getProjectIdFromContext } from "@/lib/assistant-hub/chat-helpers";
 
 type ProjectOption = { id: string; key: string; name: string };
 
 export function AssistantHubHeader() {
   const { state, actions } = useAssistantHub();
   const contextLabel = getContextLabel(state.context);
-  const isGlobal = state.context.type === "global";
+  const currentProjectId = getProjectIdFromContext(state.context);
+
+  // True when context was set by a non-project entity (bug, testRun, etc.)
+  const isEntityContext = state.context.type !== "global" && state.context.type !== "project";
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
 
-  // Fetch projects when context is global and panel is open
+  // Fetch projects when panel is open
   useEffect(() => {
-    if (!isGlobal || !state.isOpen) return;
+    if (!state.isOpen) return;
     let active = true;
 
     const load = async () => {
@@ -34,7 +38,7 @@ export function AssistantHubHeader() {
         const data = (await res.json()) as { items: ProjectOption[] };
         if (active) setProjects(data.items);
       } catch {
-        // silently fail — user can retry
+        // silently fail
       } finally {
         if (active) setLoadingProjects(false);
       }
@@ -42,7 +46,7 @@ export function AssistantHubHeader() {
 
     void load();
     return () => { active = false; };
-  }, [isGlobal, state.isOpen]);
+  }, [state.isOpen]);
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const projectId = e.target.value;
@@ -61,7 +65,7 @@ export function AssistantHubHeader() {
             <IconSpark className="h-3 w-3" />
           </span>
           <p className="truncate text-[13px] font-semibold text-ink">QA Assistant</p>
-          {!isGlobal ? (
+          {isEntityContext ? (
             <Badge className="max-w-[140px] truncate px-1.5 py-0 text-[9px]">
               {contextLabel}
             </Badge>
@@ -79,26 +83,24 @@ export function AssistantHubHeader() {
         </button>
       </div>
 
-      {/* Project selector — only when context is global */}
-      {isGlobal ? (
-        <div className="border-t border-stroke/50 px-3 py-1.5">
-          <select
-            value=""
-            onChange={handleProjectChange}
-            disabled={loadingProjects}
-            className="h-7 w-full rounded-lg border border-stroke bg-surface-elevated px-2 text-[11px] font-medium text-ink transition-colors hover:border-brand-500/40 focus:border-brand-500 focus:outline-none disabled:opacity-50 dark:bg-surface-muted"
-          >
-            <option value="">
-              {loadingProjects ? "Loading projects..." : "Select a project..."}
+      {/* Project selector — always visible */}
+      <div className="border-t border-stroke/50 px-3 py-1.5">
+        <select
+          value={currentProjectId ?? ""}
+          onChange={handleProjectChange}
+          disabled={loadingProjects}
+          className="h-7 w-full rounded-lg border border-stroke bg-surface-elevated px-2 text-[11px] font-medium text-ink transition-colors hover:border-brand-500/40 focus:border-brand-500 focus:outline-none disabled:opacity-50 dark:bg-surface-muted"
+        >
+          <option value="">
+            {loadingProjects ? "Loading projects..." : "Select a project..."}
+          </option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.key} · {p.name}
             </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.key} · {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
+          ))}
+        </select>
+      </div>
 
       {/* Action bar: new chat + history toggle */}
       <div className="flex items-center gap-1.5 border-t border-stroke/50 px-3 py-1.5">
