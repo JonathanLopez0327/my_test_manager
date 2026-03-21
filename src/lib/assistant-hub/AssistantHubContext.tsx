@@ -332,7 +332,11 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Actions
+  // Keep a ref to latest state so actions never depend on state directly
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // Stable actions — never change identity, read state via ref
   const actions = useMemo<AssistantHubActions>(() => {
     const open = (context?: AssistantEntityContext) => {
       dispatch({ type: "OPEN", context });
@@ -341,7 +345,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
     const close = () => dispatch({ type: "CLOSE" });
 
     const toggle = (context?: AssistantEntityContext) => {
-      if (state.isOpen && !context) {
+      if (stateRef.current.isOpen && !context) {
         dispatch({ type: "CLOSE" });
       } else {
         dispatch({ type: "OPEN", context });
@@ -354,13 +358,14 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
 
     const selectConversation = (id: string) => {
       dispatch({ type: "SELECT_CONVERSATION", id });
-      const conv = state.conversations.find((c) => c.id === id);
+      const conv = stateRef.current.conversations.find((c) => c.id === id);
       const tid = conv?.threadId?.trim();
       if (tid) void checkThreadDocument(tid);
     };
 
     const createConversation = async (): Promise<string | null> => {
-      const pid = getProjectIdFromContext(state.context);
+      const s = stateRef.current;
+      const pid = getProjectIdFromContext(s.context);
       if (!pid) {
         dispatch({ type: "SET_ERROR", error: "Select a project context before creating a conversation." });
         return null;
@@ -377,7 +382,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
           throw new Error(payload?.message || "Could not create conversation.");
         }
         const payload = (await response.json()) as { item: AiConversationDto };
-        const scopeLabel = state.context.type === "project" ? state.context.projectName : "Project";
+        const scopeLabel = s.context.type === "project" ? s.context.projectName : "Project";
         const created = mapConversationDto(payload.item, scopeLabel);
         const createdMessages = payload.item.messages.map((m) =>
           mapMessageDto(m, payload.item.threadId),
@@ -402,16 +407,17 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
     };
 
     const sendMessage = async (message: string): Promise<void> => {
+      const s = stateRef.current;
       const content = message.trim();
-      if (!content || state.isSending) return;
+      if (!content || s.isSending) return;
 
-      const pid = getProjectIdFromContext(state.context);
+      const pid = getProjectIdFromContext(s.context);
       if (!pid) {
         dispatch({ type: "SET_ERROR", error: "Select a project context before sending a message." });
         return;
       }
 
-      let chatId = state.activeConversationId;
+      let chatId = s.activeConversationId;
       if (!chatId) {
         const createdId = await createConversation();
         if (!createdId) return;
@@ -555,7 +561,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       setDraft,
       toggleHistory,
     };
-  }, [state.isOpen, state.context, state.activeConversationId, state.conversations, state.isSending, checkThreadDocument, pollThreadDocumentUntilReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [checkThreadDocument, pollThreadDocumentUntilReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = useMemo<HubContextValue>(
     () => ({ state, actions, dispatch }),
