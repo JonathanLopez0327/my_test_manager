@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useAssistantHub, getContextLabel } from "@/lib/assistant-hub";
 import { IconSpark, IconPlus } from "@/components/icons";
 import {
@@ -20,8 +19,6 @@ import {
   getParentContext,
 } from "@/lib/assistant-hub/chat-helpers";
 
-type ProjectOption = { id: string; key: string; name: string };
-
 const CONTEXT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   project: FolderIcon,
   testRun: PlayIcon,
@@ -35,48 +32,15 @@ export function AssistantHubFullPageHeader() {
   const currentProjectId = getProjectIdFromContext(state.context);
   const isEntityContext = state.context.type !== "global" && state.context.type !== "project";
 
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoadingProjects(true);
-      try {
-        const res = await fetch("/api/projects?page=1&pageSize=50&query=");
-        if (!res.ok) throw new Error();
-        const data = (await res.json()) as { items: ProjectOption[] };
-        if (active) setProjects(data.items);
-      } catch {
-        // silently fail
-      } finally {
-        if (active) setLoadingProjects(false);
-      }
-    };
-    void load();
-    return () => { active = false; };
-  }, []);
-
-  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const projectId = e.target.value;
-    if (!projectId) return;
-    const project = projects.find((p) => p.id === projectId);
-    if (!project) return;
-    actions.setContext({ type: "project", projectId: project.id, projectName: project.name });
-  };
-
   const handleClearContext = () => {
-    const projectName = currentProjectId
-      ? projects.find((p) => p.id === currentProjectId)?.name
-      : undefined;
-    const parent = getParentContext(state.context, projectName);
+    const parent = getParentContext(state.context);
     actions.setContext(parent);
   };
 
   const projectName = currentProjectId
     ? (state.context.type === "project"
         ? state.context.projectName
-        : projects.find((p) => p.id === currentProjectId)?.name ?? "Project")
+        : "projectId" in state.context ? "Project" : null)
     : null;
 
   const ContextIcon = CONTEXT_ICONS[state.context.type] ?? null;
@@ -130,25 +94,6 @@ export function AssistantHubFullPageHeader() {
           </button>
         </div>
       ) : null}
-
-      {/* Project selector */}
-      <div className="border-t border-stroke/50 px-4 py-1.5">
-        <select
-          value={currentProjectId ?? ""}
-          onChange={handleProjectChange}
-          disabled={loadingProjects}
-          className="h-7 w-full max-w-xs rounded-lg border border-stroke bg-surface-elevated px-2 text-[11px] font-medium text-ink transition-colors hover:border-brand-500/40 focus:border-brand-500 focus:outline-none disabled:opacity-50 dark:bg-surface-muted"
-        >
-          <option value="">
-            {loadingProjects ? "Loading projects..." : "Select a project..."}
-          </option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.key} · {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* Action bar */}
       <div className="flex items-center gap-1.5 border-t border-stroke/50 px-4 py-1.5">
