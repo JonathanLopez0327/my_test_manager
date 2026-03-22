@@ -18,6 +18,7 @@ import type {
   Conversation,
   ThreadDocumentState,
   AttachmentItem,
+  ScreenData,
 } from "./types";
 import type { AiConversationDto, AiConversationsResponse } from "@/components/ai-chat/types";
 import {
@@ -57,7 +58,8 @@ type Action =
   | { type: "SET_ATTACHMENTS"; attachments: AttachmentItem[] }
   | { type: "SET_ATTACHMENTS_PANEL_OPEN"; open: boolean }
   | { type: "SET_EXPANDED_ATTACHMENT"; id: string | null }
-  | { type: "UPDATE_CONVERSATIONS"; updater: (prev: Conversation[]) => Conversation[] };
+  | { type: "UPDATE_CONVERSATIONS"; updater: (prev: Conversation[]) => Conversation[] }
+  | { type: "SET_SCREEN_DATA"; screenData: ScreenData | undefined };
 
 const initialState: AssistantHubState = {
   isOpen: false,
@@ -134,6 +136,9 @@ function reducer(state: AssistantHubState, action: Action): AssistantHubState {
       return { ...state, expandedAttachmentId: action.id };
     case "UPDATE_CONVERSATIONS":
       return { ...state, conversations: action.updater(state.conversations) };
+    case "SET_SCREEN_DATA":
+      if (state.context.type === "global") return state;
+      return { ...state, context: { ...state.context, screenData: action.screenData } };
     default:
       return state;
   }
@@ -543,6 +548,8 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
 
     const setDraft = (draft: string) => dispatch({ type: "SET_DRAFT", draft });
     const toggleHistory = () => dispatch({ type: "TOGGLE_HISTORY" });
+    const setScreenData = (screenData: ScreenData | undefined) =>
+      dispatch({ type: "SET_SCREEN_DATA", screenData });
 
     return {
       open,
@@ -554,6 +561,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       sendMessage,
       setDraft,
       toggleHistory,
+      setScreenData,
     };
   }, [checkThreadDocument, pollThreadDocumentUntilReady]); // eslint-disable-line react-hooks/exhaustive-deps
 

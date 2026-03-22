@@ -8,7 +8,8 @@ import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
 import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
-import { useAssistantHub } from "@/lib/assistant-hub";
+import { useAssistantHub, useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
@@ -62,6 +63,19 @@ export function ProjectsPage() {
     if (!project) return;
     hubActions.setContext({ type: "project", projectId: project.id, projectName: project.name });
   }, [selectedProjectId, items, hubActions]);
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "projectsList",
+    visibleItems: items.slice(0, 30).map((p) => ({
+      id: p.id,
+      title: p.name,
+      status: p.key,
+    })),
+    summary: { total },
+    ...(query ? { filters: { search: query } } : {}),
+  }), [items, total, query]);
+
+  useScreenDataSync(screenData);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);

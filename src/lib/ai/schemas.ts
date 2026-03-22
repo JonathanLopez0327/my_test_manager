@@ -1,10 +1,26 @@
 import { z } from "zod";
 
+const screenDataItemSchema = z.object({
+  id: z.string().max(64),
+  title: z.string().max(256),
+  status: z.string().max(32).optional(),
+  priority: z.string().max(16).optional(),
+});
+
+const screenDataSchema = z.object({
+  viewType: z.string().max(64).optional(),
+  visibleItems: z.array(screenDataItemSchema).max(30).optional(),
+  filters: z.record(z.string(), z.string().max(128)).optional(),
+  summary: z.record(z.string(), z.union([z.number(), z.string().max(128)])).optional(),
+  breadcrumb: z.array(z.string().max(128)).max(10).optional(),
+}).optional();
+
 export const entityContextSchema = z.object({
   type: z.string().min(1).max(32),
   entityId: z.string().uuid().optional(),
   entityName: z.string().max(256).optional(),
   projectId: z.string().uuid().optional(),
+  screenData: screenDataSchema,
 }).optional();
 
 export const aiChatRequestSchema = z.object({

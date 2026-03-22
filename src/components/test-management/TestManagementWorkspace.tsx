@@ -31,6 +31,8 @@ import type {
 } from "@/components/test-cases/types";
 import { nextSort } from "@/lib/sorting";
 import { cn } from "@/lib/utils";
+import { useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
 const LIST_PAGE_SIZE = 50;
@@ -230,6 +232,29 @@ export function TestManagementWorkspace() {
     return descendants;
   }, [suites]);
   const isInlineCreating = inlinePlanId !== null;
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "testManagement",
+    visibleItems: items.slice(0, 30).map((tc) => ({
+      id: tc.id,
+      title: tc.title,
+      status: tc.status,
+      priority: tc.priority != null ? String(tc.priority) : undefined,
+    })),
+    filters: {
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(priorityFilter ? { priority: priorityFilter } : {}),
+      ...(tagFilter ? { tag: tagFilter } : {}),
+      ...(query ? { search: query } : {}),
+    },
+    summary: { total, page, pageSize },
+    breadcrumb: [
+      ...(selectedPlan ? [selectedPlan.name] : []),
+      ...(selectedSuite ? [selectedSuite.name] : []),
+    ],
+  }), [items, statusFilter, priorityFilter, tagFilter, query, total, page, pageSize, selectedPlan, selectedSuite]);
+
+  useScreenDataSync(screenData);
 
   const fetchAllPlansAndSuites = useCallback(async () => {
     setLoadingHierarchy(true);

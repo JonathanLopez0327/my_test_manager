@@ -1,4 +1,5 @@
 export { AssistantHubProvider, useAssistantHub } from "./AssistantHubContext";
+export { useScreenDataSync } from "./useScreenDataSync";
 export type {
   AssistantEntityContext,
   AssistantHubState,
@@ -11,6 +12,8 @@ export type {
   ConversationGeneratedAttachment,
   AssistantMessageMetadata,
   AssistantDocumentVersion,
+  ScreenData,
+  ScreenDataItem,
 } from "./types";
 export {
   getContextLabel,

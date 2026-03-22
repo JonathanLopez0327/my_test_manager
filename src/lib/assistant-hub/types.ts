@@ -1,16 +1,35 @@
 import type { AiConversationMessageDto } from "@/components/ai-chat/types";
 
 /* ------------------------------------------------------------------ */
+/*  Screen data (what is currently visible on the page)                */
+/* ------------------------------------------------------------------ */
+
+export type ScreenDataItem = {
+  id: string;
+  title: string;
+  status?: string;
+  priority?: string;
+};
+
+export type ScreenData = {
+  viewType?: string;
+  visibleItems?: ScreenDataItem[];
+  filters?: Record<string, string>;
+  summary?: Record<string, string | number>;
+  breadcrumb?: string[];
+};
+
+/* ------------------------------------------------------------------ */
 /*  Entity context                                                     */
 /* ------------------------------------------------------------------ */
 
 export type AssistantEntityContext =
   | { type: "global" }
-  | { type: "project"; projectId: string; projectName: string }
-  | { type: "testRun"; testRunId: string; testRunTitle: string; projectId: string }
-  | { type: "testSuite"; testSuiteId: string; testSuiteName: string; projectId: string }
-  | { type: "testCase"; testCaseId: string; testCaseTitle: string; projectId: string }
-  | { type: "bug"; bugId: string; bugTitle: string; projectId: string };
+  | { type: "project"; projectId: string; projectName: string; screenData?: ScreenData }
+  | { type: "testRun"; testRunId: string; testRunTitle: string; projectId: string; screenData?: ScreenData }
+  | { type: "testSuite"; testSuiteId: string; testSuiteName: string; projectId: string; screenData?: ScreenData }
+  | { type: "testCase"; testCaseId: string; testCaseTitle: string; projectId: string; screenData?: ScreenData }
+  | { type: "bug"; bugId: string; bugTitle: string; projectId: string; screenData?: ScreenData };
 
 /* ------------------------------------------------------------------ */
 /*  Chat types                                                         */
@@ -117,6 +136,7 @@ export type AssistantHubActions = {
   sendMessage: (message: string) => Promise<void>;
   setDraft: (draft: string) => void;
   toggleHistory: () => void;
+  setScreenData: (screenData: ScreenData | undefined) => void;
 };
 
 /* ------------------------------------------------------------------ */

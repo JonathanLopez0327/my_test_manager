@@ -470,19 +470,19 @@ export function parseAssistantContextFromParams(
 
 export function serializeEntityContext(
   context: import("./types").AssistantEntityContext,
-): { type: string; entityId?: string; entityName?: string; projectId?: string } | undefined {
+): { type: string; entityId?: string; entityName?: string; projectId?: string; screenData?: import("./types").ScreenData } | undefined {
   switch (context.type) {
     case "global":
       return undefined;
     case "project":
-      return { type: "project", entityId: context.projectId, entityName: context.projectName };
+      return { type: "project", entityId: context.projectId, entityName: context.projectName, ...(context.screenData ? { screenData: context.screenData } : {}) };
     case "testRun":
-      return { type: "testRun", entityId: context.testRunId, entityName: context.testRunTitle, projectId: context.projectId };
+      return { type: "testRun", entityId: context.testRunId, entityName: context.testRunTitle, projectId: context.projectId, ...(context.screenData ? { screenData: context.screenData } : {}) };
     case "testSuite":
-      return { type: "testSuite", entityId: context.testSuiteId, entityName: context.testSuiteName, projectId: context.projectId };
+      return { type: "testSuite", entityId: context.testSuiteId, entityName: context.testSuiteName, projectId: context.projectId, ...(context.screenData ? { screenData: context.screenData } : {}) };
     case "testCase":
-      return { type: "testCase", entityId: context.testCaseId, entityName: context.testCaseTitle, projectId: context.projectId };
+      return { type: "testCase", entityId: context.testCaseId, entityName: context.testCaseTitle, projectId: context.projectId, ...(context.screenData ? { screenData: context.screenData } : {}) };
     case "bug":
-      return { type: "bug", entityId: context.bugId, entityName: context.bugTitle, projectId: context.projectId };
+      return { type: "bug", entityId: context.bugId, entityName: context.bugTitle, projectId: context.projectId, ...(context.screenData ? { screenData: context.screenData } : {}) };
   }
 }
