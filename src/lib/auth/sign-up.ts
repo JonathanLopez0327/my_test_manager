@@ -149,15 +149,15 @@ export async function registerUserWithOrganization(
       data: {
         name: input.organization.name.trim(),
         slug,
-        createdById: user.id,
+        createdBy: { connect: { id: user.id } },
       },
       select: { id: true, slug: true },
     });
 
     await tx.organizationMember.create({
       data: {
-        organizationId: organization.id,
-        userId: user.id,
+        organization: { connect: { id: organization.id } },
+        user: { connect: { id: user.id } },
         role: "owner",
       },
     });
@@ -166,7 +166,7 @@ export async function registerUserWithOrganization(
       data: {
         code: autoCode,
         email,
-        usedById: user.id,
+        usedBy: { connect: { id: user.id } },
         usedAt: new Date(),
       },
     });
@@ -292,15 +292,15 @@ export async function registerGoogleUserWithOrganization(
       data: {
         name: organizationName,
         slug,
-        createdById: user.id,
+        createdBy: { connect: { id: user.id } },
       },
       select: { id: true },
     });
 
     await tx.organizationMember.create({
       data: {
-        organizationId: organization.id,
-        userId: user.id,
+        organization: { connect: { id: organization.id } },
+        user: { connect: { id: user.id } },
         role: "owner",
       },
     });
@@ -309,7 +309,7 @@ export async function registerGoogleUserWithOrganization(
       data: {
         code: autoCode,
         email,
-        usedById: user.id,
+        usedBy: { connect: { id: user.id } },
         usedAt: new Date(),
       },
     });

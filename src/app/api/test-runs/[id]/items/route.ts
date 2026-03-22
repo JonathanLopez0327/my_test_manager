@@ -410,6 +410,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           throw new Error("executed_at_invalid");
         }
 
+        const executedById = item.executedById?.trim() || null;
         const upserted = await tx.testRunItem.upsert({
           where: {
             runId_testCaseId: {
@@ -420,17 +421,19 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           update: {
             status,
             durationMs,
-            executedById: item.executedById?.trim() || null,
+            ...(executedById
+              ? { executedBy: { connect: { id: executedById } } }
+              : { executedBy: { disconnect: true } }),
             executedAt,
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
           },
           create: {
-            runId: id,
-            testCaseId,
+            run: { connect: { id } },
+            testCase: { connect: { id: testCaseId } },
             status,
             durationMs,
-            executedById: item.executedById?.trim() || null,
+            ...(executedById ? { executedBy: { connect: { id: executedById } } } : {}),
             executedAt,
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
@@ -549,6 +552,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           throw new Error("executed_at_invalid");
         }
 
+        const executedById = item.executedById?.trim() || null;
         const upserted = await tx.testRunItem.upsert({
           where: {
             runId_testCaseId: {
@@ -559,17 +563,19 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           update: {
             status,
             durationMs,
-            executedById: item.executedById?.trim() || null,
+            ...(executedById
+              ? { executedBy: { connect: { id: executedById } } }
+              : { executedBy: { disconnect: true } }),
             executedAt,
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
           },
           create: {
-            runId: id,
-            testCaseId,
+            run: { connect: { id } },
+            testCase: { connect: { id: testCaseId } },
             status,
             durationMs,
-            executedById: item.executedById?.trim() || null,
+            ...(executedById ? { executedBy: { connect: { id: executedById } } } : {}),
             executedAt,
             errorMessage: item.errorMessage?.trim() || null,
             stacktrace: item.stacktrace?.trim() || null,
@@ -630,7 +636,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           });
           await tx.testRunItem.update({
             where: { id: upserted.id },
-            data: { currentExecutionId: null },
+            data: { currentExecution: { disconnect: true } },
           });
 
           updatedItems.push(upserted);
@@ -659,12 +665,15 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         let resolvedExecutionId = runItemWithCase?.currentExecutionId ?? null;
 
         if (runItemWithCase?.currentExecutionId) {
+          const execExecutedById = item.executedById?.trim() || null;
           await tx.testRunItemExecution.update({
             where: { id: runItemWithCase.currentExecutionId },
             data: {
               status,
               durationMs,
-              executedById: item.executedById?.trim() || null,
+              ...(execExecutedById
+                ? { executedBy: { connect: { id: execExecutedById } } }
+                : { executedBy: { disconnect: true } }),
               startedAt: executedAt ?? undefined,
               completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
               errorMessage: item.errorMessage?.trim() || null,
@@ -672,15 +681,16 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           });
         } else if (runItemWithCase) {
           const nextAttempt = (runItemWithCase.executions[0]?.attemptNumber ?? 0) + 1;
+          const createExecById = item.executedById?.trim() || null;
           const createdExecution = await tx.testRunItemExecution.create({
             data: {
-              runItemId: upserted.id,
+              runItem: { connect: { id: upserted.id } },
               attemptNumber: nextAttempt,
               status,
               durationMs,
               startedAt: executedAt ?? new Date(),
               completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
-              executedById: item.executedById?.trim() || null,
+              ...(createExecById ? { executedBy: { connect: { id: createExecById } } } : {}),
               errorMessage: item.errorMessage?.trim() || null,
             },
             select: { id: true },
@@ -701,7 +711,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
           await tx.testRunItem.update({
             where: { id: upserted.id },
-            data: { currentExecutionId: createdExecution.id },
+            data: { currentExecution: { connect: { id: createdExecution.id } } },
           });
           resolvedExecutionId = createdExecution.id;
         }

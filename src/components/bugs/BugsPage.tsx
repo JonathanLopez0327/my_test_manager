@@ -20,6 +20,8 @@ import type {
   SortDir,
 } from "./types";
 import { nextSort } from "@/lib/sorting";
+import { useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -70,6 +72,24 @@ export function BugsPage() {
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize],
   );
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "bugsList",
+    visibleItems: items.slice(0, 30).map((bug) => ({
+      id: bug.id,
+      title: bug.title,
+      status: bug.status,
+      priority: bug.severity,
+    })),
+    filters: {
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(severityFilter ? { severity: severityFilter } : {}),
+      ...(query ? { search: query } : {}),
+    },
+    summary: { total, page, pageSize },
+  }), [items, statusFilter, severityFilter, query, total, page, pageSize]);
+
+  useScreenDataSync(screenData);
 
   const fetchBugs = useCallback(async () => {
     setLoading(true);

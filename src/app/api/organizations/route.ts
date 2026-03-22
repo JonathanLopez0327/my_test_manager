@@ -104,7 +104,7 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
         data: {
           slug,
           name,
-          createdById: userId,
+          ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
         },
       });
 
@@ -112,8 +112,8 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
       if (!isSuperAdmin) {
         await tx.organizationMember.create({
           data: {
-            organizationId: created.id,
-            userId,
+            organization: { connect: { id: created.id } },
+            user: { connect: { id: userId } },
             role: "owner",
           },
         });

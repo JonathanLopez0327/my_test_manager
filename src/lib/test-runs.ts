@@ -120,7 +120,7 @@ export async function upsertRunMetrics(db: DbClient, runId: string) {
       durationMs: metrics.durationMs,
     },
     create: {
-      runId,
+      run: { connect: { id: runId } },
       total: metrics.total,
       passed: metrics.passed,
       failed: metrics.failed,

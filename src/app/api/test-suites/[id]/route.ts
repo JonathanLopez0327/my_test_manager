@@ -123,8 +123,8 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     const suite = await prisma.testSuite.update({
       where: { id },
       data: {
-        testPlanId,
-        parentSuiteId,
+        testPlan: { connect: { id: testPlanId } },
+        ...(parentSuiteId ? { parent: { connect: { id: parentSuiteId } } } : { parent: { disconnect: true } }),
         name,
         description: body.description?.trim() || null,
         displayOrder: parseDisplayOrder(body.displayOrder),

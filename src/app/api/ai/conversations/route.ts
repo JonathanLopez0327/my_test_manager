@@ -100,9 +100,9 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   const now = new Date();
   const created = await prisma.aiConversation.create({
     data: {
-      organizationId: activeOrganizationId,
-      ...(projectId ? { projectId } : {}),
-      userId,
+      organization: { connect: { id: activeOrganizationId } },
+      ...(projectId ? { project: { connect: { id: projectId } } } : {}),
+      user: { connect: { id: userId } },
       title: "New conversation",
       environment: environment?.trim() || DEFAULT_CONVERSATION_ENVIRONMENT,
       status: "active",

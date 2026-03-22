@@ -116,7 +116,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     const testCase = await prisma.testCase.update({
       where: { id },
       data: {
-        suiteId,
+        suite: { connect: { id: suiteId } },
         title,
         style,
         description: body.description?.trim() || null,

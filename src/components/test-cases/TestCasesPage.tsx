@@ -21,6 +21,8 @@ import type {
 } from "./types";
 import type { TestSuitesResponse } from "../test-suites/types";
 import { nextSort } from "@/lib/sorting";
+import { useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -83,6 +85,29 @@ export function TestCasesPage() {
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize],
   );
+
+  const selectedSuiteName = useMemo(() => {
+    if (!suiteFilter) return undefined;
+    return suites.find((s) => s.id === suiteFilter)?.name;
+  }, [suiteFilter, suites]);
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "testCasesList",
+    visibleItems: items.slice(0, 30).map((tc) => ({
+      id: tc.id,
+      title: tc.title,
+      status: tc.status,
+      priority: tc.priority != null ? String(tc.priority) : undefined,
+    })),
+    filters: {
+      ...(suiteFilter && selectedSuiteName ? { suite: selectedSuiteName } : {}),
+      ...(tagFilter ? { tag: tagFilter } : {}),
+      ...(query ? { search: query } : {}),
+    },
+    summary: { total, page, pageSize },
+  }), [items, suiteFilter, selectedSuiteName, tagFilter, query, total, page, pageSize]);
+
+  useScreenDataSync(screenData);
 
   const fetchCases = useCallback(async () => {
     setLoading(true);
