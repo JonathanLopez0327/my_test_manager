@@ -31,7 +31,7 @@ import type {
 } from "@/components/test-cases/types";
 import { nextSort } from "@/lib/sorting";
 import { cn } from "@/lib/utils";
-import { useScreenDataSync } from "@/lib/assistant-hub";
+import { useScreenDataSync, useAssistantHub } from "@/lib/assistant-hub";
 import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -232,6 +232,25 @@ export function TestManagementWorkspace() {
     return descendants;
   }, [suites]);
   const isInlineCreating = inlinePlanId !== null;
+
+  // Sync assistant hub context when a suite or plan is selected
+  const { actions: hubActions } = useAssistantHub();
+  useEffect(() => {
+    if (selectedSuite) {
+      hubActions.setContext({
+        type: "testSuite",
+        testSuiteId: selectedSuite.id,
+        testSuiteName: selectedSuite.name,
+        projectId: selectedSuite.testPlan.project.id,
+      });
+    } else if (selectedPlan) {
+      hubActions.setContext({
+        type: "project",
+        projectId: selectedPlan.project.id,
+        projectName: selectedPlan.project.name,
+      });
+    }
+  }, [selectedSuite, selectedPlan, hubActions]);
 
   const screenData = useMemo<ScreenData>(() => ({
     viewType: "testManagement",
