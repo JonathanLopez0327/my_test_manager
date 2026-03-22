@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -103,6 +103,7 @@ export function BugDetailSheet({
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [savingAttachments, setSavingAttachments] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewArtifact, setPreviewArtifact] = useState<{
     url: string;
     type: string;
@@ -509,19 +510,48 @@ export function BugDetailSheet({
           {canUploadAttachments ? (
             <div className="space-y-3 border-t border-stroke pt-4">
               <input
+                ref={fileInputRef}
                 type="file"
                 multiple
+                className="sr-only"
                 onChange={(event) => {
-                  setAttachmentFiles(Array.from(event.target.files ?? []));
+                  const newFiles = Array.from(event.target.files ?? []);
+                  setAttachmentFiles((prev) => [...prev, ...newFiles]);
+                  event.target.value = "";
                 }}
-                className="h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-2 file:py-1 file:text-xs file:font-semibold file:text-ink"
               />
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-ink-muted">
-                  {attachmentFiles.length > 0
-                    ? `${attachmentFiles.length} file${attachmentFiles.length === 1 ? "" : "s"} selected`
-                    : "Select one or more files"}
-                </p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-10 w-full rounded-lg border border-dashed border-stroke bg-surface-elevated dark:bg-surface-muted px-4 text-sm text-ink-muted hover:border-brand-300 hover:text-ink transition"
+              >
+                Browse files&hellip;
+              </button>
+              {attachmentFiles.length > 0 && (
+                <ul className="grid gap-1">
+                  {attachmentFiles.map((file, idx) => (
+                    <li
+                      key={`${file.name}-${idx}`}
+                      className="flex items-center gap-2 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm"
+                    >
+                      <span className="truncate flex-1 text-ink">{file.name}</span>
+                      <span className="shrink-0 text-xs text-ink-muted">
+                        {formatSize(file.size)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="shrink-0 ml-1 text-ink-muted hover:text-danger-500 transition"
+                      >
+                        &times;
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex justify-end">
                 <Button
                   size="sm"
                   onClick={handleUploadAttachments}
