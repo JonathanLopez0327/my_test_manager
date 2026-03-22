@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAssistantHub, getContextLabel } from "@/lib/assistant-hub";
 import { IconSpark, IconPlus } from "@/components/icons";
 import {
@@ -9,7 +8,6 @@ import {
   ClockIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ArrowsPointingOutIcon,
   BugAntIcon,
   PlayIcon,
   BeakerIcon,
@@ -20,7 +18,6 @@ import { cn } from "@/lib/utils";
 import {
   getProjectIdFromContext,
   getParentContext,
-  buildAssistantHubUrl,
 } from "@/lib/assistant-hub/chat-helpers";
 
 type ProjectOption = { id: string; key: string; name: string };
@@ -33,21 +30,16 @@ const CONTEXT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
   bug: BugAntIcon,
 };
 
-export function AssistantHubHeader() {
+export function AssistantHubFullPageHeader() {
   const { state, actions } = useAssistantHub();
-  const router = useRouter();
   const currentProjectId = getProjectIdFromContext(state.context);
-
   const isEntityContext = state.context.type !== "global" && state.context.type !== "project";
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
 
-  // Fetch projects when panel is open
   useEffect(() => {
-    if (!state.isOpen) return;
     let active = true;
-
     const load = async () => {
       setLoadingProjects(true);
       try {
@@ -61,10 +53,9 @@ export function AssistantHubHeader() {
         if (active) setLoadingProjects(false);
       }
     };
-
     void load();
     return () => { active = false; };
-  }, [state.isOpen]);
+  }, []);
 
   const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const projectId = e.target.value;
@@ -82,13 +73,6 @@ export function AssistantHubHeader() {
     actions.setContext(parent);
   };
 
-  const handleOpenInHub = () => {
-    const url = buildAssistantHubUrl(state.context);
-    actions.close();
-    router.push(url);
-  };
-
-  // Resolve project name for breadcrumb
   const projectName = currentProjectId
     ? (state.context.type === "project"
         ? state.context.projectName
@@ -100,40 +84,19 @@ export function AssistantHubHeader() {
 
   return (
     <header className="shrink-0 border-b border-stroke">
-      {/* Top row: title + window controls */}
-      <div className="flex h-11 items-center justify-between px-3">
+      {/* Top row: title */}
+      <div className="flex h-12 items-center justify-between px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
-            <IconSpark className="h-3 w-3" />
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
+            <IconSpark className="h-3.5 w-3.5" />
           </span>
-          <p className="truncate text-[13px] font-semibold text-ink">QA Assistant</p>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleOpenInHub}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-            aria-label="Open in full page"
-            title="Open in full page"
-          >
-            <ArrowsPointingOutIcon className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={actions.close}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-            aria-label="Close assistant"
-            title="Close"
-          >
-            <XMarkIcon className="h-3.5 w-3.5" />
-          </button>
+          <p className="truncate text-sm font-semibold text-ink">QA Assistant</p>
         </div>
       </div>
 
-      {/* Context breadcrumb — shown when context is set to a specific entity */}
+      {/* Context breadcrumb */}
       {state.context.type !== "global" ? (
-        <div className="flex items-center gap-1 border-t border-stroke/50 px-3 py-1.5">
+        <div className="flex items-center gap-1 border-t border-stroke/50 px-4 py-1.5">
           <div className="flex min-w-0 flex-1 items-center gap-1 text-[11px]">
             {isEntityContext && projectName ? (
               <>
@@ -141,8 +104,7 @@ export function AssistantHubHeader() {
                 <button
                   type="button"
                   onClick={() => {
-                    const pName = projectName;
-                    actions.setContext({ type: "project", projectId: currentProjectId!, projectName: pName });
+                    actions.setContext({ type: "project", projectId: currentProjectId!, projectName: projectName });
                   }}
                   className="truncate font-medium text-ink-muted transition-colors hover:text-ink"
                   title={projectName}
@@ -169,13 +131,13 @@ export function AssistantHubHeader() {
         </div>
       ) : null}
 
-      {/* Project selector — always visible */}
-      <div className="border-t border-stroke/50 px-3 py-1.5">
+      {/* Project selector */}
+      <div className="border-t border-stroke/50 px-4 py-1.5">
         <select
           value={currentProjectId ?? ""}
           onChange={handleProjectChange}
           disabled={loadingProjects}
-          className="h-7 w-full rounded-lg border border-stroke bg-surface-elevated px-2 text-[11px] font-medium text-ink transition-colors hover:border-brand-500/40 focus:border-brand-500 focus:outline-none disabled:opacity-50 dark:bg-surface-muted"
+          className="h-7 w-full max-w-xs rounded-lg border border-stroke bg-surface-elevated px-2 text-[11px] font-medium text-ink transition-colors hover:border-brand-500/40 focus:border-brand-500 focus:outline-none disabled:opacity-50 dark:bg-surface-muted"
         >
           <option value="">
             {loadingProjects ? "Loading projects..." : "Select a project..."}
@@ -188,8 +150,8 @@ export function AssistantHubHeader() {
         </select>
       </div>
 
-      {/* Action bar: new chat + history toggle */}
-      <div className="flex items-center gap-1.5 border-t border-stroke/50 px-3 py-1.5">
+      {/* Action bar */}
+      <div className="flex items-center gap-1.5 border-t border-stroke/50 px-4 py-1.5">
         <button
           type="button"
           onClick={async () => {

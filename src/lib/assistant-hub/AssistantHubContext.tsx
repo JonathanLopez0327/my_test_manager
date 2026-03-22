@@ -31,6 +31,7 @@ import {
   mapConversationDto,
   sleep,
   getProjectIdFromContext,
+  serializeEntityContext,
   DOCUMENT_POLL_INTERVAL_MS,
   DOCUMENT_POLL_MAX_ATTEMPTS,
 } from "./chat-helpers";
@@ -171,16 +172,14 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
   const projectId = getProjectIdFromContext(state.context);
 
   useEffect(() => {
-    // When context is global, keep existing conversations — don't clear them
-    if (!projectId) return;
-
     let active = true;
 
     const load = async () => {
       try {
-        const response = await fetch(
-          `/api/ai/conversations?projectId=${encodeURIComponent(projectId)}`,
-        );
+        const url = projectId
+          ? `/api/ai/conversations?projectId=${encodeURIComponent(projectId)}`
+          : `/api/ai/conversations`;
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Could not load conversations.");
         const payload = (await response.json()) as AiConversationsResponse;
         if (!active) return;
@@ -363,16 +362,12 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
     const createConversation = async (): Promise<string | null> => {
       const s = stateRef.current;
       const pid = getProjectIdFromContext(s.context);
-      if (!pid) {
-        dispatch({ type: "SET_ERROR", error: "Please select a project first." });
-        return null;
-      }
 
       try {
         const response = await fetch("/api/ai/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: pid, environment: "DEV" }),
+          body: JSON.stringify({ ...(pid ? { projectId: pid } : {}), environment: "DEV" }),
         });
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -443,10 +438,16 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       });
 
       try {
+        const ec = serializeEntityContext(stateRef.current.context);
         const response = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, conversationId: chatId, ...(pid ? { projectId: pid } : {}) }),
+          body: JSON.stringify({
+            message: content,
+            conversationId: chatId,
+            ...(pid ? { projectId: pid } : {}),
+            ...(ec ? { entityContext: ec } : {}),
+          }),
         });
 
         if (!response.ok) {

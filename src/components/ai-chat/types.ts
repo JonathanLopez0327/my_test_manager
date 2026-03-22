@@ -10,7 +10,7 @@ export type AiConversationMessageDto = {
 export type AiConversationDto = {
   id: string;
   title: string;
-  projectId: string;
+  projectId: string | null;
   environment: string;
   threadId?: string | null;
   createdAt: string;

@@ -4,7 +4,7 @@ type AccessParams = {
   userId: string;
   organizationId: string;
   organizationRole?: "owner" | "admin" | "member" | "billing";
-  projectId: string;
+  projectId?: string | null;
 };
 
 export const ACTIVE_CONVERSATION_LIMIT = 5;
@@ -15,6 +15,8 @@ export async function ensureProjectAccess({
   organizationRole,
   projectId,
 }: AccessParams): Promise<boolean> {
+  if (!projectId) return true; // global scope — accessible to all authenticated org members
+
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
@@ -45,12 +47,12 @@ export async function ensureProjectAccess({
 
 export async function archiveOverflowConversations(params: {
   userId: string;
-  projectId: string;
+  projectId?: string | null;
 }) {
   const activeRows = await prisma.aiConversation.findMany({
     where: {
       userId: params.userId,
-      projectId: params.projectId,
+      ...(params.projectId ? { projectId: params.projectId } : {}),
       status: "active",
     },
     select: { id: true },
@@ -70,11 +72,11 @@ export async function archiveOverflowConversations(params: {
   });
 }
 
-export async function listActiveConversations(params: { userId: string; projectId: string }) {
+export async function listActiveConversations(params: { userId: string; projectId?: string | null }) {
   return prisma.aiConversation.findMany({
     where: {
       userId: params.userId,
-      projectId: params.projectId,
+      ...(params.projectId ? { projectId: params.projectId } : {}),
       status: "active",
     },
     include: {

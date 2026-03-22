@@ -3,6 +3,8 @@ import { z } from "zod";
 export const entityContextSchema = z.object({
   type: z.string().min(1).max(32),
   entityId: z.string().uuid().optional(),
+  entityName: z.string().max(256).optional(),
+  projectId: z.string().uuid().optional(),
 }).optional();
 
 export const aiChatRequestSchema = z.object({
@@ -15,12 +17,12 @@ export const aiChatRequestSchema = z.object({
 export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;
 
 export const aiCreateConversationSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   environment: z.string().trim().min(1).max(32).optional(),
 });
 
 export const aiConversationsQuerySchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
 });
 
 export type AiCreateConversationRequest = z.infer<typeof aiCreateConversationSchema>;

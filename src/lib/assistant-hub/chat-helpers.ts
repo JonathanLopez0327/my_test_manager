@@ -421,3 +421,68 @@ export function getQuickActionsForContext(context: import("./types").AssistantEn
   if (context.type === "global") return DEFAULT_QUICK_ACTIONS;
   return CONTEXT_QUICK_ACTIONS[context.type] ?? DEFAULT_QUICK_ACTIONS;
 }
+
+export function getParentContext(
+  context: import("./types").AssistantEntityContext,
+  projectName?: string,
+): import("./types").AssistantEntityContext {
+  if (context.type === "global" || context.type === "project") return { type: "global" };
+  // For sub-project entities, return the project context
+  return {
+    type: "project",
+    projectId: context.projectId,
+    projectName: projectName ?? "Project",
+  };
+}
+
+export function buildAssistantHubUrl(context: import("./types").AssistantEntityContext): string {
+  if (context.type === "global") return "/manager/assistant";
+  const params = new URLSearchParams();
+  params.set("contextType", context.type);
+  for (const [key, value] of Object.entries(context)) {
+    if (key !== "type" && value) params.set(key, String(value));
+  }
+  return `/manager/assistant?${params.toString()}`;
+}
+
+export function parseAssistantContextFromParams(
+  params: URLSearchParams,
+): import("./types").AssistantEntityContext {
+  const contextType = params.get("contextType");
+  const projectId = params.get("projectId") ?? "";
+  const projectName = params.get("projectName") ?? "Project";
+
+  switch (contextType) {
+    case "project":
+      return { type: "project", projectId, projectName };
+    case "testRun":
+      return { type: "testRun", testRunId: params.get("testRunId") ?? "", testRunTitle: params.get("testRunTitle") ?? "", projectId };
+    case "testSuite":
+      return { type: "testSuite", testSuiteId: params.get("testSuiteId") ?? "", testSuiteName: params.get("testSuiteName") ?? "", projectId };
+    case "testCase":
+      return { type: "testCase", testCaseId: params.get("testCaseId") ?? "", testCaseTitle: params.get("testCaseTitle") ?? "", projectId };
+    case "bug":
+      return { type: "bug", bugId: params.get("bugId") ?? "", bugTitle: params.get("bugTitle") ?? "", projectId };
+    default:
+      return { type: "global" };
+  }
+}
+
+export function serializeEntityContext(
+  context: import("./types").AssistantEntityContext,
+): { type: string; entityId?: string; entityName?: string; projectId?: string } | undefined {
+  switch (context.type) {
+    case "global":
+      return undefined;
+    case "project":
+      return { type: "project", entityId: context.projectId, entityName: context.projectName };
+    case "testRun":
+      return { type: "testRun", entityId: context.testRunId, entityName: context.testRunTitle, projectId: context.projectId };
+    case "testSuite":
+      return { type: "testSuite", entityId: context.testSuiteId, entityName: context.testSuiteName, projectId: context.projectId };
+    case "testCase":
+      return { type: "testCase", entityId: context.testCaseId, entityName: context.testCaseTitle, projectId: context.projectId };
+    case "bug":
+      return { type: "bug", entityId: context.bugId, entityName: context.bugTitle, projectId: context.projectId };
+  }
+}
