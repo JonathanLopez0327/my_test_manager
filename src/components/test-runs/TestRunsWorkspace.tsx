@@ -24,6 +24,8 @@ import type { ProjectsResponse } from "@/components/projects/types";
 import type { TestPlansResponse } from "@/components/test-plans/types";
 import type { TestSuitesResponse } from "@/components/test-suites/types";
 import { cn } from "@/lib/utils";
+import { useScreenDataSync, useAssistantHub } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const LIST_PAGE_SIZE = 50;
 const ITEM_PAGE_SIZE = 100;
@@ -277,6 +279,37 @@ export function TestRunsWorkspace() {
     [items, rowActionMenu?.itemId],
   );
   const isRunLocked = selectedRun?.status === "completed";
+
+  // Sync assistant hub context when a run is selected
+  const { actions: hubActions } = useAssistantHub();
+  useEffect(() => {
+    if (!selectedRun) return;
+    hubActions.setContext({
+      type: "testRun",
+      testRunId: selectedRun.id,
+      testRunTitle: selectedRun.name ?? `Run ${selectedRun.id.slice(0, 6)}`,
+      projectId: selectedRun.project.id,
+    });
+  }, [selectedRun, hubActions]);
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "testRunsWorkspace",
+    visibleItems: items.slice(0, 30).map((item) => ({
+      id: item.id,
+      title: item.testCase.title,
+      status: item.status,
+    })),
+    summary: {
+      totalItems: items.length,
+      ...(selectedRun ? { runStatus: selectedRun.status } : {}),
+    },
+    breadcrumb: [
+      ...(selectedRun ? [selectedRun.project.name] : []),
+      ...(selectedRun ? [selectedRun.name ?? `Run ${selectedRun.id.slice(0, 6)}`] : []),
+    ],
+  }), [items, selectedRun]);
+
+  useScreenDataSync(screenData);
 
   const rowActionMenuPosition = useMemo(() => {
     if (!rowActionMenu) return null;
