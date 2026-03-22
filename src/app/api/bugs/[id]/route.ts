@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
+import { getS3Client, getS3Config } from "@/lib/s3";
 import { BugStatus, BugSeverity, BugType } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
@@ -270,6 +272,28 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
       organizationRole,
       projectId: existing.projectId,
     });
+
+    // Delete attachment files from S3 before cascading DB delete
+    const attachments = await prisma.bugAttachment.findMany({
+      where: { bugId: id },
+      select: { url: true },
+    });
+
+    if (attachments.length > 0) {
+      const { bucket } = getS3Config("artifacts");
+      const config = getS3Config("artifacts");
+      const base = (process.env.S3_PUBLIC_URL ?? config.endpoint).replace(/\/$/, "");
+      const bucketPrefix = `${base}/${bucket}/`;
+      const client = getS3Client("artifacts");
+
+      await Promise.allSettled(
+        attachments.map((a) => {
+          if (!a.url.startsWith(bucketPrefix)) return Promise.resolve();
+          const key = decodeURI(a.url.slice(bucketPrefix.length));
+          return client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+        }),
+      );
+    }
 
     await prisma.bug.delete({ where: { id } });
     return NextResponse.json({ ok: true });

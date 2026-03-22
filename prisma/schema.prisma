@@ -571,6 +571,7 @@ model Bug {
   testRunItem TestRunItem? @relation(fields: [testRunItemId], references: [id], onDelete: SetNull)
   testCase    TestCase?    @relation(fields: [testCaseId], references: [id], onDelete: SetNull)
   comments    BugComment[]
+  attachments BugAttachment[]
 
   @@index([projectId], map: "idx_bugs_project")
   @@index([status], map: "idx_bugs_status")
@@ -593,6 +594,25 @@ model BugComment {
 
   @@index([bugId], map: "idx_bug_comments_bug")
   @@map("bug_comments")
+}
+
+model BugAttachment {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bugId          String       @map("bug_id") @db.Uuid
+  type           ArtifactType @default(other)
+  name           String?
+  url            String
+  mimeType       String?      @map("mime_type")
+  sizeBytes      BigInt?      @map("size_bytes")
+  checksumSha256 String?      @map("checksum_sha256")
+  metadata       Json         @default("{}") @db.JsonB
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  bug Bug @relation(fields: [bugId], references: [id], onDelete: Cascade)
+
+  @@index([bugId], map: "idx_bug_attachments_bug")
+  @@index([createdAt], map: "idx_bug_attachments_created_at")
+  @@map("bug_attachments")
 }
 
 model PlatformFeedback {
