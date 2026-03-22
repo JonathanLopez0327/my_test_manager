@@ -36,21 +36,23 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   const { projectId } = parsed.data;
 
-  const hasAccess = await ensureProjectAccess({
-    userId,
-    organizationId: activeOrganizationId,
-    organizationRole,
-    projectId,
-  });
+  if (projectId) {
+    const hasAccess = await ensureProjectAccess({
+      userId,
+      organizationId: activeOrganizationId,
+      organizationRole,
+      projectId,
+    });
 
-  if (!hasAccess) {
-    return NextResponse.json(
-      { message: "You do not have access to the specified project." },
-      { status: 403 },
-    );
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: "You do not have access to the specified project." },
+        { status: 403 },
+      );
+    }
   }
 
-  const rows = await listActiveConversations({ userId, projectId });
+  const rows = await listActiveConversations({ userId, projectId: projectId ?? null });
 
   return NextResponse.json({
     items: rows.map(mapConversationDto),
@@ -79,25 +81,27 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   const { projectId, environment } = parsed.data;
 
-  const hasAccess = await ensureProjectAccess({
-    userId,
-    organizationId: activeOrganizationId,
-    organizationRole,
-    projectId,
-  });
+  if (projectId) {
+    const hasAccess = await ensureProjectAccess({
+      userId,
+      organizationId: activeOrganizationId,
+      organizationRole,
+      projectId,
+    });
 
-  if (!hasAccess) {
-    return NextResponse.json(
-      { message: "You do not have access to the specified project." },
-      { status: 403 },
-    );
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: "You do not have access to the specified project." },
+        { status: 403 },
+      );
+    }
   }
 
   const now = new Date();
   const created = await prisma.aiConversation.create({
     data: {
       organizationId: activeOrganizationId,
-      projectId,
+      ...(projectId ? { projectId } : {}),
       userId,
       title: "New conversation",
       environment: environment?.trim() || DEFAULT_CONVERSATION_ENVIRONMENT,
@@ -111,7 +115,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     },
   });
 
-  await archiveOverflowConversations({ userId, projectId });
+  await archiveOverflowConversations({ userId, projectId: projectId ?? null });
 
   return NextResponse.json({ item: mapConversationDto(created) }, { status: 201 });
 });

@@ -154,7 +154,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     );
   }
 
-  const { message, projectId, conversationId } = parsed.data;
+  const { message, projectId: explicitProjectId, conversationId, entityContext } = parsed.data;
   const { userId, activeOrganizationId, organizationRole } = authCtx;
 
   if (!activeOrganizationId) {
@@ -163,6 +163,33 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       { status: 403 },
     );
   }
+
+  // Look up the conversation first — projectId may come from it when not provided
+  const conversation = await prisma.aiConversation.findFirst({
+    where: {
+      id: conversationId,
+      ...(explicitProjectId ? { projectId: explicitProjectId } : {}),
+      organizationId: activeOrganizationId,
+      userId,
+      status: "active",
+    },
+    select: {
+      id: true,
+      threadId: true,
+      title: true,
+      environment: true,
+      projectId: true,
+    },
+  });
+
+  if (!conversation) {
+    return NextResponse.json(
+      { message: "You do not have access to the specified conversation." },
+      { status: 403 },
+    );
+  }
+
+  const projectId = explicitProjectId ?? conversation.projectId;
 
   const hasAccess = await ensureProjectAccess({
     userId,
@@ -174,29 +201,6 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   if (!hasAccess) {
     return NextResponse.json(
       { message: "You do not have access to the specified project." },
-      { status: 403 },
-    );
-  }
-
-  const conversation = await prisma.aiConversation.findFirst({
-    where: {
-      id: conversationId,
-      projectId,
-      organizationId: activeOrganizationId,
-      userId,
-      status: "active",
-    },
-    select: {
-      id: true,
-      threadId: true,
-      title: true,
-      environment: true,
-    },
-  });
-
-  if (!conversation) {
-    return NextResponse.json(
-      { message: "You do not have access to the specified conversation." },
       { status: 403 },
     );
   }
@@ -277,6 +281,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
             configurable: {
               project_id: projectId,
               mtm_api_token: mtmApiToken,
+              ...(entityContext ? { entity_context: entityContext } : {}),
             },
           },
           stream_mode: "messages",

@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { Sheet } from "@/components/ui/Sheet";
 import type { TestCaseRecord, TestCaseStatus, TestCaseStyle } from "./types";
+import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 
 type TestCaseDetailSheetProps = {
   open: boolean;
@@ -179,13 +180,20 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
       width="2xl"
     >
       <div className="space-y-6">
-        <div className="flex flex-wrap gap-2">
-          <Badge tone={statusTones[testCase.status]}>{statusLabels[testCase.status]}</Badge>
-          <Badge tone={styleTones[testCase.style]}>{styleLabels[testCase.style]}</Badge>
-          <Badge tone="neutral">P{Number.isFinite(testCase.priority) ? testCase.priority : 3}</Badge>
-          <Badge tone="neutral">
-            {testCase.isAutomated ? testCase.automationType ?? "Automated" : "Manual"}
-          </Badge>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Badge tone={statusTones[testCase.status]}>{statusLabels[testCase.status]}</Badge>
+            <Badge tone={styleTones[testCase.style]}>{styleLabels[testCase.style]}</Badge>
+            <Badge tone="neutral">P{Number.isFinite(testCase.priority) ? testCase.priority : 3}</Badge>
+            <Badge tone="neutral">
+              {testCase.isAutomated ? testCase.automationType ?? "Automated" : "Manual"}
+            </Badge>
+          </div>
+          <AssistantHubTrigger
+            context={{ type: "testCase", testCaseId: testCase.id, testCaseTitle: testCase.title, projectId: testCase.suite.testPlan.project.id }}
+            label="Ask AI"
+            variant="button"
+          />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
