@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { IconChevronDown, IconEdit, IconFolder, IconPlus } from "@/components/icons";
+import { IconChevronDown, IconEdit, IconFolder, IconPlus, IconTrash } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import { TestCasesTable } from "@/components/test-cases/TestCasesTable";
@@ -33,6 +33,7 @@ import { nextSort } from "@/lib/sorting";
 import { cn } from "@/lib/utils";
 import { useScreenDataSync, useAssistantHub } from "@/lib/assistant-hub";
 import type { ScreenData } from "@/lib/assistant-hub";
+import type { TestSuiteRelatedCounts } from "@/lib/api/related-counts";
 
 const DEFAULT_PAGE_SIZE = 10;
 const LIST_PAGE_SIZE = 50;
@@ -53,6 +54,12 @@ type ProjectOption = {
   id: string;
   key: string;
   name: string;
+};
+
+type SuiteActionMenuState = {
+  suiteId: string;
+  x: number;
+  y: number;
 };
 
 function sortSuites(left: TestSuiteRecord, right: TestSuiteRecord) {
@@ -173,6 +180,27 @@ export function TestManagementWorkspace() {
     title: string;
     isConfirming: boolean;
   }>({ open: false, id: null, title: "", isConfirming: false });
+  const [suiteActionMenu, setSuiteActionMenu] = useState<SuiteActionMenuState | null>(null);
+  const suiteActionMenuRef = useRef<HTMLDivElement | null>(null);
+  const [suiteDeleteConfirmation, setSuiteDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    name: string;
+    isConfirming: boolean;
+    loadingCounts: boolean;
+    hasRelated: boolean | null;
+    counts: TestSuiteRelatedCounts | null;
+    countsError: string | null;
+  }>({
+    open: false,
+    id: null,
+    name: "",
+    isConfirming: false,
+    loadingCounts: false,
+    hasRelated: null,
+    counts: null,
+    countsError: null,
+  });
 
   const sortBy = (searchParams.get("sortBy") as TestCaseSortBy | null) ?? null;
   const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
@@ -185,6 +213,9 @@ export function TestManagementWorkspace() {
     [session?.user?.globalRoles],
   );
   const canManage = !isReadOnlyGlobal;
+  const closeSuiteActionMenu = useCallback(() => {
+    setSuiteActionMenu(null);
+  }, []);
 
   const suitesByPlan = useMemo(() => {
     return plans.reduce<Record<string, SuiteTreeNode[]>>((acc, plan) => {
@@ -232,6 +263,25 @@ export function TestManagementWorkspace() {
     return descendants;
   }, [suites]);
   const isInlineCreating = inlinePlanId !== null;
+  const suiteActionMenuPosition = useMemo(() => {
+    if (!suiteActionMenu) return null;
+    if (typeof window === "undefined") {
+      return { left: suiteActionMenu.x, top: suiteActionMenu.y };
+    }
+
+    const menuWidth = 220;
+    const menuHeight = 80;
+    const padding = 8;
+    const left = Math.max(
+      padding,
+      Math.min(suiteActionMenu.x, window.innerWidth - menuWidth - padding),
+    );
+    const top = Math.max(
+      padding,
+      Math.min(suiteActionMenu.y, window.innerHeight - menuHeight - padding),
+    );
+    return { left, top };
+  }, [suiteActionMenu]);
 
   // Sync assistant hub context when a suite or plan is selected
   const { actions: hubActions } = useAssistantHub();
@@ -388,6 +438,40 @@ export function TestManagementWorkspace() {
     setTagFilter("");
     setPage(1);
   }, [selectedSuiteId]);
+
+  useEffect(() => {
+    if (!suiteActionMenu) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!suiteActionMenuRef.current) return;
+      if (suiteActionMenuRef.current.contains(event.target as Node)) return;
+      closeSuiteActionMenu();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSuiteActionMenu();
+    };
+
+    const closeOnViewportChange = () => closeSuiteActionMenu();
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    window.addEventListener("resize", closeOnViewportChange);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+      window.removeEventListener("resize", closeOnViewportChange);
+    };
+  }, [closeSuiteActionMenu, suiteActionMenu]);
+
+  useEffect(() => {
+    if (!suiteActionMenu) return;
+    const first = suiteActionMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    first?.focus();
+  }, [suiteActionMenu]);
 
   useEffect(() => {
     setPage(1);
@@ -674,6 +758,92 @@ export function TestManagementWorkspace() {
     },
     [fetchAllPlansAndSuites],
   );
+
+  const handleOpenSuiteActionMenu = useCallback(
+    (suiteId: string, x: number, y: number) => {
+      if (!canManage) return;
+      setSuiteActionMenu({ suiteId, x, y });
+    },
+    [canManage],
+  );
+
+  const handleDeleteSuiteFromContext = useCallback(async () => {
+    const suiteId = suiteActionMenu?.suiteId;
+    if (!suiteId || !canManage) return;
+    const suite = suiteById.get(suiteId);
+    if (!suite) {
+      closeSuiteActionMenu();
+      return;
+    }
+
+    closeSuiteActionMenu();
+    setSuiteSaveError(null);
+    setSuiteDeleteConfirmation({
+      open: true,
+      id: suite.id,
+      name: suite.name,
+      isConfirming: false,
+      loadingCounts: true,
+      hasRelated: null,
+      counts: null,
+      countsError: null,
+    });
+
+    try {
+      const response = await fetch(`/api/test-suites/${suite.id}/related-counts`);
+      const data = (await response.json()) as {
+        message?: string;
+        hasRelated?: boolean;
+        counts?: TestSuiteRelatedCounts;
+      };
+      if (!response.ok) {
+        throw new Error(data.message || "Could not load related counts.");
+      }
+      setSuiteDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        hasRelated: Boolean(data.hasRelated),
+        counts: data.counts ?? null,
+      }));
+    } catch (error) {
+      setSuiteDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        countsError: error instanceof Error ? error.message : "Could not load related counts.",
+      }));
+    }
+  }, [canManage, closeSuiteActionMenu, suiteActionMenu?.suiteId, suiteById]);
+
+  const handleConfirmSuiteDelete = useCallback(async () => {
+    const suiteId = suiteDeleteConfirmation.id;
+    if (!suiteId) return;
+
+    setSuiteDeleteConfirmation((prev) => ({ ...prev, isConfirming: true }));
+    setSuiteSaveError(null);
+    try {
+      const response = await fetch(`/api/test-suites/${suiteId}`, { method: "DELETE" });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(data.message || "Could not delete test suite.");
+      }
+
+      await fetchAllPlansAndSuites();
+      setSelectedSuiteId((current) => (current === suiteId ? "" : current));
+      setSuiteDeleteConfirmation({
+        open: false,
+        id: null,
+        name: "",
+        isConfirming: false,
+        loadingCounts: false,
+        hasRelated: null,
+        counts: null,
+        countsError: null,
+      });
+    } catch (error) {
+      setSuiteSaveError(error instanceof Error ? error.message : "Could not delete test suite.");
+      setSuiteDeleteConfirmation((prev) => ({ ...prev, isConfirming: false }));
+    }
+  }, [fetchAllPlansAndSuites, suiteDeleteConfirmation.id]);
 
   const resolveInlineParentSuiteId = useCallback((_planId: string): string | null => {
     return null;
@@ -1006,15 +1176,27 @@ export function TestManagementWorkspace() {
               draggable={canManage && !isInlineSaving && !isInlineEditingSaving}
               onClick={() => {
                 if (isInlineEditingSaving || isMovingThisSuite) return;
+                closeSuiteActionMenu();
                 setSelectedPlanId(planId);
                 setSelectedSuiteId(suite.id);
               }}
-              onDoubleClick={() => handleStartInlineEdit(suite, planId)}
+              onDoubleClick={() => {
+                closeSuiteActionMenu();
+                handleStartInlineEdit(suite, planId);
+              }}
+              onContextMenu={(event) => {
+                if (!canManage || isInlineSaving || isInlineEditingSaving || movingSuiteId !== null) return;
+                event.preventDefault();
+                setSelectedPlanId(planId);
+                setSelectedSuiteId(suite.id);
+                handleOpenSuiteActionMenu(suite.id, event.clientX, event.clientY);
+              }}
               onDragStart={(event: DragEvent<HTMLButtonElement>) => {
                 if (!canManage || isInlineSaving || isInlineEditingSaving || movingSuiteId !== null) {
                   event.preventDefault();
                   return;
                 }
+                closeSuiteActionMenu();
                 event.dataTransfer.effectAllowed = "move";
                 event.dataTransfer.setData("text/plain", suite.id);
                 setSuiteSaveError(null);
@@ -1375,6 +1557,49 @@ export function TestManagementWorkspace() {
         )}
       </section>
 
+      {suiteActionMenu && suiteActionMenuPosition ? (
+        <div
+          ref={suiteActionMenuRef}
+          role="menu"
+          aria-label="Suite actions"
+          className="fixed z-50 min-w-[220px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
+          style={{ top: suiteActionMenuPosition.top, left: suiteActionMenuPosition.left }}
+          onKeyDown={(event) => {
+            const focusable = Array.from(
+              suiteActionMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+            );
+            if (focusable.length === 0) return;
+
+            const currentIndex = focusable.findIndex((button) => button === document.activeElement);
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % focusable.length;
+              focusable[nextIndex]?.focus();
+            } else if (event.key === "ArrowUp") {
+              event.preventDefault();
+              const nextIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+              focusable[nextIndex]?.focus();
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              (document.activeElement as HTMLButtonElement | null)?.click();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              closeSuiteActionMenu();
+            }
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-500/10"
+            onClick={() => void handleDeleteSuiteFromContext()}
+          >
+            <IconTrash className="h-4 w-4" />
+            <span>Delete suite</span>
+          </button>
+        </div>
+      ) : null}
+
       {canManage ? (
         <TestCaseFormSheet
           open={modalOpen}
@@ -1421,6 +1646,52 @@ export function TestManagementWorkspace() {
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
+      />
+      <ConfirmationDialog
+        open={suiteDeleteConfirmation.open}
+        title={`Delete test suite "${suiteDeleteConfirmation.name}"?`}
+        description={
+          suiteDeleteConfirmation.loadingCounts ? (
+            <p>Loading related elements...</p>
+          ) : suiteDeleteConfirmation.countsError ? (
+            <p className="text-danger-600">{suiteDeleteConfirmation.countsError}</p>
+          ) : suiteDeleteConfirmation.hasRelated && suiteDeleteConfirmation.counts ? (
+            <div className="space-y-2">
+              <p>Cannot delete this test suite. It has related elements:</p>
+              <ul className="list-disc pl-5 text-sm">
+                {suiteDeleteConfirmation.counts.childSuites > 0 ? (
+                  <li>{suiteDeleteConfirmation.counts.childSuites} child suites</li>
+                ) : null}
+                {suiteDeleteConfirmation.counts.testCases > 0 ? (
+                  <li>{suiteDeleteConfirmation.counts.testCases} test cases</li>
+                ) : null}
+              </ul>
+              <p>Please delete these elements first.</p>
+            </div>
+          ) : (
+            "This action will permanently delete the test suite. This cannot be undone."
+          )
+        }
+        confirmText="Delete"
+        onConfirm={() => void handleConfirmSuiteDelete()}
+        onCancel={() =>
+          setSuiteDeleteConfirmation({
+            open: false,
+            id: null,
+            name: "",
+            isConfirming: false,
+            loadingCounts: false,
+            hasRelated: null,
+            counts: null,
+            countsError: null,
+          })
+        }
+        isConfirming={suiteDeleteConfirmation.isConfirming}
+        disableConfirm={
+          suiteDeleteConfirmation.loadingCounts
+          || Boolean(suiteDeleteConfirmation.countsError)
+          || Boolean(suiteDeleteConfirmation.hasRelated)
+        }
       />
       <ConfirmationDialog
         open={duplicateConfirmation.open}

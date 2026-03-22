@@ -1,14 +1,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TestManagementWorkspace } from "./TestManagementWorkspace";
 
+const mockUseSession = jest.fn();
+const mockSetContext = jest.fn();
+
 jest.mock("next-auth/react", () => ({
-  useSession: () => ({
-    data: {
-      user: {
-        globalRoles: [],
-      },
+  useSession: () => mockUseSession(),
+}));
+
+jest.mock("@/lib/assistant-hub", () => ({
+  useAssistantHub: () => ({
+    actions: {
+      setContext: mockSetContext,
     },
   }),
+  useScreenDataSync: jest.fn(),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -23,6 +29,15 @@ describe("TestManagementWorkspace", () => {
   const originalFetch = global.fetch;
 
   beforeEach(() => {
+    mockSetContext.mockReset();
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          globalRoles: [],
+        },
+      },
+    });
+
     const plans = [
       {
         id: "plan-1",
@@ -290,6 +305,47 @@ describe("TestManagementWorkspace", () => {
         return {
           ok: true,
           json: async () => currentSuite,
+        } as Response;
+      }
+
+      if (url.includes("/api/test-suites/") && method === "DELETE") {
+        const suiteId = url.split("/api/test-suites/")[1];
+        const suiteIndex = suites.findIndex((suite) => suite.id === suiteId);
+        if (suiteIndex < 0) {
+          return {
+            ok: false,
+            json: async () => ({ message: "Test suite not found." }),
+          } as Response;
+        }
+
+        suites.splice(suiteIndex, 1);
+        return {
+          ok: true,
+          json: async () => ({ ok: true }),
+        } as Response;
+      }
+
+      if (url.includes("/api/test-suites/") && method === "GET" && url.endsWith("/related-counts")) {
+        const suiteId = url
+          .replace("http://localhost", "")
+          .split("/api/test-suites/")[1]
+          ?.replace("/related-counts", "");
+        if (suiteId === "suite-child") {
+          return {
+            ok: true,
+            json: async () => ({
+              hasRelated: true,
+              counts: { childSuites: 0, testCases: 1 },
+            }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({
+            hasRelated: false,
+            counts: { childSuites: 0, testCases: 0 },
+          }),
         } as Response;
       }
 
@@ -649,6 +705,106 @@ describe("TestManagementWorkspace", () => {
       expect(screen.queryByLabelText("Edit suite name")).not.toBeInTheDocument();
       expect(screen.getByLabelText("New suite name for Regression Plan")).toBeInTheDocument();
     });
+  });
+
+  it("opens suite context menu on right click and closes with outside click and Escape", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+
+    const paymentSuite = screen.getByRole("button", { name: "Payment" });
+    fireEvent.contextMenu(paymentSuite);
+
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: "Delete suite" })).toBeInTheDocument();
+    });
+
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Delete suite" })).not.toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(paymentSuite);
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: "Delete suite" })).toBeInTheDocument();
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Delete suite" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("blocks suite deletion in dialog when related counts exist", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Payment" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete suite" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot delete this test suite. It has related elements:")).toBeInTheDocument();
+      expect(screen.getByText("1 test cases")).toBeInTheDocument();
+    });
+
+    const deleteButton = screen.getByRole("button", { name: "Delete" });
+    expect(deleteButton).toBeDisabled();
+  });
+
+  it("deletes suite from context menu when no related elements exist", async () => {
+    const fetchMock = global.fetch as jest.Mock;
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Orders" })).toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Orders" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete suite" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("This action will permanently delete the test suite. This cannot be undone."),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some((call) =>
+          String(call[0]).endsWith("/api/test-suites/suite-sibling")
+          && (call[1] as RequestInit | undefined)?.method === "DELETE"),
+      ).toBe(true);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Orders" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not open suite context menu for read-only users", async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          globalRoles: ["auditor"],
+        },
+      },
+    });
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Payment" })).toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Payment" }));
+
+    expect(screen.queryByRole("menuitem", { name: "Delete suite" })).not.toBeInTheDocument();
   });
 
   it("reparents suite by drag and drop within the same plan", async () => {
