@@ -23,7 +23,6 @@ export function ManagerShell({ children }: ManagerShellProps) {
     ? "default"
     : (
       {
-        "/manager/test-runs": "wide",
         "/manager/bugs": "wide",
         "/manager/organizations": "wide",
         "/manager/users": "wide",
