@@ -28,6 +28,14 @@ const DEFAULT_PAGE_SIZE = 10;
 type ProjectOption = { id: string; key: string; name: string };
 type UserOption = { id: string; email: string; fullName: string | null };
 
+function inferAttachmentType(file: File) {
+  const mime = (file.type || "").toLowerCase();
+  if (mime.startsWith("image/")) return "screenshot";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("text/") || mime.includes("json") || mime.includes("xml")) return "log";
+  return "other";
+}
+
 export function BugsPage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -38,6 +46,9 @@ export function BugsPage() {
   const canDelete = useCan(PERMISSIONS.BUG_DELETE);
   const canComment = useCan(PERMISSIONS.BUG_COMMENT_CREATE);
   const canDeleteComment = useCan(PERMISSIONS.BUG_COMMENT_DELETE);
+  const canListAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_LIST);
+  const canUploadAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_UPLOAD);
+  const canDeleteAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_DELETE);
 
   const [items, setItems] = useState<BugRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -223,7 +234,36 @@ export function BugsPage() {
     }
   };
 
-  const handleSave = async (payload: BugPayload, bugId?: string) => {
+  const fetchBugById = useCallback(async (bugId: string) => {
+    const response = await fetch(`/api/bugs/${bugId}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    return (await response.json()) as BugRecord;
+  }, []);
+
+  const uploadAttachmentsForBug = useCallback(async (bugId: string, files: File[]) => {
+    let failed = 0;
+    await Promise.all(
+      files.map(async (file) => {
+        const formData = new FormData();
+        formData.set("file", file);
+        formData.set("type", inferAttachmentType(file));
+        try {
+          const response = await fetch(`/api/bugs/${bugId}/attachments/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }),
+    );
+    return failed;
+  }, []);
+
+  const handleSave = async (payload: BugPayload, bugId?: string, files?: File[]) => {
     const method = bugId ? "PUT" : "POST";
     const endpoint = bugId ? `/api/bugs/${bugId}` : "/api/bugs";
     const response = await fetch(endpoint, {
@@ -231,10 +271,25 @@ export function BugsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { message?: string };
+    const data = (await response.json()) as (BugRecord & { message?: string });
     if (!response.ok) {
       throw new Error(data.message || "Could not save bug.");
     }
+
+    if (!bugId && canUploadAttachments && files && files.length > 0) {
+      const failedUploads = await uploadAttachmentsForBug(data.id, files);
+      if (failedUploads > 0) {
+        setError(
+          `Bug created, but ${failedUploads} attachment${failedUploads === 1 ? "" : "s"} could not be uploaded.`,
+        );
+        const latestBug = await fetchBugById(data.id);
+        if (latestBug) {
+          setViewing(latestBug);
+          setDetailOpen(true);
+        }
+      }
+    }
+
     await fetchBugs();
   };
 
@@ -314,6 +369,7 @@ export function BugsPage() {
         bug={editing}
         projects={projects}
         users={users}
+        canUploadAttachments={canUploadAttachments}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}
       />
@@ -324,6 +380,9 @@ export function BugsPage() {
         onClose={() => setDetailOpen(false)}
         canComment={canComment}
         canDeleteComment={canDeleteComment}
+        canListAttachments={canListAttachments}
+        canUploadAttachments={canUploadAttachments}
+        canDeleteAttachment={canDeleteAttachments}
         currentUserId={currentUserId}
       />
 

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { ArtifactPreview } from "../ui/ArtifactPreview";
 import { IconTrash } from "../icons";
-import type { BugRecord, BugCommentRecord, BugStatus, BugSeverity } from "./types";
+import type { BugRecord, BugCommentRecord, BugStatus, BugSeverity, BugAttachmentRecord } from "./types";
 import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 
 type BugDetailSheetProps = {
@@ -14,6 +15,9 @@ type BugDetailSheetProps = {
   onClose: () => void;
   canComment?: boolean;
   canDeleteComment?: boolean;
+  canListAttachments?: boolean;
+  canUploadAttachments?: boolean;
+  canDeleteAttachment?: boolean;
   currentUserId?: string;
 };
 
@@ -51,7 +55,32 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleString();
 }
 
-type Tab = "details" | "comments";
+type Tab = "details" | "comments" | "attachments";
+
+function formatSize(value?: number | string | null) {
+  const parsed = Number(value ?? NaN);
+  if (!Number.isFinite(parsed) || parsed <= 0) return "Unknown size";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = parsed;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function inferAttachmentPreviewType(attachment: BugAttachmentRecord) {
+  const explicit = String(attachment.type ?? "").toLowerCase();
+  if (explicit === "screenshot") return "image";
+  if (explicit === "video") return "video";
+  const mime = String(attachment.mimeType ?? "").toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("text/") || mime.includes("json") || mime.includes("xml")) return "text";
+  if (mime.includes("pdf")) return "pdf";
+  return "file";
+}
 
 export function BugDetailSheet({
   open,
@@ -59,6 +88,9 @@ export function BugDetailSheet({
   onClose,
   canComment = true,
   canDeleteComment = false,
+  canListAttachments = false,
+  canUploadAttachments = false,
+  canDeleteAttachment = false,
   currentUserId,
 }: BugDetailSheetProps) {
   const [activeTab, setActiveTab] = useState<Tab>("details");
@@ -66,6 +98,17 @@ export function BugDetailSheet({
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [attachments, setAttachments] = useState<BugAttachmentRecord[]>([]);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [savingAttachments, setSavingAttachments] = useState(false);
+  const [attachmentsError, setAttachmentsError] = useState<string | null>(null);
+  const [previewArtifact, setPreviewArtifact] = useState<{
+    url: string;
+    type: string;
+    mimeType?: string | null;
+    name?: string | null;
+  } | null>(null);
 
   const fetchComments = useCallback(async () => {
     if (!bug) return;
@@ -81,13 +124,36 @@ export function BugDetailSheet({
     }
   }, [bug]);
 
+  const fetchAttachments = useCallback(async () => {
+    if (!bug || !canListAttachments) return;
+    setLoadingAttachments(true);
+    setAttachmentsError(null);
+    try {
+      const response = await fetch(`/api/bugs/${bug.id}/attachments?page=1&pageSize=50`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Could not load attachments.");
+      }
+      setAttachments(data.items ?? []);
+    } catch (error) {
+      setAttachmentsError(
+        error instanceof Error ? error.message : "Could not load attachments.",
+      );
+    } finally {
+      setLoadingAttachments(false);
+    }
+  }, [bug, canListAttachments]);
+
   useEffect(() => {
     if (open && bug) {
       setActiveTab("details");
       setCommentText("");
+      setAttachmentFiles([]);
+      setAttachments(bug.attachments ?? []);
       fetchComments();
+      fetchAttachments();
     }
-  }, [open, bug, fetchComments]);
+  }, [open, bug, fetchComments, fetchAttachments]);
 
   const handleAddComment = async () => {
     if (!bug || !commentText.trim()) return;
@@ -114,6 +180,60 @@ export function BugDetailSheet({
     });
     if (response.ok) {
       await fetchComments();
+    }
+  };
+
+  const inferAttachmentType = (file: File) => {
+    const mime = (file.type || "").toLowerCase();
+    if (mime.startsWith("image/")) return "screenshot";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("text/") || mime.includes("json") || mime.includes("xml")) return "log";
+    return "other";
+  };
+
+  const handleUploadAttachments = async () => {
+    if (!bug || !canUploadAttachments || attachmentFiles.length === 0) return;
+    setSavingAttachments(true);
+    setAttachmentsError(null);
+    let failedUploads = 0;
+    try {
+      await Promise.all(
+        attachmentFiles.map(async (file) => {
+          const formData = new FormData();
+          formData.set("file", file);
+          formData.set("type", inferAttachmentType(file));
+          const response = await fetch(`/api/bugs/${bug.id}/attachments/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            failedUploads += 1;
+          }
+        }),
+      );
+      if (failedUploads > 0) {
+        setAttachmentsError(
+          `${failedUploads} attachment${failedUploads === 1 ? "" : "s"} failed to upload.`,
+        );
+      }
+      setAttachmentFiles([]);
+      await fetchAttachments();
+    } catch {
+      setAttachmentsError("Could not upload attachments.");
+    } finally {
+      setSavingAttachments(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!bug || !canDeleteAttachment) return;
+    const response = await fetch(`/api/bugs/${bug.id}/attachments/${attachmentId}`, {
+      method: "DELETE",
+    });
+    if (response.ok) {
+      await fetchAttachments();
+    } else {
+      setAttachmentsError("Could not delete attachment.");
     }
   };
 
@@ -150,6 +270,18 @@ export function BugDetailSheet({
         >
           Comments ({comments.length})
         </button>
+        {canListAttachments ? (
+          <button
+            onClick={() => setActiveTab("attachments")}
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              activeTab === "attachments"
+                ? "bg-surface-elevated dark:bg-surface-muted text-ink shadow-soft-xs"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            Attachments ({attachments.length})
+          </button>
+        ) : null}
       </div>
 
       {activeTab === "details" ? (
@@ -245,7 +377,7 @@ export function BugDetailSheet({
             </div>
           ) : null}
         </div>
-      ) : (
+      ) : activeTab === "comments" ? (
         /* Comments tab */
         <div className="space-y-4">
           {loadingComments ? (
@@ -306,7 +438,108 @@ export function BugDetailSheet({
             </div>
           ) : null}
         </div>
+      ) : (
+        <div className="space-y-4">
+          {attachmentsError ? (
+            <p className="rounded-lg bg-danger-500/10 px-4 py-2 text-sm text-danger-500">
+              {attachmentsError}
+            </p>
+          ) : null}
+
+          {loadingAttachments ? (
+            <p className="text-sm text-ink-muted">Loading attachments...</p>
+          ) : attachments.length === 0 ? (
+            <p className="text-sm text-ink-muted">No attachments yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {attachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {attachment.name || "Unnamed attachment"}
+                      </p>
+                      <p className="text-xs text-ink-muted">
+                        {attachment.type} · {formatSize(attachment.sizeBytes)} · {formatDate(attachment.createdAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewArtifact({
+                            url: attachment.url,
+                            type: inferAttachmentPreviewType(attachment),
+                            mimeType: attachment.mimeType,
+                            name: attachment.name,
+                          })
+                        }
+                        className="rounded-md border border-stroke px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted"
+                      >
+                        Preview
+                      </button>
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md border border-stroke px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted"
+                      >
+                        Download
+                      </a>
+                      {canDeleteAttachment ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(attachment.id)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-danger-500 transition hover:bg-danger-500/10"
+                          aria-label="Delete attachment"
+                        >
+                          <IconTrash className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {canUploadAttachments ? (
+            <div className="space-y-3 border-t border-stroke pt-4">
+              <input
+                type="file"
+                multiple
+                onChange={(event) => {
+                  setAttachmentFiles(Array.from(event.target.files ?? []));
+                }}
+                className="h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink file:mr-3 file:rounded-md file:border-0 file:bg-surface-muted file:px-2 file:py-1 file:text-xs file:font-semibold file:text-ink"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-ink-muted">
+                  {attachmentFiles.length > 0
+                    ? `${attachmentFiles.length} file${attachmentFiles.length === 1 ? "" : "s"} selected`
+                    : "Select one or more files"}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleUploadAttachments}
+                  disabled={savingAttachments || attachmentFiles.length === 0}
+                >
+                  {savingAttachments ? "Uploading..." : "Upload attachments"}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
       )}
+
+      <ArtifactPreview
+        open={Boolean(previewArtifact)}
+        onClose={() => setPreviewArtifact(null)}
+        artifact={previewArtifact}
+      />
     </Sheet>
   );
 }

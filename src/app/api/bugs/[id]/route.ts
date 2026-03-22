@@ -6,6 +6,7 @@ import { BugStatus, BugSeverity, BugType } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { maybeSignAttachmentUrl, serializeSizeBytes } from "@/lib/bug-attachments";
 
 const STATUS_VALUES: BugStatus[] = ["open", "in_progress", "resolved", "verified", "closed", "reopened"];
 const SEVERITY_VALUES: BugSeverity[] = ["critical", "high", "medium", "low"];
@@ -95,6 +96,22 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
       _count: {
         select: { comments: true },
       },
+      attachments: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          bugId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          sizeBytes: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
+      },
     },
   });
 
@@ -113,7 +130,18 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
     );
   }
 
-  return NextResponse.json(bug);
+  const attachments = await Promise.all(
+    bug.attachments.map(async (attachment) => ({
+      ...attachment,
+      url: await maybeSignAttachmentUrl(attachment.url),
+      sizeBytes: serializeSizeBytes(attachment.sizeBytes),
+    })),
+  );
+
+  return NextResponse.json({
+    ...bug,
+    attachments,
+  });
 });
 
 export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {

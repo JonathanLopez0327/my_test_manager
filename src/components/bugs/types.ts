@@ -11,6 +11,20 @@ export type BugSortBy =
 export type BugSeverity = "critical" | "high" | "medium" | "low";
 export type BugStatus = "open" | "in_progress" | "resolved" | "verified" | "closed" | "reopened";
 export type BugType = "bug" | "enhancement" | "task";
+export type BugAttachmentType = "screenshot" | "video" | "log" | "report" | "link" | "other";
+
+export type BugAttachmentRecord = {
+  id: string;
+  bugId: string;
+  type: BugAttachmentType;
+  name: string | null;
+  url: string;
+  mimeType: string | null;
+  sizeBytes?: number | string | null;
+  checksumSha256: string | null;
+  metadata: unknown;
+  createdAt: string;
+};
 
 export type BugRecord = {
   id: string;
@@ -40,7 +54,8 @@ export type BugRecord = {
   assignedTo: { id: string; email: string; fullName: string | null } | null;
   reporter: { id: string; email: string; fullName: string | null } | null;
   testCase: { id: string; title: string } | null;
-  _count?: { comments: number };
+  attachments?: BugAttachmentRecord[];
+  _count?: { comments: number; attachments?: number };
   comments?: BugCommentRecord[];
 };
 
