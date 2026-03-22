@@ -39,6 +39,7 @@ export type BugRecord = {
   reporterId: string | null;
   testRunItemId: string | null;
   testCaseId: string | null;
+  testRunId: string | null;
   reproductionSteps: string | null;
   expectedResult: string | null;
   actualResult: string | null;
@@ -54,6 +55,7 @@ export type BugRecord = {
   assignedTo: { id: string; email: string; fullName: string | null } | null;
   reporter: { id: string; email: string; fullName: string | null } | null;
   testCase: { id: string; title: string } | null;
+  testRun: { id: string; name: string | null; status: string } | null;
   attachments?: BugAttachmentRecord[];
   _count?: { comments: number; attachments?: number };
   comments?: BugCommentRecord[];
@@ -70,6 +72,7 @@ export type BugPayload = {
   assignedToId?: string | null;
   testRunItemId?: string | null;
   testCaseId?: string | null;
+  testRunId?: string | null;
   reproductionSteps?: string | null;
   expectedResult?: string | null;
   actualResult?: string | null;

@@ -18,11 +18,18 @@ type UserOption = {
   fullName: string | null;
 };
 
+type TestRunOption = {
+  id: string;
+  name: string | null;
+  status: string;
+};
+
 type BugFormSheetProps = {
   open: boolean;
   bug: BugRecord | null;
   projects: ProjectOption[];
   users: UserOption[];
+  testRuns?: TestRunOption[];
   canUploadAttachments?: boolean;
   onClose: () => void;
   onSave: (payload: BugPayload, bugId?: string, files?: File[]) => Promise<void>;
@@ -38,6 +45,7 @@ type BugFormState = {
   type: BugType;
   assignedToId: string;
   testCaseId: string;
+  testRunId: string;
   reproductionSteps: string;
   expectedResult: string;
   actualResult: string;
@@ -55,6 +63,7 @@ const emptyForm: BugFormState = {
   type: "bug",
   assignedToId: "",
   testCaseId: "",
+  testRunId: "",
   reproductionSteps: "",
   expectedResult: "",
   actualResult: "",
@@ -95,6 +104,7 @@ export function BugFormSheet({
   bug,
   projects,
   users,
+  testRuns = [],
   canUploadAttachments = false,
   onClose,
   onSave,
@@ -120,6 +130,7 @@ export function BugFormSheet({
         type: bug.type,
         assignedToId: bug.assignedToId ?? "",
         testCaseId: bug.testCaseId ?? "",
+        testRunId: bug.testRunId ?? "",
         reproductionSteps: bug.reproductionSteps ?? "",
         expectedResult: bug.expectedResult ?? "",
         actualResult: bug.actualResult ?? "",
@@ -170,6 +181,7 @@ export function BugFormSheet({
         type: form.type,
         assignedToId: form.assignedToId || null,
         testCaseId: form.testCaseId || null,
+        testRunId: form.testRunId || null,
         reproductionSteps: form.reproductionSteps.trim() || null,
         expectedResult: form.expectedResult.trim() || null,
         actualResult: form.actualResult.trim() || null,
@@ -335,6 +347,24 @@ export function BugFormSheet({
             </select>
           </label>
         </div>
+
+        <label className="text-sm font-semibold text-ink">
+          Test Run
+          <select
+            value={form.testRunId}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, testRunId: event.target.value }))
+            }
+            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
+          >
+            <option value="">None</option>
+            {testRuns.map((run) => (
+              <option key={run.id} value={run.id}>
+                {run.name || run.id}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="text-sm font-semibold text-ink">
           Reproduction Steps

@@ -27,6 +27,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 type ProjectOption = { id: string; key: string; name: string };
 type UserOption = { id: string; email: string; fullName: string | null };
+type TestRunOption = { id: string; name: string | null; status: string };
 
 function inferAttachmentType(file: File) {
   const mime = (file.type || "").toLowerCase();
@@ -74,6 +75,7 @@ export function BugsPage() {
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [testRuns, setTestRuns] = useState<TestRunOption[]>([]);
 
   const currentUserId = session?.user?.id;
   const sortBy = (searchParams.get("sortBy") as BugSortBy | null) ?? null;
@@ -170,6 +172,24 @@ export function BugsPage() {
     }
   }, []);
 
+  const fetchTestRuns = useCallback(async () => {
+    try {
+      const response = await fetch("/api/test-runs?page=1&pageSize=100");
+      if (response.ok) {
+        const data = await response.json();
+        setTestRuns(
+          (data.items ?? []).map((r: { id: string; name: string | null; status: string }) => ({
+            id: r.id,
+            name: r.name,
+            status: r.status,
+          })),
+        );
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchBugs();
   }, [fetchBugs]);
@@ -177,7 +197,8 @@ export function BugsPage() {
   useEffect(() => {
     fetchProjects();
     fetchUsers();
-  }, [fetchProjects, fetchUsers]);
+    fetchTestRuns();
+  }, [fetchProjects, fetchUsers, fetchTestRuns]);
 
   useEffect(() => {
     setPage(1);
@@ -369,6 +390,7 @@ export function BugsPage() {
         bug={editing}
         projects={projects}
         users={users}
+        testRuns={testRuns}
         canUploadAttachments={canUploadAttachments}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}

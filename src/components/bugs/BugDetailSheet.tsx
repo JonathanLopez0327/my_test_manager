@@ -325,6 +325,12 @@ export function BugDetailSheet({
                 <p className="mt-1 text-sm text-ink">{bug.testCase.title}</p>
               </div>
             ) : null}
+            {bug.testRun ? (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Linked Test Run</p>
+                <p className="mt-1 text-sm text-ink">{bug.testRun.name || bug.testRun.id}</p>
+              </div>
+            ) : null}
           </div>
 
           {/* Description */}

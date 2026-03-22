@@ -80,6 +80,13 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
           status: true,
         },
       },
+      testRun: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+        },
+      },
       comments: {
         include: {
           author: {
@@ -191,6 +198,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       assignedToId?: string | null;
       testRunItemId?: string | null;
       testCaseId?: string | null;
+      testRunId?: string | null;
       reproductionSteps?: string | null;
       expectedResult?: string | null;
       actualResult?: string | null;
@@ -238,6 +246,10 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     if (body.testCaseId !== undefined) {
       const val = body.testCaseId?.trim() || null;
       data.testCase = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testRunId !== undefined) {
+      const val = body.testRunId?.trim() || null;
+      data.testRun = val ? { connect: { id: val } } : { disconnect: true };
     }
     if (body.reproductionSteps !== undefined) data.reproductionSteps = body.reproductionSteps?.trim() || null;
     if (body.expectedResult !== undefined) data.expectedResult = body.expectedResult?.trim() || null;
