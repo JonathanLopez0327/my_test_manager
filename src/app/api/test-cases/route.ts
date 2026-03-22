@@ -293,7 +293,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const testCase = await prisma.$transaction(async (tx) => {
       const created = await tx.testCase.create({
         data: {
-          suiteId,
+          suite: { connect: { id: suiteId } },
           title,
           style,
           description: body.description?.trim() || null,
@@ -305,7 +305,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           isAutomated,
           automationType: isAutomated ? automationType : null,
           automationRef: isAutomated ? automationRef : null,
-          createdById: userId,
+          ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
         },
       });
 

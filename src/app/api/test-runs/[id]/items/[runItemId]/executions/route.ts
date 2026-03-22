@@ -314,12 +314,12 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const result = await prisma.$transaction(async (tx) => {
       const execution = await tx.testRunItemExecution.create({
         data: {
-          runItemId,
+          runItem: { connect: { id: runItemId } },
           attemptNumber: nextAttemptNumber,
           status: requestedStatus,
           startedAt: now,
           completedAt,
-          executedById: userId,
+          ...(userId ? { executedBy: { connect: { id: userId } } } : {}),
           summary: body.summary?.trim() || null,
         },
         select: { id: true },
@@ -340,10 +340,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       await tx.testRunItem.update({
         where: { id: runItemId },
         data: {
-          currentExecutionId: execution.id,
+          currentExecution: { connect: { id: execution.id } },
           status: requestedStatus,
           executedAt: completedAt,
-          executedById: userId,
+          ...(userId ? { executedBy: { connect: { id: userId } } } : {}),
           errorMessage: null,
         },
       });
@@ -384,14 +384,18 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const preserveLegacySnapshot = requestedStatus === "not_run" && legacyHasExecution;
 
     await prisma.$transaction(async (tx) => {
+      const legacyExecutedById = preserveLegacySnapshot
+        ? runItem.executedById
+        : (requestedStatus === "not_run" ? null : userId);
+
       await tx.testRunItem.update({
         where: { id: runItemId },
         data: {
           status: preserveLegacySnapshot ? runItem.status : requestedStatus,
           executedAt: preserveLegacySnapshot ? runItem.executedAt : completedAt,
-          executedById: preserveLegacySnapshot
-            ? runItem.executedById
-            : (requestedStatus === "not_run" ? null : userId),
+          ...(legacyExecutedById
+            ? { executedBy: { connect: { id: legacyExecutedById } } }
+            : { executedBy: { disconnect: true } }),
           durationMs: preserveLegacySnapshot
             ? runItem.durationMs
             : (requestedStatus === "not_run" ? null : runItem.durationMs),

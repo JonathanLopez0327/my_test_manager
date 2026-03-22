@@ -197,9 +197,18 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       const type = parseType(body.type);
       if (type) data.type = type;
     }
-    if (body.assignedToId !== undefined) data.assignedToId = body.assignedToId?.trim() || null;
-    if (body.testRunItemId !== undefined) data.testRunItemId = body.testRunItemId?.trim() || null;
-    if (body.testCaseId !== undefined) data.testCaseId = body.testCaseId?.trim() || null;
+    if (body.assignedToId !== undefined) {
+      const val = body.assignedToId?.trim() || null;
+      data.assignedTo = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testRunItemId !== undefined) {
+      const val = body.testRunItemId?.trim() || null;
+      data.testRunItem = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testCaseId !== undefined) {
+      const val = body.testCaseId?.trim() || null;
+      data.testCase = val ? { connect: { id: val } } : { disconnect: true };
+    }
     if (body.reproductionSteps !== undefined) data.reproductionSteps = body.reproductionSteps?.trim() || null;
     if (body.expectedResult !== undefined) data.expectedResult = body.expectedResult?.trim() || null;
     if (body.actualResult !== undefined) data.actualResult = body.actualResult?.trim() || null;

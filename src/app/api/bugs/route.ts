@@ -265,19 +265,23 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       ? body.tags.map((t) => String(t).trim()).filter((t) => t.length > 0)
       : [];
 
+    const assignedToId = body.assignedToId?.trim() || null;
+    const testRunItemId = body.testRunItemId?.trim() || null;
+    const testCaseId = body.testCaseId?.trim() || null;
+
     const bug = await prisma.bug.create({
       data: {
-        projectId,
+        project: { connect: { id: projectId } },
         title,
         description: body.description?.trim() || null,
         severity,
         priority,
         status,
         type,
-        assignedToId: body.assignedToId?.trim() || null,
-        reporterId: userId,
-        testRunItemId: body.testRunItemId?.trim() || null,
-        testCaseId: body.testCaseId?.trim() || null,
+        ...(assignedToId ? { assignedTo: { connect: { id: assignedToId } } } : {}),
+        ...(userId ? { reporter: { connect: { id: userId } } } : {}),
+        ...(testRunItemId ? { testRunItem: { connect: { id: testRunItemId } } } : {}),
+        ...(testCaseId ? { testCase: { connect: { id: testCaseId } } } : {}),
         reproductionSteps: body.reproductionSteps?.trim() || null,
         expectedResult: body.expectedResult?.trim() || null,
         actualResult: body.actualResult?.trim() || null,

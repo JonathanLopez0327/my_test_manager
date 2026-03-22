@@ -133,20 +133,20 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const project = await prisma.$transaction(async (tx) => {
       const created = await tx.project.create({
         data: {
-          organizationId: activeOrganizationId,
+          organization: { connect: { id: activeOrganizationId } },
           key,
           name,
           description: body.description?.trim() || null,
           context: body.context?.trim() || null,
           isActive: body.isActive ?? true,
-          createdById: userId,
+          ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
         },
       });
 
       await tx.projectMember.create({
         data: {
-          projectId: created.id,
-          userId,
+          project: { connect: { id: created.id } },
+          user: { connect: { id: userId } },
           role: "admin",
         },
       });

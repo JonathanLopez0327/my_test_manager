@@ -199,9 +199,9 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
     const run = await prisma.testRun.update({
       where: { id },
       data: {
-        projectId,
-        testPlanId: resolvedPlanId,
-        suiteId,
+        project: { connect: { id: projectId } },
+        ...(resolvedPlanId ? { testPlan: { connect: { id: resolvedPlanId } } } : { testPlan: { disconnect: true } }),
+        ...(suiteId ? { suite: { connect: { id: suiteId } } } : { suite: { disconnect: true } }),
         runType,
         status,
         name: body.name?.trim() || null,

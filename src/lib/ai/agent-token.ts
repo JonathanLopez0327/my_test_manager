@@ -52,8 +52,8 @@ type ApiTokenDelegateLike = {
   create?: (args: {
     data: {
       name: string;
-      userId: string;
-      organizationId: string;
+      user: { connect: { id: string } };
+      organization: { connect: { id: string } };
       tokenHash: string;
       tokenPrefix: string;
       expiresAt: Date;
@@ -184,8 +184,8 @@ async function createTokenRecord(
     return delegate.create({
       data: {
         name: AGENT_TOKEN_NAME,
-        userId,
-        organizationId,
+        user: { connect: { id: userId } },
+        organization: { connect: { id: organizationId } },
         tokenHash,
         tokenPrefix,
         expiresAt,

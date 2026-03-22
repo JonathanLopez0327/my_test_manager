@@ -82,7 +82,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const duplicate = await prisma.testCase.create({
       data: {
-        suiteId: targetSuiteId,
+        suite: { connect: { id: targetSuiteId } },
         title: `(Copy) ${original.title}`,
         description: original.description,
         preconditions: original.preconditions,
@@ -95,7 +95,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         automationRef: null,
         externalKey: null,
         status: "draft",
-        createdById: userId,
+        ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
       },
     });
 

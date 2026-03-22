@@ -51,7 +51,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       where: { id: executionId },
       data: {
         status: requestedStatus,
-        executedById: userId,
+        ...(userId ? { executedBy: { connect: { id: userId } } } : {}),
         startedAt: now,
         completedAt,
       },
@@ -61,7 +61,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       where: { id: runItemId },
       data: {
         status: requestedStatus,
-        executedById: userId,
+        ...(userId ? { executedBy: { connect: { id: userId } } } : {}),
         executedAt: completedAt,
       },
     });

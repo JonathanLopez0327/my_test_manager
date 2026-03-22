@@ -371,9 +371,9 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const run = await prisma.$transaction(async (tx) => {
       const createdRun = await tx.testRun.create({
         data: {
-          projectId,
-          testPlanId: resolvedPlanId,
-          suiteId,
+          project: { connect: { id: projectId } },
+          ...(resolvedPlanId ? { testPlan: { connect: { id: resolvedPlanId } } } : {}),
+          ...(suiteId ? { suite: { connect: { id: suiteId } } } : {}),
           runType,
           status,
           name: body.name?.trim() || null,
@@ -385,7 +385,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           ciRunUrl: body.ciRunUrl?.trim() || null,
           startedAt,
           finishedAt,
-          triggeredById: userId,
+          ...(userId ? { triggeredBy: { connect: { id: userId } } } : {}),
         },
       });
 

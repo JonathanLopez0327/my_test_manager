@@ -141,8 +141,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
 
     const member = await prisma.organizationMember.create({
       data: {
-        organizationId: id,
-        userId: targetUserId,
+        organization: { connect: { id } },
+        user: { connect: { id: targetUserId } },
         role,
       },
     });

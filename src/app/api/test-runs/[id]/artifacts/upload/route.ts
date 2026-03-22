@@ -203,9 +203,9 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     try {
       record = await prisma.testRunArtifact.create({
         data: {
-          runId: id,
-          runItemId,
-          executionId,
+          run: { connect: { id } },
+          ...(runItemId ? { runItem: { connect: { id: runItemId } } } : {}),
+          ...(executionId ? { execution: { connect: { id: executionId } } } : {}),
           type,
           name: generatedName,
           url,
@@ -233,8 +233,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       // Legacy schema fallback: write artifact without execution linkage.
       record = await prisma.testRunArtifact.create({
         data: {
-          runId: id,
-          runItemId,
+          run: { connect: { id } },
+          ...(runItemId ? { runItem: { connect: { id: runItemId } } } : {}),
           type,
           name: generatedName,
           url,

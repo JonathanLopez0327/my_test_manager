@@ -211,7 +211,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   await prisma.$transaction([
     prisma.aiConversationMessage.create({
       data: {
-        conversationId,
+        conversation: { connect: { id: conversationId } },
         role: "user",
         content: message,
       },
@@ -344,7 +344,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
             await prisma.$transaction([
               prisma.aiConversationMessage.create({
                 data: {
-                  conversationId,
+                  conversation: { connect: { id: conversationId } },
                   role: "assistant",
                   content: assistantContent,
                 },

@@ -104,7 +104,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     const plan = await prisma.testPlan.update({
       where: { id },
       data: {
-        projectId,
+        project: { connect: { id: projectId } },
         name,
         description: body.description?.trim() || null,
         status,
