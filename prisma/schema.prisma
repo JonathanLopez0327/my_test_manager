@@ -298,6 +298,7 @@ model TestRun {
   items       TestRunItem[]
   artifacts   TestRunArtifact[]
   metrics     TestRunMetrics?
+  bugs        Bug[]
 
   @@index([projectId], map: "idx_runs_project")
   @@index([testPlanId], map: "idx_runs_plan")
@@ -557,6 +558,7 @@ model Bug {
   reporterId        String?     @map("reporter") @db.Uuid
   testRunItemId     String?     @map("test_run_item_id") @db.Uuid
   testCaseId        String?     @map("test_case_id") @db.Uuid
+  testRunId         String?     @map("test_run_id") @db.Uuid
   reproductionSteps String?     @map("reproduction_steps")
   expectedResult    String?     @map("expected_result")
   actualResult      String?     @map("actual_result")
@@ -570,6 +572,7 @@ model Bug {
   reporter    User?        @relation("BugReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   testRunItem TestRunItem? @relation(fields: [testRunItemId], references: [id], onDelete: SetNull)
   testCase    TestCase?    @relation(fields: [testCaseId], references: [id], onDelete: SetNull)
+  testRun     TestRun?     @relation(fields: [testRunId], references: [id], onDelete: SetNull)
   comments    BugComment[]
   attachments BugAttachment[]
 
@@ -578,6 +581,7 @@ model Bug {
   @@index([severity], map: "idx_bugs_severity")
   @@index([assignedToId], map: "idx_bugs_assigned_to")
   @@index([projectId, status], map: "idx_bugs_project_status")
+  @@index([testRunId], map: "idx_bugs_test_run")
   @@map("bugs")
 }
 

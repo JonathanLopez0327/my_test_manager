@@ -290,6 +290,7 @@ export function BugsTable({
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
+              <th className="px-3 py-2.5 font-medium">Test Run</th>
               <SortableHeaderCell
                 label="Comments"
                 sortKey="comments"
@@ -343,6 +344,9 @@ export function BugsTable({
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {getUserName(bug.assignedTo)}
+                </td>
+                <td className="px-3 py-2.5 text-ink-muted truncate max-w-[150px]">
+                  {bug.testRun?.name || "\u2014"}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {bug._count?.comments ?? 0}
@@ -399,6 +403,11 @@ export function BugsTable({
               <p className="mt-2 text-sm text-ink-muted">
                 Assigned: {getUserName(bug.assignedTo)}
               </p>
+              {bug.testRun ? (
+                <p className="mt-1 text-sm text-ink-muted">
+                  Test Run: {bug.testRun.name || bug.testRun.id}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs text-ink-soft">
                 {bug._count?.comments ?? 0} comments
               </p>
