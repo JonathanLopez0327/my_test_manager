@@ -1593,7 +1593,10 @@ export function TestRunsWorkspace() {
                                     border: "1px solid var(--stroke)",
                                     borderRadius: 8,
                                     fontSize: 12,
+                                    color: "var(--ink)",
                                   }}
+                                  itemStyle={{ color: "var(--ink)" }}
+                                  labelStyle={{ color: "var(--ink-muted)", fontWeight: 600 }}
                                 />
                               </PieChart>
                             </ResponsiveContainer>
