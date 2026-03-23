@@ -193,6 +193,7 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
             context={{ type: "testCase", testCaseId: testCase.id, testCaseTitle: testCase.title, projectId: testCase.suite.testPlan.project.id }}
             label="Ask AI"
             variant="button"
+            onBeforeOpen={onClose}
           />
         </div>
 

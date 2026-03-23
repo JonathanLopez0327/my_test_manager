@@ -11,6 +11,7 @@ type AssistantHubTriggerProps = {
   label?: string;
   variant?: "button" | "icon" | "inline";
   className?: string;
+  onBeforeOpen?: () => void;
 };
 
 export function AssistantHubTrigger({
@@ -18,10 +19,12 @@ export function AssistantHubTrigger({
   label = "Ask AI",
   variant = "button",
   className,
+  onBeforeOpen,
 }: AssistantHubTriggerProps) {
   const { actions } = useAssistantHub();
 
   const handleClick = () => {
+    onBeforeOpen?.();
     actions.open(context);
   };
 
