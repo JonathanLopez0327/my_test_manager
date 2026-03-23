@@ -9,7 +9,6 @@ import {
   IconFolder,
   IconGrid,
   IconLayers,
-  IconSettings,
 } from "../icons";
 import { Badge } from "../ui/Badge";
 import { BrandLogo } from "../ui/BrandLogo";
@@ -85,14 +84,6 @@ const navSections: NavSection[] = [
         icon: IconBug,
         href: "/manager/bugs",
         permission: PERMISSIONS.BUG_LIST,
-      },
-      {
-        type: "item",
-        id: "settings",
-        label: "Settings",
-        icon: IconSettings,
-        href: "/manager/settings",
-        permission: PERMISSIONS.ORG_LIST,
       },
     ],
   },
