@@ -1,92 +1,31 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityCard } from "@/components/dashboard/ActivityCard";
-import { TrendChart } from "@/components/dashboard/TrendChart";
-import { TestStatusChart } from "@/components/dashboard/TestStatusChart";
+import { CompactKpiHeader } from "@/components/dashboard/CompactKpiHeader";
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
+import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
+import { RecentBugsCard } from "@/components/dashboard/RecentBugsCard";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { TestStatusChart } from "@/components/dashboard/TestStatusChart";
+import { TopProblemAreasCard } from "@/components/dashboard/TopProblemAreasCard";
+import { TrendChart } from "@/components/dashboard/TrendChart";
 import {
   IconAlert,
   IconBug,
   IconChart,
-  IconFolder,
+  IconClipboard,
   IconPlay,
 } from "@/components/icons";
-import { prisma } from "@/lib/prisma";
-import type { GlobalRole, OrgRole, Prisma } from "@/generated/prisma/client";
+import { authOptions } from "@/lib/auth";
 import { canSync } from "@/lib/auth/can-sync";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
+import { getManagerDashboardData } from "@/server/manager-dashboard";
 
-function formatCount(value: number) {
-  return value.toLocaleString("en-US");
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "bigint") return Number(value);
-  if (value && typeof value === "object" && "toNumber" in value && typeof value.toNumber === "function") {
-    return value.toNumber();
-  }
-  return Number(value ?? 0);
-}
-
-function statusTone(s: string): "success" | "danger" | "warning" | "neutral" {
-  if (s === "completed") return "success";
-  if (s === "failed") return "danger";
-  if (s === "running") return "warning";
-  return "neutral";
-}
-
-function statusLabel(s: string): string {
-  const labels: Record<string, string> = {
-    completed: "Completado",
-    failed: "Fallido",
-    running: "In progress",
-    queued: "En cola",
-    canceled: "Cancelado",
-  };
-  return labels[s] ?? s;
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = Date.now();
-  const diff = Math.max(0, now - date.getTime());
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diff < hour) {
-    const mins = Math.max(1, Math.round(diff / minute));
-    return `hace ${mins} min`;
-  }
-  if (diff < day) {
-    const hours = Math.round(diff / hour);
-    return `hace ${hours} h`;
-  }
-  const days = Math.round(diff / day);
-  return `hace ${days} d`;
-}
-
-function formatDuration(durationMs?: number | bigint | null, startedAt?: Date | null, finishedAt?: Date | null) {
-  let ms = durationMs ? Number(durationMs) : 0;
-
-  if (!ms && startedAt && finishedAt) {
-    ms = Math.max(0, finishedAt.getTime() - startedAt.getTime());
-  }
-
-  if (!ms) return "No duration";
-
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  if (minutes === 0) return `${seconds}s`;
-  if (minutes < 60) return `${minutes}m ${seconds}s`;
-
-  const hours = Math.floor(minutes / 60);
-  const remMinutes = minutes % 60;
-  return `${hours}h ${remMinutes}m`;
+function toneByPassRate(passRate: number): "success" | "warning" | "danger" {
+  if (passRate >= 90) return "success";
+  if (passRate >= 75) return "warning";
+  return "danger";
 }
 
 export default async function ManagerPage() {
@@ -99,383 +38,135 @@ export default async function ManagerPage() {
   }
 
   const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
-
-  const projectWhere: Prisma.ProjectWhereInput = activeOrganizationId
-    ? { isActive: true, organizationId: activeOrganizationId }
-    : { isActive: true };
-
-  const runItemOrgFilter: Prisma.TestRunItemWhereInput = activeOrganizationId
-    ? { run: { project: { organizationId: activeOrganizationId } } }
-    : {};
-
-  const bugOrgFilter: Prisma.BugWhereInput = activeOrganizationId
-    ? { project: { organizationId: activeOrganizationId } }
-    : {};
-
-  const runOrgFilter: Prisma.TestRunWhereInput = activeOrganizationId
-    ? { project: { organizationId: activeOrganizationId } }
-    : {};
-
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const previousWeekStart = new Date(sevenDaysAgo);
-  previousWeekStart.setDate(previousWeekStart.getDate() - 7);
-
-  const oneDayAgo = new Date(now);
-  oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-  const [
-    activeProjects,
-    executedCases,
-    failedCases,
-    openBugs,
-    criticalBugs,
-    runningRuns,
-    recentRunsCount,
-    recentItems,
-    previousItems,
-    passedResults,
-    failedResults,
-    blockedResults,
-    skippedResults,
-    notRunResults,
-    latestRuns,
-    recentFailedRuns,
-  ] = await prisma.$transaction([
-    prisma.project.count({ where: projectWhere }),
-    prisma.testRunItem.count({
-      where: { status: { not: "not_run" }, ...runItemOrgFilter },
-    }),
-    prisma.testRunItem.count({
-      where: { status: "failed", ...runItemOrgFilter },
-    }),
-    prisma.bug.count({
-      where: { status: "open", ...bugOrgFilter },
-    }),
-    prisma.bug.count({
-      where: {
-        severity: "critical",
-        status: { notIn: ["closed", "verified"] },
-        ...bugOrgFilter,
-      },
-    }),
-    prisma.testRun.count({
-      where: { status: "running", ...runOrgFilter },
-    }),
-    prisma.testRun.count({
-      where: { createdAt: { gte: oneDayAgo }, ...runOrgFilter },
-    }),
-    prisma.testRunItem.findMany({
-      where: {
-        executedAt: { gte: sevenDaysAgo },
-        status: { in: ["passed", "failed"] },
-        ...runItemOrgFilter,
-      },
-      select: { executedAt: true, status: true },
-    }),
-    prisma.testRunItem.findMany({
-      where: {
-        executedAt: { gte: previousWeekStart, lt: sevenDaysAgo },
-        status: { in: ["passed", "failed"] },
-        ...runItemOrgFilter,
-      },
-      select: { status: true },
-    }),
-    prisma.testRunItem.count({ where: { status: "passed", ...runItemOrgFilter } }),
-    prisma.testRunItem.count({ where: { status: "failed", ...runItemOrgFilter } }),
-    prisma.testRunItem.count({ where: { status: "blocked", ...runItemOrgFilter } }),
-    prisma.testRunItem.count({ where: { status: "skipped", ...runItemOrgFilter } }),
-    prisma.testRunItem.count({ where: { status: "not_run", ...runItemOrgFilter } }),
-    prisma.testRun.findMany({
-      where: runOrgFilter,
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        environment: true,
-        createdAt: true,
-        startedAt: true,
-        finishedAt: true,
-        testPlan: { select: { name: true } },
-        suite: { select: { name: true } },
-        metrics: {
-          select: {
-            total: true,
-            passed: true,
-            failed: true,
-            passRate: true,
-            durationMs: true,
-          },
-        },
-      },
-    }),
-    prisma.testRun.findMany({
-      where: { status: "failed", createdAt: { gte: sevenDaysAgo }, ...runOrgFilter },
-      select: { suite: { select: { name: true } } },
-      take: 50,
-    }),
-  ]);
-
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const trendMap = new Map<string, { passed: number; failed: number }>();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDaysAgo);
-    d.setDate(d.getDate() + i);
-    const key = d.toISOString().slice(0, 10);
-    trendMap.set(key, { passed: 0, failed: 0 });
-  }
-
-  for (const item of recentItems) {
-    if (!item.executedAt) continue;
-    const key = item.executedAt.toISOString().slice(0, 10);
-    const entry = trendMap.get(key);
-    if (!entry) continue;
-    if (item.status === "passed") entry.passed += 1;
-    if (item.status === "failed") entry.failed += 1;
-  }
-
-  const trendData = Array.from(trendMap.entries()).map(([dateStr, counts]) => ({
-    day: dayNames[new Date(dateStr).getUTCDay()],
-    ...counts,
-  }));
-
-  const thisWeekPassed = recentItems.filter((item) => item.status === "passed").length;
-  const thisWeekFailed = recentItems.filter((item) => item.status === "failed").length;
-  const thisWeekTotal = thisWeekPassed + thisWeekFailed;
-  const thisWeekPassRate = thisWeekTotal > 0 ? Math.round((thisWeekPassed / thisWeekTotal) * 100) : 0;
-
-  const previousWeekPassed = previousItems.filter((item) => item.status === "passed").length;
-  const previousWeekFailed = previousItems.filter((item) => item.status === "failed").length;
-  const previousWeekTotal = previousWeekPassed + previousWeekFailed;
-  const previousWeekPassRate = previousWeekTotal > 0 ? Math.round((previousWeekPassed / previousWeekTotal) * 100) : 0;
-  const passRateDelta = thisWeekPassRate - previousWeekPassRate;
-
-  const statusColors: Record<string, string> = {
-    passed: "#059669",
-    failed: "#DC2626",
-    skipped: "#94A3B8",
-    blocked: "#D97706",
-    not_run: "#D1D5DB",
-  };
-
-  const statusLabels: Record<string, string> = {
-    passed: "Passed",
-    failed: "Failed",
-    skipped: "Skipped",
-    blocked: "Blocked",
-    not_run: "Not run",
-  };
-
-  const orderedStatuses = ["passed", "failed", "blocked", "skipped", "not_run"];
-  const countsByStatus = new Map<string, number>([
-    ["passed", passedResults],
-    ["failed", failedResults],
-    ["blocked", blockedResults],
-    ["skipped", skippedResults],
-    ["not_run", notRunResults],
-  ]);
-
-  const totalResultItems = orderedStatuses.reduce((sum, status) => sum + (countsByStatus.get(status) ?? 0), 0);
-  const executedResultItems = totalResultItems - (countsByStatus.get("not_run") ?? 0);
-  const passRateGlobal = executedResultItems > 0
-    ? Math.round(((countsByStatus.get("passed") ?? 0) / executedResultItems) * 100)
-    : 0;
-
-  const testStatusData = orderedStatuses.map((status) => {
-    const value = countsByStatus.get(status) ?? 0;
-    const percentage = totalResultItems > 0 ? Math.round((value / totalResultItems) * 100) : 0;
-    return {
-      name: statusLabels[status] ?? status,
-      value,
-      percentage,
-      color: statusColors[status] ?? "#94A3B8",
-    };
-  });
-
-  const totalExecuted = executedCases || 1;
-  const pipelinePassRate = Math.round(((totalExecuted - failedCases) / totalExecuted) * 100);
-  const failedPeak = trendData.reduce<{ day: string; failed: number } | null>((peak, day) => {
-    if (day.failed === 0) return peak;
-    if (!peak || day.failed > peak.failed) {
-      return { day: day.day, failed: day.failed };
-    }
-    return peak;
-  }, null);
-
-  const suiteFailures = recentFailedRuns.reduce<Record<string, number>>((acc, run) => {
-    const suiteName = run.suite?.name;
-    if (!suiteName) return acc;
-    acc[suiteName] = (acc[suiteName] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const topUnstableSuite = Object.entries(suiteFailures).sort((a, b) => b[1] - a[1])[0];
-
-  const attentionItems: {
-    id: string;
-    title: string;
-    detail: string;
-    cta: string;
-    tone: "danger" | "warning" | "info";
-  }[] = [];
-
-  if (passRateDelta < 0) {
-    attentionItems.push({
-      id: "pass-rate-drop",
-      title: "Weekly pass rate drop",
-      detail: `${Math.abs(passRateDelta)}% below the previous week (${thisWeekPassRate}% current).`,
-      cta: "Review recent failed runs and environment changes.",
-      tone: "danger",
-    });
-  }
-
-  if (criticalBugs > 0) {
-    attentionItems.push({
-      id: "critical-bugs",
-      title: "Open critical bugs",
-      detail: `${formatCount(criticalBugs)} critical issues pending closure.`,
-      cta: "Prioritize triage and assignments for the critical backlog.",
-      tone: "danger",
-    });
-  }
-
-  if (topUnstableSuite && topUnstableSuite[1] >= 2) {
-    attentionItems.push({
-      id: "unstable-suite",
-      title: "Unstable suite detected",
-      detail: `${topUnstableSuite[0]} accumulated ${topUnstableSuite[1]} failures in the last 7 days.`,
-      cta: "Analizar flaky tests y dependencias de la suite.",
-      tone: "warning",
-    });
-  }
-
-  if (runningRuns > 0) {
-    attentionItems.push({
-      id: "active-runs",
-      title: "Active executions in progress",
-      detail: `${runningRuns} run(s) are currently running.`,
-      cta: "Monitor duration and stability of active pipelines.",
-      tone: "info",
-    });
-  }
-
-  const runItems = latestRuns.map((run) => {
-    const title = run.name?.trim() || run.testPlan?.name || `Run ${run.id.slice(0, 6)}`;
-    const suite = run.suite?.name || "Undefined suite";
-    const metrics = run.metrics;
-    const tests = metrics
-      ? `${metrics.total} tests`
-      : "No metrics";
-    const runPassRate = metrics ? Math.round(toNumber(metrics.passRate)) : null;
-    const outcome = metrics
-      ? `${metrics.passed}/${metrics.total} passed${metrics.failed > 0 ? ` · ${metrics.failed} failed` : ""}${runPassRate !== null ? ` · ${runPassRate}%` : ""}`
-      : "No consolidated results";
-
-    return {
-      id: run.id,
-      title,
-      suite,
-      environment: run.environment || "No environment",
-      when: formatRelativeTime(run.startedAt ?? run.createdAt),
-      duration: formatDuration(metrics?.durationMs ?? null, run.startedAt, run.finishedAt),
-      tests,
-      outcome,
-      status: statusLabel(run.status),
-      tone: statusTone(run.status),
-    };
-  });
-
-  const weekSummary = `${formatCount(thisWeekTotal)} executed cases (${formatCount(thisWeekFailed)} failed)`;
+  const dashboardData = await getManagerDashboardData(activeOrganizationId);
 
   return (
     <>
       {!activeOrganizationId ? (
-        <section className="mb-5 rounded-2xl border border-warning-500/25 bg-warning-500/10 px-5 py-4 text-warning-500">
+        <section className="mb-4 rounded-2xl border border-warning-500/25 bg-warning-500/10 px-5 py-4 text-warning-500">
           <p className="text-sm font-semibold">There is no active organization.</p>
           <p className="mt-1 text-sm">
-            Select an organization to view metrics and contextual activity.
+            Select an organization to view manual run quality metrics.
           </p>
         </section>
       ) : null}
 
-      <section className="space-y-5">
-        <div>
-          <StatCard
-            emphasized
-            label="Pipeline health"
-            value={`${pipelinePassRate}%`}
-            supportText={`${formatCount(failedCases)} failed of ${formatCount(executedCases)} executed cases`}
-            microInsight={passRateDelta === 0 ? "No change from last week" : `${passRateDelta > 0 ? "+" : ""}${passRateDelta}% vs last week`}
-            statusBadge={{
-              tone: pipelinePassRate >= 90 ? "success" : pipelinePassRate >= 75 ? "warning" : "danger",
-              label: pipelinePassRate >= 90 ? "Stable" : pipelinePassRate >= 75 ? "Risk" : "Critical",
-            }}
-            icon={<IconChart className="h-6 w-6 text-brand-700" />}
-            accentClassName="bg-brand-100/80 text-brand-700"
-          />
-        </div>
+      <section className="space-y-4">
+        <CompactKpiHeader items={dashboardData.header} />
 
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
-            label="Active Projects"
-            value={formatCount(activeProjects)}
-            supportText="Current portfolio in operation"
-            microInsight={`${formatCount(recentRunsCount)} runs in the last 24h`}
-            statusBadge={{ tone: "info", label: "Seguimiento" }}
-            icon={<IconFolder className="h-5 w-5 text-brand-700" />}
+            compact
+            label="Latest Run Health"
+            value={`${dashboardData.latestRunHealth.passRate}%`}
+            supportText={
+              dashboardData.latestRunHealth.totalExecuted > 0
+                ? `${dashboardData.latestRunHealth.totalExecuted} executed · ${dashboardData.latestRunHealth.failed} failed`
+                : "Latest run not executed yet"
+            }
+            microInsight={
+              dashboardData.latestRunHealth.totalExecuted === 0
+                ? "No completed results"
+                : dashboardData.latestRunHealth.deltaVsPreviousRun === null
+                  ? "No previous manual run"
+                  : `${dashboardData.latestRunHealth.deltaVsPreviousRun > 0 ? "+" : ""}${dashboardData.latestRunHealth.deltaVsPreviousRun}% vs previous run`
+            }
+            statusBadge={{
+              tone:
+                dashboardData.latestRunHealth.totalExecuted === 0
+                  ? "neutral"
+                  : toneByPassRate(dashboardData.latestRunHealth.passRate),
+              label:
+                dashboardData.latestRunHealth.totalExecuted === 0
+                  ? "Awaiting"
+                  : dashboardData.latestRunHealth.passRate >= 90
+                  ? "Healthy"
+                  : dashboardData.latestRunHealth.passRate >= 75
+                    ? "Watch"
+                    : "Risk",
+            }}
+            icon={<IconChart className="h-4 w-4 text-brand-700" />}
             accentClassName="bg-brand-50 text-brand-700"
           />
           <StatCard
-            label="Active Executions"
-            value={formatCount(runningRuns)}
-            supportText="Pipelines in progress"
-            microInsight={`${formatCount(thisWeekTotal)} case executions this week`}
-            statusBadge={{ tone: runningRuns > 0 ? "warning" : "neutral", label: runningRuns > 0 ? "In progress" : "No activity" }}
-            icon={<IconPlay className="h-5 w-5 text-warning-500" />}
-            accentClassName="bg-warning-500/10 text-warning-500"
-          />
-          <StatCard
-            label="Open Bugs"
-            value={formatCount(openBugs)}
-            supportText={`${formatCount(criticalBugs)} critical pending`}
-            microInsight="Risk management and functional stability"
-            statusBadge={{ tone: criticalBugs > 0 ? "danger" : "success", label: criticalBugs > 0 ? "Attention" : "Controlled" }}
-            icon={<IconBug className="h-5 w-5 text-danger-500" />}
+            compact
+            label="Defect Risk"
+            value={dashboardData.defectRisk.openBugs.toLocaleString("en-US")}
+            supportText={`${dashboardData.defectRisk.openCriticalHigh.toLocaleString("en-US")} critical/high open`}
+            microInsight={`${dashboardData.defectRisk.linkedToLatestRun.toLocaleString("en-US")} linked to latest run`}
+            statusBadge={{
+              tone: dashboardData.defectRisk.openCriticalHigh > 0 ? "danger" : "success",
+              label: dashboardData.defectRisk.openCriticalHigh > 0 ? "Attention" : "Controlled",
+            }}
+            icon={<IconBug className="h-4 w-4 text-danger-500" />}
             accentClassName="bg-danger-100 text-danger-500"
           />
+          <StatCard
+            compact
+            label="Coverage & Readiness"
+            value={`${dashboardData.coverageReadiness.readyRate}%`}
+            supportText={`${dashboardData.coverageReadiness.ready.toLocaleString("en-US")} ready / ${dashboardData.coverageReadiness.totalTestCases.toLocaleString("en-US")} total`}
+            microInsight={`${dashboardData.coverageReadiness.readyWithoutRecentExecution.toLocaleString("en-US")} ready without execution (7 days)`}
+            statusBadge={{
+              tone:
+                dashboardData.coverageReadiness.readyRate >= 80
+                  ? "success"
+                  : dashboardData.coverageReadiness.readyRate >= 60
+                    ? "warning"
+                    : "neutral",
+              label: "Readiness",
+            }}
+            icon={<IconClipboard className="h-4 w-4 text-brand-700" />}
+            accentClassName="bg-brand-50 text-brand-700"
+          />
+          <StatCard
+            compact
+            label="Execution Activity"
+            value={dashboardData.executionActivity.runsThisWeek.toLocaleString("en-US")}
+            supportText={`${dashboardData.executionActivity.executedCasesThisWeek.toLocaleString("en-US")} executed cases this week`}
+            microInsight={`Last run: ${dashboardData.executionActivity.lastRunDate}`}
+            statusBadge={{ tone: "info", label: "This week" }}
+            icon={<IconPlay className="h-4 w-4 text-warning-500" />}
+            accentClassName="bg-warning-500/10 text-warning-500"
+          />
         </div>
       </section>
 
-      <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+      <section className="mt-5 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
         <TrendChart
-          data={trendData}
-          period="weekly"
-          summary={weekSummary}
-          subtitle="Weekly evolution of passed and failed cases"
-          failedPeak={failedPeak}
+          data={dashboardData.trend.data}
+          summary={dashboardData.trend.summary}
+          subtitle={dashboardData.trend.subtitle}
         />
-        <div className="grid gap-5">
-          <TestStatusChart data={testStatusData} total={totalResultItems} passRate={passRateGlobal} />
-          <NeedsAttentionCard items={attentionItems.slice(0, 3)} />
-        </div>
+        <TestStatusChart
+          data={dashboardData.latestRunDistribution.data}
+          total={dashboardData.latestRunDistribution.total}
+          passRate={dashboardData.latestRunDistribution.passRate}
+          runLabel={dashboardData.latestRunDistribution.runLabel}
+        />
       </section>
 
-      <section className="mt-6">
-        <ActivityCard runs={runItems} passRate={pipelinePassRate} />
+      <section className="mt-5 grid gap-4 xl:grid-cols-2">
+        <NeedsAttentionCard items={dashboardData.needsAttention} />
+        <TopProblemAreasCard
+          suites={dashboardData.topProblemAreas.suites}
+          testCases={dashboardData.topProblemAreas.testCases}
+        />
+      </section>
+
+      <section className="mt-5 grid gap-4 xl:grid-cols-3">
+        <ActivityCard runs={dashboardData.latestRuns} />
+        <RecentBugsCard bugs={dashboardData.recentBugs} />
+        <RecentActivityCard items={dashboardData.recentActivity} />
       </section>
 
       <section className="mt-4 rounded-xl border border-stroke bg-surface-elevated/90 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
           <IconAlert className="h-4 w-4 text-ink-soft" />
           <span>
-            {attentionItems.length > 0
-              ? `${attentionItems.length} active signal(s) under observation.`
-              : "No critical signals are active at the moment."}
+            {dashboardData.needsAttention.length > 0
+              ? `${dashboardData.needsAttention.length} actionable signal(s) detected.`
+              : "No actionable signals detected for this window."}
           </span>
           <span className="rounded-full bg-surface-muted px-2 py-0.5 font-semibold text-ink-soft">
             Last update: {new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
@@ -485,6 +176,3 @@ export default async function ManagerPage() {
     </>
   );
 }
-
-
-

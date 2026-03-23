@@ -13,27 +13,30 @@ type TestStatusChartProps = {
   data: StatusSlice[];
   total: number;
   passRate: number;
+  runLabel: string;
 };
 
-export function TestStatusChart({ data, total, passRate }: TestStatusChartProps) {
+export function TestStatusChart({ data, total, passRate, runLabel }: TestStatusChartProps) {
   return (
-    <Card className="flex h-full flex-col p-6">
+    <Card className="flex h-full flex-col p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-ink">Global Result</p>
-          <p className="mt-1 text-xs text-ink-muted">Consolidated distribution by status</p>
+          <p className="text-sm font-semibold text-ink">Latest Run Distribution</p>
+          <p className="mt-1 text-xs text-ink-muted">Breakdown from latest manual run</p>
         </div>
         <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
           {total.toLocaleString("en-US")} cases
         </span>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-4">
         <p className="text-[34px] font-semibold leading-none text-ink">{passRate}%</p>
-        <p className="mt-1 text-xs font-medium text-ink-muted">Pass rate general</p>
+        <p className="mt-1 text-xs font-medium text-ink-muted">Pass rate from latest run</p>
       </div>
 
-      <div className="mt-5 h-3 overflow-hidden rounded-full bg-surface-muted">
+      <p className="mt-2 truncate text-xs text-ink-soft">{runLabel}</p>
+
+      <div className="mt-4 h-3 overflow-hidden rounded-full bg-surface-muted">
         <div className="flex h-full w-full">
           {data.map((entry) => (
             <div
