@@ -9,7 +9,6 @@ import {
   IconFolder,
   IconGrid,
   IconLayers,
-  IconOrganization,
   IconSettings,
 } from "../icons";
 import { Badge } from "../ui/Badge";
@@ -88,14 +87,12 @@ const navSections: NavSection[] = [
         permission: PERMISSIONS.BUG_LIST,
       },
       {
-        type: "group",
-        id: "org-admin",
-        label: "Administration",
-        icon: IconOrganization,
-        children: [
-          { id: "organizations", label: "Organizations", href: "/manager/organizations", permission: PERMISSIONS.ORG_LIST },
-          { id: "users", label: "Users", href: "/manager/users", permission: PERMISSIONS.USER_LIST },
-        ],
+        type: "item",
+        id: "settings",
+        label: "Settings",
+        icon: IconSettings,
+        href: "/manager/settings",
+        permission: PERMISSIONS.ORG_LIST,
       },
     ],
   },

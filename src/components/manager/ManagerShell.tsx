@@ -24,8 +24,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
     : (
       {
         "/manager/bugs": "wide",
-        "/manager/organizations": "wide",
-        "/manager/users": "wide",
+        "/manager/settings": "wide",
         "/manager/projects": "full",
         "/manager/test-management": "full",
         "/manager/test-runs-workspace": "full",
