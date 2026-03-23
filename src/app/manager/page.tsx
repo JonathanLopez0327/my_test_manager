@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { ActivityCard } from "@/components/dashboard/ActivityCard";
 import { CompactKpiHeader } from "@/components/dashboard/CompactKpiHeader";
+import { DashboardFilterBar } from "@/components/dashboard/DashboardFilterBar";
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { RecentBugsCard } from "@/components/dashboard/RecentBugsCard";
@@ -20,7 +21,7 @@ import { authOptions } from "@/lib/auth";
 import { canSync } from "@/lib/auth/can-sync";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
-import { getManagerDashboardData } from "@/server/manager-dashboard";
+import { getManagerDashboardData, parseDashboardFilters } from "@/server/manager-dashboard";
 
 function toneByPassRate(passRate: number): "success" | "warning" | "danger" {
   if (passRate >= 90) return "success";
@@ -28,7 +29,11 @@ function toneByPassRate(passRate: number): "success" | "warning" | "danger" {
   return "danger";
 }
 
-export default async function ManagerPage() {
+export default async function ManagerPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession(authOptions);
 
   const globalRoles = (session?.user?.globalRoles ?? []) as GlobalRole[];
@@ -38,7 +43,8 @@ export default async function ManagerPage() {
   }
 
   const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
-  const dashboardData = await getManagerDashboardData(activeOrganizationId);
+  const filters = parseDashboardFilters(await searchParams);
+  const dashboardData = await getManagerDashboardData(activeOrganizationId, filters);
 
   return (
     <>
@@ -50,6 +56,8 @@ export default async function ManagerPage() {
           </p>
         </section>
       ) : null}
+
+      <DashboardFilterBar filters={filters} />
 
       <section className="space-y-4">
         <CompactKpiHeader items={dashboardData.header} />
