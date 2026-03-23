@@ -1067,7 +1067,7 @@ describe("TestManagementWorkspace", () => {
     });
   });
 
-  it("keeps Edit case behavior available from row actions", async () => {
+  it("opens case context menu on right click and closes with outside click and Escape", async () => {
     render(<TestManagementWorkspace />);
 
     await waitFor(() => {
@@ -1077,14 +1077,85 @@ describe("TestManagementWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Payment" }));
 
     await waitFor(() => {
-      expect(screen.getAllByLabelText("Edit case").length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("button", { name: "Validate card payment" }).length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByLabelText("Edit case")[0]);
+    const desktopCaseButton = screen
+      .getAllByRole("button", { name: "Validate card payment" })
+      .find((button) => button.closest("tr"));
+    expect(desktopCaseButton).toBeDefined();
+
+    fireEvent.contextMenu(desktopCaseButton!.closest("tr")!);
+
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: "Duplicate case" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Edit case" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Delete case" })).toBeInTheDocument();
+    });
+
+    fireEvent.mouseDown(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Edit case" })).not.toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(desktopCaseButton!.closest("tr")!);
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: "Edit case" })).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Edit case" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("keeps Edit case behavior available from case context menu", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Validate card payment" }).length).toBeGreaterThan(0);
+    });
+
+    const desktopCaseButton = screen
+      .getAllByRole("button", { name: "Validate card payment" })
+      .find((button) => button.closest("tr"));
+    expect(desktopCaseButton).toBeDefined();
+
+    fireEvent.contextMenu(desktopCaseButton!.closest("tr")!);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit case" }));
 
     await waitFor(() => {
       expect(screen.getByText("Edit Test Case")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save Test Case" })).toBeInTheDocument();
+    });
+  });
+
+  it("opens mobile case menu and executes edit action", async () => {
+    render(<TestManagementWorkspace />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Payment")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Payment" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Case actions" }).length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Case actions" })[0]);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit case" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Edit Test Case")).toBeInTheDocument();
     });
   });
 

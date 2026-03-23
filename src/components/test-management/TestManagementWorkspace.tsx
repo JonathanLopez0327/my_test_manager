@@ -1540,6 +1540,7 @@ export function TestManagementWorkspace() {
                 sortBy={sortBy}
                 sortDir={sortDir}
                 onSort={handleSort}
+                actionMenuMode="contextual"
               />
 
               <div className="mt-4">
