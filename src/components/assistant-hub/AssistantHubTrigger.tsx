@@ -2,6 +2,7 @@
 
 import { useAssistantHub } from "@/lib/assistant-hub";
 import type { AssistantEntityContext } from "@/lib/assistant-hub";
+import { getDefaultPromptForContext } from "@/lib/assistant-hub/chat-helpers";
 import { Button } from "@/components/ui/Button";
 import { IconSpark } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,8 @@ export function AssistantHubTrigger({
 
   const handleClick = () => {
     onBeforeOpen?.();
-    actions.open(context);
+    const prompt = getDefaultPromptForContext(context);
+    actions.open(context, prompt || undefined);
   };
 
   if (variant === "icon") {
