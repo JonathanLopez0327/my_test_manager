@@ -1,5 +1,5 @@
-import { OrganizationsPage } from "@/components/organizations/OrganizationsPage";
+import { redirect } from "next/navigation";
 
 export default function ManagerOrganizationsPage() {
-  return <OrganizationsPage />;
+  redirect("/manager/settings?tab=org");
 }

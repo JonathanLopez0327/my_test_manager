@@ -1,5 +1,5 @@
-import { UsersPage } from "@/components/users/UsersPage";
+import { redirect } from "next/navigation";
 
 export default function ManagerUsersPage() {
-  return <UsersPage />;
+  redirect("/manager/settings?tab=users");
 }

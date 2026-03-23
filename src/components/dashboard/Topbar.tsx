@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { IconChevronDown, IconMenu } from "../icons";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { OrgSwitcher } from "./OrgSwitcher";
@@ -16,6 +17,7 @@ type TopbarProps = {
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
   const { data: session } = useSession();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -94,6 +96,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => { router.push("/manager/settings"); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
