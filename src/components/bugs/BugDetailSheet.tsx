@@ -247,6 +247,7 @@ export function BugDetailSheet({
           context={{ type: "bug", bugId: bug.id, bugTitle: bug.title, projectId: bug.projectId }}
           label="Ask AI"
           variant="button"
+          onBeforeOpen={onClose}
         />
       </div>
       {/* Tabs */}

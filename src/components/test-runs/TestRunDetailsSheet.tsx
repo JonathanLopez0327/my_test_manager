@@ -966,6 +966,7 @@ export function TestRunDetailsSheet({
                                 context={{ type: "testRun", testRunId: run.id, testRunTitle: run.name ?? `Run #${run.id.slice(0, 8)}`, projectId: run.projectId }}
                                 label="Ask AI"
                                 variant="button"
+                                onBeforeOpen={onClose}
                             />
                         ) : null}
                         <button
