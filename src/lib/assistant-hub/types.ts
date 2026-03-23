@@ -127,7 +127,7 @@ export type AssistantHubState = {
 };
 
 export type AssistantHubActions = {
-  open: (context?: AssistantEntityContext) => void;
+  open: (context?: AssistantEntityContext, initialDraft?: string) => void;
   close: () => void;
   toggle: (context?: AssistantEntityContext) => void;
   setContext: (context: AssistantEntityContext) => void;

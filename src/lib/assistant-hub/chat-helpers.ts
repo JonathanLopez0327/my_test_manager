@@ -1,4 +1,5 @@
 import type {
+  AssistantEntityContext,
   AssistantMessageMetadata,
   AssistantDocumentVersion,
   ChatMessage,
@@ -420,6 +421,12 @@ export function getContextLabel(context: import("./types").AssistantEntityContex
 export function getQuickActionsForContext(context: import("./types").AssistantEntityContext): QuickAction[] {
   if (context.type === "global") return DEFAULT_QUICK_ACTIONS;
   return CONTEXT_QUICK_ACTIONS[context.type] ?? DEFAULT_QUICK_ACTIONS;
+}
+
+export function getDefaultPromptForContext(context: AssistantEntityContext): string {
+  if (context.type === "global") return "";
+  const actions = CONTEXT_QUICK_ACTIONS[context.type];
+  return actions?.[0]?.template ?? "";
 }
 
 export function getParentContext(

@@ -43,7 +43,7 @@ import type { ThreadDocumentApiResponse } from "./types";
 /* ------------------------------------------------------------------ */
 
 type Action =
-  | { type: "OPEN"; context?: AssistantEntityContext }
+  | { type: "OPEN"; context?: AssistantEntityContext; draft?: string }
   | { type: "CLOSE" }
   | { type: "SET_CONTEXT"; context: AssistantEntityContext }
   | { type: "SET_CONVERSATIONS"; conversations: Conversation[] }
@@ -84,6 +84,7 @@ function reducer(state: AssistantHubState, action: Action): AssistantHubState {
         ...state,
         isOpen: true,
         ...(action.context ? { context: action.context } : {}),
+        ...(action.draft != null ? { draft: action.draft } : {}),
       };
     case "CLOSE":
       return { ...state, isOpen: false };
@@ -339,8 +340,8 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
 
   // Stable actions — never change identity, read state via ref
   const actions = useMemo<AssistantHubActions>(() => {
-    const open = (context?: AssistantEntityContext) => {
-      dispatch({ type: "OPEN", context });
+    const open = (context?: AssistantEntityContext, initialDraft?: string) => {
+      dispatch({ type: "OPEN", context, draft: initialDraft });
     };
 
     const close = () => dispatch({ type: "CLOSE" });
