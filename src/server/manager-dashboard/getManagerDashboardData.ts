@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { buildNeedsAttentionSignals } from "./buildNeedsAttentionSignals";
 import { buildRecentActivityFeed } from "./buildRecentActivityFeed";
 import { buildTopProblemAreas } from "./buildTopProblemAreas";
+import type { DashboardFilters } from "./filters";
+import { resolveDateRange, resolveRunLimit } from "./filters";
 import {
   formatCount,
   formatDateTime,
@@ -14,8 +16,7 @@ import {
 } from "./helpers";
 import type { ManagerDashboardData, StatusSlice, TrendPoint } from "./types";
 
-const THIS_WEEK_DAYS = 7;
-const RECENT_MANUAL_RUNS_LIMIT = 7;
+const DEFAULT_RUN_LIMIT = 7;
 const RECENT_BUGS_LIMIT = 5;
 const RECENT_ACTIVITY_LIMIT = 10;
 
@@ -38,9 +39,9 @@ const STATUS_LABELS: Record<OrderedStatus, string> = {
   not_run: "Not Run",
 };
 
-function getWeekStart(now: Date): Date {
+function getWeekStart(now: Date, days = 7): Date {
   const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - (THIS_WEEK_DAYS - 1));
+  weekStart.setDate(weekStart.getDate() - (days - 1));
   weekStart.setHours(0, 0, 0, 0);
   return weekStart;
 }
@@ -70,53 +71,88 @@ function buildStatusSlices(countsByStatus: Record<OrderedStatus, number>): {
 
 export async function getManagerDashboardData(
   activeOrganizationId?: string,
+  filters?: DashboardFilters,
 ): Promise<ManagerDashboardData> {
   const now = new Date();
+  const dateRange = resolveDateRange(filters, now);
+  const runLimit = resolveRunLimit(filters);
   const sevenDaysAgo = getWeekStart(now);
 
-  const runOrgFilter: Prisma.TestRunWhereInput = activeOrganizationId
-    ? { project: { organizationId: activeOrganizationId } }
+  // --- Build Prisma WHERE filters ---
+  const orgProject: Prisma.ProjectWhereInput = activeOrganizationId
+    ? { organizationId: activeOrganizationId }
     : {};
+
+  const projectFilter: Prisma.TestRunWhereInput = filters?.projectId
+    ? { projectId: filters.projectId }
+    : {};
+
+  const planFilter: Prisma.TestRunWhereInput = filters?.testPlanId
+    ? { testPlanId: filters.testPlanId }
+    : {};
+
+  const suiteFilter: Prisma.TestRunWhereInput = filters?.suiteId
+    ? { suiteId: filters.suiteId }
+    : {};
+
+  const dateFilter: Prisma.TestRunWhereInput = dateRange
+    ? { createdAt: dateRange }
+    : {};
+
+  const runOrgFilter: Prisma.TestRunWhereInput = {
+    ...(activeOrganizationId ? { project: orgProject } : {}),
+    ...projectFilter,
+    ...planFilter,
+    ...suiteFilter,
+  };
 
   const manualRunOrgFilter: Prisma.TestRunWhereInput = {
     ...runOrgFilter,
     runType: "manual",
   };
 
+  const manualRunOrgFilterWithDate: Prisma.TestRunWhereInput = {
+    ...manualRunOrgFilter,
+    ...dateFilter,
+  };
+
   const manualRunItemOrgFilter: Prisma.TestRunItemWhereInput = {
     run: manualRunOrgFilter,
   };
 
-  const testCaseOrgFilter: Prisma.TestCaseWhereInput = activeOrganizationId
-    ? { suite: { testPlan: { project: { organizationId: activeOrganizationId } } } }
-    : {};
+  const hasTestCaseFilters =
+    activeOrganizationId || filters?.projectId || filters?.testPlanId || filters?.suiteId;
 
-  const bugOrgFilter: Prisma.BugWhereInput = activeOrganizationId
-    ? { project: { organizationId: activeOrganizationId } }
-    : {};
-
-  const artifactOrgFilter: Prisma.TestRunArtifactWhereInput = activeOrganizationId
+  const testCaseOrgFilter: Prisma.TestCaseWhereInput = hasTestCaseFilters
     ? {
-        OR: [
-          {
-            run: {
-              project: { organizationId: activeOrganizationId },
-              runType: "manual",
-            },
+        suite: {
+          testPlan: {
+            project: orgProject,
+            ...(filters?.projectId ? { projectId: filters.projectId } : {}),
           },
-          {
-            runItem: {
-              run: {
-                project: { organizationId: activeOrganizationId },
-                runType: "manual",
-              },
-            },
-          },
-        ],
+          ...(filters?.testPlanId ? { testPlanId: filters.testPlanId } : {}),
+          ...(filters?.suiteId ? { id: filters.suiteId } : {}),
+        },
       }
-    : {
-        OR: [{ run: { runType: "manual" } }, { runItem: { run: { runType: "manual" } } }],
-      };
+    : {};
+
+  const bugOrgFilter: Prisma.BugWhereInput = {
+    ...(activeOrganizationId || filters?.projectId ? { project: orgProject } : {}),
+    ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+    ...(dateRange ? { createdAt: dateRange } : {}),
+  };
+
+  const runArtifactRunFilter: Prisma.TestRunWhereInput = {
+    ...runOrgFilter,
+    runType: "manual",
+  };
+
+  const artifactOrgFilter: Prisma.TestRunArtifactWhereInput = {
+    OR: [
+      { run: runArtifactRunFilter },
+      { runItem: { run: runArtifactRunFilter } },
+    ],
+  };
 
   const [
     latestManualRuns,
@@ -139,9 +175,9 @@ export async function getManagerDashboardData(
     recentArtifactsForActivity,
   ] = await prisma.$transaction([
     prisma.testRun.findMany({
-      where: manualRunOrgFilter,
+      where: manualRunOrgFilterWithDate,
       orderBy: [{ createdAt: "desc" }],
-      take: RECENT_MANUAL_RUNS_LIMIT,
+      take: runLimit,
       select: {
         id: true,
         name: true,
