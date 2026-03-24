@@ -254,7 +254,7 @@ export function TestRunExecutionModal({
       canceled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, open, runId]);
+  }, [item, open, runId, startNewExecution]);
 
   useEffect(() => {
     if (!open) {
