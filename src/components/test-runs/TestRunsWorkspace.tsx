@@ -1257,7 +1257,7 @@ export function TestRunsWorkspace() {
                     <IconChevronDown className="h-3 w-3" />
                   </Button>
                   {exportMenuOpen && (
-                    <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-stroke bg-surface-elevated p-1 shadow-lg">
+                    <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-lg border border-stroke bg-surface-elevated p-1 shadow-lg">
                       {canManage && !isRunLocked ? (
                         <>
                           <button
