@@ -345,18 +345,19 @@ export function TestRunExecutionModal({
         stepFiles: stepDraftFiles,
       });
 
-      const [history, detail] = await Promise.all([
-        onLoadExecutions(runId, item.id),
-        onLoadExecutionDetail(runId, item.id, execId),
-      ]);
-      setExecutions(history.items);
-      setCurrentExecutionId(history.currentExecutionId);
-      setExecutionDetail(detail);
-      setBaselineGlobalStatus(detail.status);
-      const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
-      setStepState(mergedStepState);
-      setBaselineStepState(mergedStepState);
+      // Reset modal state before closing so stale data doesn't persist
+      setExecutions([]);
+      setCurrentExecutionId(null);
+      setSelectedExecutionId(null);
+      setExecutionDetail(null);
+      setStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const, comment: "" })));
+      setBaselineStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const, comment: "" })));
+      setSelectedGlobalResult("not_run");
+      setBaselineGlobalStatus("not_run");
+      setSummary("");
+      setBaselineSummary("");
       setStepDraftFiles({});
+      setStepExistingCounts({});
       onClose();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save execution.");
