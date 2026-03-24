@@ -1001,6 +1001,7 @@ export function TestRunsWorkspace() {
       executionId: string | null;
       status: ExecutionStatus;
       durationMs: number;
+      summary: string | null;
       stepResults: Array<{ stepIndex: number; status: "passed" | "failed" | "not_run"; actualResult?: string | null; comment?: string | null }>;
       stepFiles: Record<number, File[]>;
     }) => {
@@ -1044,6 +1045,7 @@ export function TestRunsWorkspace() {
         body: JSON.stringify({
           status: payload.status,
           durationMs: payload.durationMs,
+          summary: payload.summary,
           stepResults: payload.stepResults,
         }),
       });

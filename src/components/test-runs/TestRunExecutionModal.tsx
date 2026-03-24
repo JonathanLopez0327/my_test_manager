@@ -92,6 +92,7 @@ type ExecutionSavePayload = {
   executionId: string | null;
   status: ExecutionStatus;
   durationMs: number;
+  summary: string | null;
   stepResults: ExecutionStepUpdate[];
   stepFiles: Record<number, File[]>;
 };
@@ -117,6 +118,7 @@ type ExecutionArtifactMeta = {
 
 export type ExecutionStepState = {
   status: StepStatus;
+  comment: string;
 };
 
 const statusTone: Record<ExecutionStatus, "success" | "danger" | "warning" | "neutral"> = {
@@ -161,6 +163,8 @@ export function TestRunExecutionModal({
   const [stepExistingCounts, setStepExistingCounts] = useState<Record<number, number>>({});
   const [selectedGlobalResult, setSelectedGlobalResult] = useState<GlobalResultOption>("not_run");
   const [baselineGlobalStatus, setBaselineGlobalStatus] = useState<ExecutionStatus>("not_run");
+  const [summary, setSummary] = useState("");
+  const [baselineSummary, setBaselineSummary] = useState("");
 
   const [artifactsError, setArtifactsError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -190,11 +194,15 @@ export function TestRunExecutionModal({
   const isReadOnlyExecution = Boolean(selectedExecutionId && currentExecutionId && selectedExecutionId !== currentExecutionId);
 
   const hasChanges = useMemo(() => {
-    const hasStepChanges = stepState.some((step, index) => step.status !== (baselineStepState[index]?.status ?? "not_run"));
+    const hasStepChanges = stepState.some((step, index) => {
+      const baseline = baselineStepState[index];
+      return step.status !== (baseline?.status ?? "not_run") || step.comment !== (baseline?.comment ?? "");
+    });
     const hasFiles = Object.values(stepDraftFiles).some((files) => files.length > 0);
     const hasStatusChange = selectedGlobalStatus !== baselineGlobalStatus;
-    return hasStepChanges || hasFiles || hasStatusChange;
-  }, [baselineGlobalStatus, baselineStepState, selectedGlobalStatus, stepDraftFiles, stepState]);
+    const hasSummaryChange = summary !== baselineSummary;
+    return hasStepChanges || hasFiles || hasStatusChange || hasSummaryChange;
+  }, [baselineGlobalStatus, baselineStepState, baselineSummary, selectedGlobalStatus, stepDraftFiles, stepState, summary]);
 
   useEffect(() => {
     if (!open || !item || !runId) return;
@@ -208,10 +216,12 @@ export function TestRunExecutionModal({
     setStepDraftFiles({});
     setExecutionDetail(null);
     setStepExistingCounts({});
-    setStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const })));
-    setBaselineStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const })));
+    setStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const, comment: "" })));
+    setBaselineStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const, comment: "" })));
     setSelectedGlobalResult("not_run");
     setBaselineGlobalStatus("not_run");
+    setSummary("");
+    setBaselineSummary("");
 
     void (async () => {
       try {
@@ -272,6 +282,10 @@ export function TestRunExecutionModal({
         setBaselineGlobalStatus(nextGlobalStatus);
         setSelectedGlobalResult(mapStatusToGlobalResult(nextGlobalStatus));
 
+        const nextSummary = detail.summary ?? "";
+        setSummary(nextSummary);
+        setBaselineSummary(nextSummary);
+
         const mergedStepState = buildStepStateFromDetail(detail, parsedFromItem.length);
         setStepState(mergedStepState);
         setBaselineStepState(mergedStepState);
@@ -318,9 +332,11 @@ export function TestRunExecutionModal({
         executionId: execId,
         status: selectedGlobalStatus,
         durationMs,
+        summary: summary.trim() || null,
         stepResults: stepState.map((step, stepIndex) => ({
           stepIndex,
           status: step.status,
+          comment: step.comment.trim() || null,
         })),
         stepFiles: stepDraftFiles,
       });
@@ -395,6 +411,7 @@ export function TestRunExecutionModal({
                       index={index}
                       step={step}
                       status={stepState[index]?.status ?? "not_run"}
+                      comment={stepState[index]?.comment ?? ""}
                       canManage={canManage && !isReadOnlyExecution}
                       saving={saving}
                       evidenceCount={(stepExistingCounts[index] ?? 0) + (stepDraftFiles[index]?.length ?? 0)}
@@ -402,7 +419,14 @@ export function TestRunExecutionModal({
                         setStepState((prev) => {
                           const next = [...prev];
                           const currentStatus = next[index]?.status ?? "not_run";
-                          next[index] = { status: currentStatus === status ? "not_run" : status };
+                          next[index] = { ...next[index], status: currentStatus === status ? "not_run" : status };
+                          return next;
+                        });
+                      }}
+                      onCommentChange={(comment) => {
+                        setStepState((prev) => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], comment };
                           return next;
                         });
                       }}
@@ -450,6 +474,21 @@ export function TestRunExecutionModal({
             </div>
           ) : null}
 
+          <section className="rounded-lg border border-stroke bg-surface-elevated px-3 py-2.5">
+            <label htmlFor="execution-summary" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-soft">
+              Execution notes
+            </label>
+            <textarea
+              id="execution-summary"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              disabled={!canManage || saving || isReadOnlyExecution}
+              placeholder="Add notes about this execution..."
+              rows={2}
+              className="w-full resize-none rounded border border-stroke bg-surface px-2 py-1.5 text-xs text-ink placeholder:text-ink-muted outline-none focus:border-brand-300 disabled:opacity-60"
+            />
+          </section>
+
           <footer className="flex items-center justify-between gap-3 rounded-lg border border-stroke bg-surface-elevated px-3 py-2.5">
             <div className="flex items-center gap-2">
               <label htmlFor="execution-global-result" className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">
@@ -491,11 +530,13 @@ type StepExecutionRowProps = {
   index: number;
   step: ParsedStep;
   status: StepStatus;
+  comment: string;
   evidenceCount: number;
   canManage: boolean;
   saving: boolean;
   draftFiles: File[];
   onSetStatus: (status: StepStatus) => void;
+  onCommentChange: (comment: string) => void;
   onAttachFiles: (files: File[]) => void;
   onRemoveFile: (fileIndex: number) => void;
   onInvalidFiles: () => void;
@@ -505,11 +546,13 @@ function StepExecutionRow({
   index,
   step,
   status,
+  comment,
   evidenceCount,
   canManage,
   saving,
   draftFiles,
   onSetStatus,
+  onCommentChange,
   onAttachFiles,
   onRemoveFile,
   onInvalidFiles,
@@ -620,6 +663,16 @@ function StepExecutionRow({
           ))}
         </ul>
       ) : null}
+      {(status === "failed" || comment.length > 0) ? (
+        <textarea
+          value={comment}
+          onChange={(event) => onCommentChange(event.target.value)}
+          disabled={!canManage || saving}
+          placeholder="Add a comment about this step..."
+          rows={1}
+          className="mt-2 w-full resize-none rounded border border-stroke bg-surface px-2 py-1.5 text-xs text-ink placeholder:text-ink-muted outline-none focus:border-brand-300 disabled:opacity-60"
+        />
+      ) : null}
     </article>
   );
 }
@@ -669,14 +722,15 @@ function formatStatusLabel(status: ExecutionStatus) {
 }
 
 function buildStepStateFromDetail(detail: ExecutionDetailRecord, fallbackCount: number): ExecutionStepState[] {
-  const fromResults = detail.stepResults
+  const fromResults: ExecutionStepState[] = detail.stepResults
     .sort((a, b) => a.stepIndex - b.stepIndex)
     .map((step) => ({
-      status: step.status === "passed" || step.status === "failed" ? step.status : "not_run",
+      status: (step.status === "passed" || step.status === "failed" ? step.status : "not_run") as StepStatus,
+      comment: step.comment ?? "",
     }));
 
   if (fromResults.length > 0) return fromResults;
-  return Array.from({ length: fallbackCount }, () => ({ status: "not_run" as const }));
+  return Array.from({ length: fallbackCount }, () => ({ status: "not_run" as const, comment: "" }));
 }
 
 function isImageArtifact(artifact: ExecutionArtifactRecord) {
