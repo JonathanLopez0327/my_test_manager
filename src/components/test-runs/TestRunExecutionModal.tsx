@@ -230,7 +230,11 @@ export function TestRunExecutionModal({
           if (canceled) return;
           setExecutions(payload.items);
           setCurrentExecutionId(payload.currentExecutionId);
-          setSelectedExecutionId(payload.currentExecutionId ?? payload.items[0]?.id ?? null);
+          if (startNewExecution) {
+            setSelectedExecutionId(null);
+          } else {
+            setSelectedExecutionId(payload.currentExecutionId ?? payload.items[0]?.id ?? null);
+          }
         } else {
           // No existing executions — start with clean state; execution created on save
           setExecutions([]);
