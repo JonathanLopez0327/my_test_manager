@@ -66,13 +66,13 @@ type ExportArtifact = {
 };
 
 type ExportRunItemComplete = ExportRunItem & {
-    currentExecution: {
+    executions: {
         status: string;
         attemptNumber: number;
         summary: string | null;
         stepResults: ExportStepResult[];
         artifacts: ExportArtifact[];
-    } | null;
+    }[];
     testCase: ExportRunItem["testCase"] & { style: string; steps: unknown };
 };
 
@@ -250,12 +250,15 @@ async function resolveArtifactImages(
     const imageArtifacts: ExportArtifact[] = [];
 
     for (const item of items) {
-        const artifacts = item.currentExecution?.artifacts ?? [];
-        for (const a of artifacts) {
-            if (!a.mimeType?.startsWith("image/")) continue;
-            if (urlMap.has(a.url)) continue;
-            imageArtifacts.push(a);
-            urlMap.set(a.url, a.url); // placeholder
+        const executions = item.executions ?? [];
+        for (const exec of executions) {
+            const artifacts = exec.artifacts ?? [];
+            for (const a of artifacts) {
+                if (!a.mimeType?.startsWith("image/")) continue;
+                if (urlMap.has(a.url)) continue;
+                imageArtifacts.push(a);
+                urlMap.set(a.url, a.url); // placeholder
+            }
         }
     }
 
@@ -335,14 +338,11 @@ const CompletePDFDocument = ({ run, metrics, items, resolvedUrls }: {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Test Items — Detailed</Text>
                 {items.map((item) => {
-                    const exec = item.currentExecution;
-                    const steps = exec
-                        ? exec.stepResults
-                        : parseSteps(item.testCase.style, item.testCase.steps);
-                    const artifacts = exec?.artifacts ?? [];
+                    const executions = item.executions ?? [];
+                    const baseSteps = parseSteps(item.testCase.style, item.testCase.steps);
 
                     return (
-                        <View key={item.id} style={styles.itemCard} wrap={false}>
+                        <View key={item.id} style={styles.itemCard}>
                             <View style={styles.itemHeader}>
                                 <Text style={styles.itemTitle}>
                                     {item.testCase.externalKey ? `${item.testCase.externalKey} — ` : ""}
@@ -353,68 +353,89 @@ const CompletePDFDocument = ({ run, metrics, items, resolvedUrls }: {
                                 </Text>
                             </View>
 
-                            {exec?.summary && (
-                                <Text style={styles.stepComment}>Notes: {exec.summary}</Text>
-                            )}
-
-                            {!exec && (
+                            {executions.length === 0 && (
                                 <Text style={styles.noExecution}>No execution data — showing test case steps</Text>
                             )}
 
-                            {exec && steps.length === 0 && (
-                                <Text style={styles.noExecution}>No steps recorded</Text>
-                            )}
-
-                            {steps.map((step, idx) => {
-                                const isStepResult = "stepIndex" in step;
-                                const stepIdx = isStepResult ? (step as ExportStepResult).stepIndex : idx;
-                                const stepImages = getStepArtifacts(artifacts, stepIdx);
-
+                            {executions.length === 0 && baseSteps.map((step, idx) => {
                                 return (
                                     <View key={idx} style={styles.stepRow}>
-                                        <Text style={styles.stepIndex}>{stepIdx + 1}.</Text>
+                                        <Text style={styles.stepIndex}>{idx + 1}.</Text>
                                         <View style={styles.stepContent}>
                                             <Text style={styles.stepText}>
-                                                {isStepResult
-                                                    ? (step as ExportStepResult).stepTextSnapshot
-                                                    : (step as { text: string }).text}
+                                                {(step as { text: string }).text}
                                             </Text>
-                                            {isStepResult && (step as ExportStepResult).expectedSnapshot && (
-                                                <Text style={styles.stepExpected}>
-                                                    Expected: {(step as ExportStepResult).expectedSnapshot}
-                                                </Text>
-                                            )}
-                                            {!isStepResult && (step as { expected?: string | null }).expected && (
+                                            {(step as { expected?: string | null }).expected && (
                                                 <Text style={styles.stepExpected}>
                                                     Expected: {(step as { expected: string }).expected}
                                                 </Text>
                                             )}
-                                            {isStepResult && (
-                                                <Text style={[styles.stepStatusBadge, getStatusColor((step as ExportStepResult).status)]}>
-                                                    {(step as ExportStepResult).status}
-                                                </Text>
-                                            )}
-                                            {!isStepResult && (
-                                                <Text style={[styles.stepStatusBadge, { color: "#9CA3AF" }]}>
-                                                    Not executed
-                                                </Text>
-                                            )}
-                                            {isStepResult && (step as ExportStepResult).actualResult && (
-                                                <Text style={styles.stepActual}>
-                                                    Actual: {(step as ExportStepResult).actualResult}
-                                                </Text>
-                                            )}
-                                            {isStepResult && (step as ExportStepResult).comment && (
-                                                <Text style={styles.stepComment}>
-                                                    {(step as ExportStepResult).comment}
-                                                </Text>
-                                            )}
-                                            {stepImages.map((img, imgIdx) => {
-                                                const resolved = resolvedUrls.get(img.url);
-                                                if (!resolved) return null;
-                                                return <Image key={imgIdx} src={resolved} style={styles.artifactImage} />;
-                                            })}
+                                            <Text style={[styles.stepStatusBadge, { color: "#9CA3AF" }]}>
+                                                Not executed
+                                            </Text>
                                         </View>
+                                    </View>
+                                );
+                            })}
+
+                            {executions.map((exec, eIdx) => {
+                                const steps = exec.stepResults;
+                                const artifacts = exec.artifacts ?? [];
+
+                                return (
+                                    <View key={eIdx} style={{ marginTop: eIdx > 0 ? 10 : 4, paddingTop: eIdx > 0 ? 10 : 0, borderTopWidth: eIdx > 0 ? 1 : 0, borderTopColor: "#E5E7EB" }}>
+                                        <Text style={{ fontSize: 10, fontWeight: "bold", marginBottom: 4 }}>
+                                            Attempt {exec.attemptNumber}
+                                            <Text style={[{ fontSize: 9, fontWeight: "normal" }, getStatusColor(exec.status)]}>
+                                                {" • "}{exec.status.toUpperCase()}
+                                            </Text>
+                                        </Text>
+
+                                        {exec.summary && (
+                                            <Text style={styles.stepComment}>Notes: {exec.summary}</Text>
+                                        )}
+
+                                        {steps.length === 0 && (
+                                            <Text style={styles.noExecution}>No steps recorded for this attempt</Text>
+                                        )}
+
+                                        {steps.map((step, idx) => {
+                                            const stepImages = getStepArtifacts(artifacts, step.stepIndex);
+
+                                            return (
+                                                <View key={idx} style={styles.stepRow}>
+                                                    <Text style={styles.stepIndex}>{step.stepIndex + 1}.</Text>
+                                                    <View style={styles.stepContent}>
+                                                        <Text style={styles.stepText}>
+                                                            {step.stepTextSnapshot}
+                                                        </Text>
+                                                        {step.expectedSnapshot && (
+                                                            <Text style={styles.stepExpected}>
+                                                                Expected: {step.expectedSnapshot}
+                                                            </Text>
+                                                        )}
+                                                        <Text style={[styles.stepStatusBadge, getStatusColor(step.status)]}>
+                                                            {step.status}
+                                                        </Text>
+                                                        {step.actualResult && (
+                                                            <Text style={styles.stepActual}>
+                                                                Actual: {step.actualResult}
+                                                            </Text>
+                                                        )}
+                                                        {step.comment && (
+                                                            <Text style={styles.stepComment}>
+                                                                {step.comment}
+                                                            </Text>
+                                                        )}
+                                                        {stepImages.map((img, imgIdx) => {
+                                                            const resolved = resolvedUrls.get(img.url);
+                                                            if (!resolved) return null;
+                                                            return <Image key={imgIdx} src={resolved} style={styles.artifactImage} />;
+                                                        })}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
                                     </View>
                                 );
                             })}
@@ -511,49 +532,75 @@ const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunIt
 
 const generateCompleteHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunItemComplete[], resolvedUrls: Map<string, string>) => {
     const itemsHTML = items.map((item) => {
-        const exec = item.currentExecution;
-        const steps = exec
-            ? exec.stepResults
-            : parseSteps(item.testCase.style, item.testCase.steps);
-        const artifacts = exec?.artifacts ?? [];
+        const executions = item.executions ?? [];
+        const baseSteps = parseSteps(item.testCase.style, item.testCase.steps);
 
-        const stepsHTML = steps.map((step, idx) => {
-            const isStepResult = "stepIndex" in step;
-            const stepIdx = isStepResult ? (step as ExportStepResult).stepIndex : idx;
-            const stepImages = artifacts.filter((a) => {
-                if (!a.mimeType?.startsWith("image/")) return false;
-                const meta = a.metadata as { scope?: string; stepIndex?: number } | null;
-                return meta?.scope === "step" && meta?.stepIndex === stepIdx;
-            });
+        let executionsHTML = "";
 
-            const stepText = isStepResult
-                ? (step as ExportStepResult).stepTextSnapshot
-                : (step as { text: string }).text;
-            const expected = isStepResult
-                ? (step as ExportStepResult).expectedSnapshot
-                : (step as { expected?: string | null }).expected;
-            const status = isStepResult
-                ? (step as ExportStepResult).status
-                : "not_executed";
-            const actual = isStepResult ? (step as ExportStepResult).actualResult : null;
-            const comment = isStepResult ? (step as ExportStepResult).comment : null;
-
-            return `
-                <div style="border-left: 3px solid ${getStatusColorHex(status)}; padding: 6px 10px; margin-bottom: 6px; background: #FAFAFA; border-radius: 0 4px 4px 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 13px;">${stepIdx + 1}. ${escapeHtml(stepText)}</strong>
-                        <span style="color: ${getStatusColorHex(status)}; font-weight: 600; font-size: 12px;">${escapeHtml(status)}</span>
+        if (executions.length === 0) {
+            executionsHTML += '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No execution data — showing test case steps</div>';
+            
+            executionsHTML += baseSteps.map((step, idx) => {
+                const stepText = (step as { text: string }).text;
+                const expected = (step as { expected?: string | null }).expected;
+                
+                return `
+                    <div style="border-left: 3px solid #9CA3AF; padding: 6px 10px; margin-bottom: 6px; background: #FAFAFA; border-radius: 0 4px 4px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 13px;">${idx + 1}. ${escapeHtml(stepText)}</strong>
+                            <span style="color: #9CA3AF; font-weight: 600; font-size: 12px;">not_executed</span>
+                        </div>
+                        ${expected ? `<div style="color: #6B7280; font-size: 12px; margin-top: 2px;">Expected: ${escapeHtml(expected)}</div>` : ""}
                     </div>
-                    ${expected ? `<div style="color: #6B7280; font-size: 12px; margin-top: 2px;">Expected: ${escapeHtml(expected)}</div>` : ""}
-                    ${actual ? `<div style="color: #374151; font-size: 12px; margin-top: 2px;">Actual: ${escapeHtml(actual)}</div>` : ""}
-                    ${comment ? `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-top: 2px;">${escapeHtml(comment)}</div>` : ""}
-                    ${stepImages.map((img) => {
-                        const resolved = resolvedUrls.get(img.url) ?? img.url;
-                        return `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(img.name || "evidence")}" style="max-width: 300px; margin-top: 6px; border-radius: 4px; border: 1px solid #E5E7EB;" />`;
-                    }).join("")}
-                </div>
-            `;
-        }).join("");
+                `;
+            }).join("");
+        } else {
+            executionsHTML += executions.map((exec, eIdx) => {
+                const steps = exec.stepResults;
+                const artifacts = exec.artifacts ?? [];
+                
+                let execHeader = `
+                    <div style="margin-top: ${eIdx > 0 ? '16px' : '4px'}; margin-bottom: 8px; padding-top: ${eIdx > 0 ? '12px' : '0'}; border-top: ${eIdx > 0 ? '1px solid #E5E7EB' : 'none'};">
+                        <strong style="font-size: 13px;">Attempt ${exec.attemptNumber}</strong>
+                        <span style="color: ${getStatusColorHex(exec.status)}; font-weight: 600; font-size: 12px; margin-left: 8px;">&bull; ${escapeHtml(exec.status.toUpperCase())}</span>
+                    </div>
+                `;
+
+                if (exec.summary) {
+                    execHeader += `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-bottom: 8px; padding: 6px 10px; background: #F9FAFB; border-radius: 4px;">Notes: ${escapeHtml(exec.summary)}</div>`;
+                }
+
+                if (steps.length === 0) {
+                    execHeader += '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No steps recorded for this attempt</div>';
+                }
+
+                const stepsHTML = steps.map((step) => {
+                    const stepImages = artifacts.filter((a) => {
+                        if (!a.mimeType?.startsWith("image/")) return false;
+                        const meta = a.metadata as { scope?: string; stepIndex?: number } | null;
+                        return meta?.scope === "step" && meta?.stepIndex === step.stepIndex;
+                    });
+
+                    return `
+                        <div style="border-left: 3px solid ${getStatusColorHex(step.status)}; padding: 6px 10px; margin-bottom: 6px; background: #FAFAFA; border-radius: 0 4px 4px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="font-size: 13px;">${step.stepIndex + 1}. ${escapeHtml(step.stepTextSnapshot)}</strong>
+                                <span style="color: ${getStatusColorHex(step.status)}; font-weight: 600; font-size: 12px;">${escapeHtml(step.status)}</span>
+                            </div>
+                            ${step.expectedSnapshot ? `<div style="color: #6B7280; font-size: 12px; margin-top: 2px;">Expected: ${escapeHtml(step.expectedSnapshot)}</div>` : ""}
+                            ${step.actualResult ? `<div style="color: #374151; font-size: 12px; margin-top: 2px;">Actual: ${escapeHtml(step.actualResult)}</div>` : ""}
+                            ${step.comment ? `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-top: 2px;">${escapeHtml(step.comment)}</div>` : ""}
+                            ${stepImages.map((img) => {
+                                const resolved = resolvedUrls.get(img.url) ?? img.url;
+                                return `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(img.name || "evidence")}" style="max-width: 300px; margin-top: 6px; border-radius: 4px; border: 1px solid #E5E7EB;" />`;
+                            }).join("")}
+                        </div>
+                    `;
+                }).join("");
+
+                return execHeader + stepsHTML;
+            }).join("");
+        }
 
         return `
             <div style="border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px; margin-bottom: 14px; page-break-inside: avoid;">
@@ -563,10 +610,7 @@ const generateCompleteHTML = (run: ExportRun, metrics: ExportMetrics, items: Exp
                     </div>
                     <span style="color: ${getStatusColorHex(item.status)}; font-weight: 700; font-size: 13px; text-transform: uppercase;">${escapeHtml(item.status)}</span>
                 </div>
-                ${exec?.summary ? `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-bottom: 8px; padding: 6px 10px; background: #F9FAFB; border-radius: 4px;">Notes: ${escapeHtml(exec.summary)}</div>` : ""}
-                ${!exec ? '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No execution data — showing test case steps</div>' : ""}
-                ${steps.length === 0 && exec ? '<div style="color: #9CA3AF; font-style: italic; font-size: 12px;">No steps recorded</div>' : ""}
-                ${stepsHTML}
+                ${executionsHTML}
             </div>
         `;
     }).join("");
@@ -674,11 +718,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                         executedBy: true,
                         ...(isComplete
                             ? {
-                                  currentExecution: {
+                                  executions: {
                                       include: {
                                           stepResults: { orderBy: { stepIndex: "asc" } },
                                           artifacts: true,
                                       },
+                                      orderBy: {
+                                          attemptNumber: "asc"
+                                      }
                                   },
                               }
                             : {}),
