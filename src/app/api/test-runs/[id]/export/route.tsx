@@ -69,6 +69,7 @@ type ExportRunItemComplete = ExportRunItem & {
     currentExecution: {
         status: string;
         attemptNumber: number;
+        summary: string | null;
         stepResults: ExportStepResult[];
         artifacts: ExportArtifact[];
     } | null;
@@ -352,6 +353,10 @@ const CompletePDFDocument = ({ run, metrics, items, resolvedUrls }: {
                                 </Text>
                             </View>
 
+                            {exec?.summary && (
+                                <Text style={styles.stepComment}>Notes: {exec.summary}</Text>
+                            )}
+
                             {!exec && (
                                 <Text style={styles.noExecution}>No execution data — showing test case steps</Text>
                             )}
@@ -558,6 +563,7 @@ const generateCompleteHTML = (run: ExportRun, metrics: ExportMetrics, items: Exp
                     </div>
                     <span style="color: ${getStatusColorHex(item.status)}; font-weight: 700; font-size: 13px; text-transform: uppercase;">${escapeHtml(item.status)}</span>
                 </div>
+                ${exec?.summary ? `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-bottom: 8px; padding: 6px 10px; background: #F9FAFB; border-radius: 4px;">Notes: ${escapeHtml(exec.summary)}</div>` : ""}
                 ${!exec ? '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No execution data — showing test case steps</div>' : ""}
                 ${steps.length === 0 && exec ? '<div style="color: #9CA3AF; font-style: italic; font-size: 12px;">No steps recorded</div>' : ""}
                 ${stepsHTML}

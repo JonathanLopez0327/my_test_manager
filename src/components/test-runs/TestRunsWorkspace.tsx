@@ -243,6 +243,9 @@ export function TestRunsWorkspace() {
   const [historyItems, setHistoryItems] = useState<ExecutionHistoryItemRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null);
+  const [historyExpandedDetail, setHistoryExpandedDetail] = useState<ExecutionDetailRecord | null>(null);
+  const [historyDetailLoading, setHistoryDetailLoading] = useState(false);
   const [rowActionMenu, setRowActionMenu] = useState<RowActionMenuState | null>(null);
   const rowActionMenuRef = useRef<HTMLDivElement | null>(null);
   const [isMarkAsSubmenuOpen, setIsMarkAsSubmenuOpen] = useState(false);
@@ -1885,6 +1888,8 @@ export function TestRunsWorkspace() {
           setHistoryItem(null);
           setHistoryItems([]);
           setHistoryError(null);
+          setHistoryExpandedId(null);
+          setHistoryExpandedDetail(null);
         }}
         size="lg"
         closeOnEsc
@@ -1903,38 +1908,95 @@ export function TestRunsWorkspace() {
             </div>
           ) : null}
           <div className="overflow-hidden rounded-lg border border-stroke">
-            <table className="w-full border-collapse text-sm">
-              <thead className="bg-surface-elevated">
-                <tr className="text-left text-xs font-semibold uppercase tracking-[0.1em] text-ink-soft">
-                  <th className="px-3 py-2">Title</th>
-                  <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyLoading ? (
-                  <tr>
-                    <td className="px-3 py-5 text-center text-sm text-ink-muted" colSpan={3}>
-                      Loading history...
-                    </td>
-                  </tr>
-                ) : historyItems.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-5 text-center text-sm text-ink-muted" colSpan={3}>
-                      No execution history yet.
-                    </td>
-                  </tr>
-                ) : (
-                  historyItems.map((entry) => (
-                    <tr key={entry.id} className="border-t border-stroke">
-                      <td className="px-3 py-2 text-ink">{`Execution #${entry.attemptNumber}`}</td>
-                      <td className="px-3 py-2 text-ink-muted">{entry.status.replace("_", " ")}</td>
-                      <td className="px-3 py-2 text-ink-muted">{formatDate(entry.completedAt)}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            {historyLoading ? (
+              <p className="px-3 py-5 text-center text-sm text-ink-muted">Loading history...</p>
+            ) : historyItems.length === 0 ? (
+              <p className="px-3 py-5 text-center text-sm text-ink-muted">No execution history yet.</p>
+            ) : (
+              <div className="divide-y divide-stroke">
+                {historyItems.map((entry) => {
+                  const isExpanded = historyExpandedId === entry.id;
+                  return (
+                    <div key={entry.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-surface-elevated transition-colors"
+                        onClick={() => {
+                          if (isExpanded) {
+                            setHistoryExpandedId(null);
+                            setHistoryExpandedDetail(null);
+                            return;
+                          }
+                          setHistoryExpandedId(entry.id);
+                          setHistoryExpandedDetail(null);
+                          if (selectedRunId && historyItem) {
+                            setHistoryDetailLoading(true);
+                            void loadExecutionDetail(selectedRunId, historyItem.id, entry.id)
+                              .then((detail) => setHistoryExpandedDetail(detail))
+                              .catch(() => {/* ignore */})
+                              .finally(() => setHistoryDetailLoading(false));
+                          }
+                        }}
+                      >
+                        {isExpanded ? (
+                          <IconChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                        ) : (
+                          <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-soft" />
+                        )}
+                        <span className="flex-1 font-medium text-ink">{`Execution #${entry.attemptNumber}`}</span>
+                        <span className={cn("text-xs font-semibold uppercase", entry.status === "passed" ? "text-success-500" : entry.status === "failed" ? "text-danger-500" : "text-ink-muted")}>
+                          {entry.status.replace("_", " ")}
+                        </span>
+                        <span className="text-xs text-ink-muted">{formatDate(entry.completedAt)}</span>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-stroke bg-surface-elevated px-4 py-3 space-y-3">
+                          {entry.executedBy && (
+                            <p className="text-xs text-ink-muted">Executed by: {entry.executedBy.fullName ?? entry.executedBy.email}</p>
+                          )}
+                          {entry.summary && (
+                            <div className="rounded border border-stroke bg-surface px-3 py-2">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft mb-1">Execution notes</p>
+                              <p className="text-xs text-ink whitespace-pre-wrap">{entry.summary}</p>
+                            </div>
+                          )}
+                          {historyDetailLoading ? (
+                            <p className="text-xs text-ink-muted">Loading steps...</p>
+                          ) : historyExpandedDetail?.stepResults && historyExpandedDetail.stepResults.length > 0 ? (
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">Steps</p>
+                              {historyExpandedDetail.stepResults
+                                .sort((a, b) => a.stepIndex - b.stepIndex)
+                                .map((step) => (
+                                  <div key={step.id} className="rounded border border-stroke bg-surface px-3 py-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-xs text-ink">
+                                        <span className="text-ink-soft mr-1">{step.stepIndex + 1}.</span>
+                                        {step.stepTextSnapshot}
+                                      </p>
+                                      <span className={cn("shrink-0 text-[10px] font-semibold uppercase", step.status === "passed" ? "text-success-500" : step.status === "failed" ? "text-danger-500" : "text-ink-muted")}>
+                                        {step.status.replace("_", " ")}
+                                      </span>
+                                    </div>
+                                    {step.expectedSnapshot && (
+                                      <p className="mt-1 text-[11px] text-ink-muted">Expected: {step.expectedSnapshot}</p>
+                                    )}
+                                    {step.comment && (
+                                      <p className="mt-1 text-[11px] italic text-ink-muted">{step.comment}</p>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          ) : !historyDetailLoading ? (
+                            <p className="text-xs text-ink-muted">No step details available.</p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </Modal>
