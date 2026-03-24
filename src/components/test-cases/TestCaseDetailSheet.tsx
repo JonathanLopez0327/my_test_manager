@@ -37,6 +37,13 @@ const styleTones: Record<TestCaseStyle, "success" | "warning" | "danger" | "neut
   api: "danger",
 };
 
+const gherkinTones: Record<"Given" | "When" | "Then" | "And", "success" | "info" | "danger" | "neutral"> = {
+  Given: "success",
+  When: "info",
+  Then: "danger",
+  And: "neutral",
+};
+
 type StepByStepItem = { step?: unknown; expectedResult?: unknown };
 type GherkinClause = { keyword?: unknown; text?: unknown };
 type DataDrivenSteps = {
@@ -50,6 +57,7 @@ type ApiSteps = {
   request?: {
     method?: unknown;
     endpoint?: unknown;
+    queryParams?: unknown;
     headers?: unknown;
     body?: unknown;
   };
@@ -57,6 +65,7 @@ type ApiSteps = {
     status?: unknown;
     body?: unknown;
     headers?: unknown;
+    assertions?: unknown;
   };
 };
 
@@ -68,6 +77,14 @@ function formatDate(dateStr: string) {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function countDefined(items: unknown[]): number {
+  return items.filter((item) => Boolean(item)).length;
+}
+
+function titleCase(value: string): string {
+  return value.length > 0 ? value[0].toUpperCase() + value.slice(1).toLowerCase() : value;
 }
 
 function parseStepByStep(steps: unknown): Array<{ step: string; expectedResult: string }> {
@@ -91,8 +108,9 @@ function parseGherkin(steps: unknown): Array<{ keyword: string; text: string }> 
   return steps
     .map((item) => {
       const clause = (item ?? {}) as GherkinClause;
+      const keyword = titleCase(asString(clause.keyword).trim()) || "Given";
       return {
-        keyword: asString(clause.keyword) || "Given",
+        keyword: keyword === "Given" || keyword === "When" || keyword === "Then" || keyword === "And" ? keyword : "Given",
         text: asString(clause.text),
       };
     })
@@ -131,36 +149,128 @@ function parseHeaders(headers: unknown): Array<{ key: string; value: string }> {
     .filter((item) => item.key || item.value);
 }
 
+function parseObjectPairs(value: unknown): Array<{ key: string; value: string }> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .map(([key, itemValue]) => ({
+      key: asString(key),
+      value: typeof itemValue === "string" ? itemValue : JSON.stringify(itemValue),
+    }))
+    .filter((item) => item.key || item.value);
+}
+
+function parseKeyValueCollection(value: unknown): Array<{ key: string; value: string }> {
+  const fromArray = parseHeaders(value);
+  if (fromArray.length > 0) return fromArray;
+  return parseObjectPairs(value);
+}
+
+function parseAssertions(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
+      .filter(Boolean);
+  }
+  if (typeof value === "string") return [value];
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, itemValue]) => `${key}: ${typeof itemValue === "string" ? itemValue : JSON.stringify(itemValue)}`);
+  }
+  return [];
+}
+
 function parseApi(steps: unknown): {
   method: string;
   endpoint: string;
+  queryParams: Array<{ key: string; value: string }>;
   requestBody: string;
   requestHeaders: Array<{ key: string; value: string }>;
   expectedStatus: string;
   expectedBody: string;
   expectedHeaders: Array<{ key: string; value: string }>;
+  assertions: string[];
 } {
   if (!steps || typeof steps !== "object") {
     return {
       method: "",
       endpoint: "",
+      queryParams: [],
       requestBody: "",
       requestHeaders: [],
       expectedStatus: "",
       expectedBody: "",
       expectedHeaders: [],
+      assertions: [],
     };
   }
   const parsed = steps as ApiSteps;
   return {
     method: asString(parsed.request?.method),
     endpoint: asString(parsed.request?.endpoint),
+    queryParams: parseKeyValueCollection(parsed.request?.queryParams),
     requestBody: asString(parsed.request?.body),
-    requestHeaders: parseHeaders(parsed.request?.headers),
+    requestHeaders: parseKeyValueCollection(parsed.request?.headers),
     expectedStatus: asString(parsed.expectedResponse?.status),
     expectedBody: asString(parsed.expectedResponse?.body),
-    expectedHeaders: parseHeaders(parsed.expectedResponse?.headers),
+    expectedHeaders: parseKeyValueCollection(parsed.expectedResponse?.headers),
+    assertions: parseAssertions(parsed.expectedResponse?.assertions),
   };
+}
+
+type InfoTileProps = {
+  label: string;
+  value: string;
+  hint?: string;
+  mono?: boolean;
+};
+
+function InfoTile({ label, value, hint, mono = false }: InfoTileProps) {
+  return (
+    <article className="rounded-lg border border-stroke bg-surface-muted/35 px-3 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">{label}</p>
+      <p className={`mt-1 text-sm font-semibold text-ink ${mono ? "break-all font-mono text-[13px]" : ""}`}>{value}</p>
+      {hint ? <p className="mt-1 text-xs text-ink-muted">{hint}</p> : null}
+    </article>
+  );
+}
+
+type KeyValueListProps = {
+  title: string;
+  items: Array<{ key: string; value: string }>;
+};
+
+function KeyValueList({ title, items }: KeyValueListProps) {
+  if (items.length === 0) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">{title}</p>
+      <dl className="space-y-1 rounded-md border border-stroke bg-surface-muted/30 p-2.5">
+        {items.map((item, index) => (
+          <div key={`${item.key}-${index}`} className="grid grid-cols-[minmax(86px,auto)_1fr] items-start gap-2">
+            <dt className="truncate text-[11px] font-semibold text-ink-muted">{item.key || "-"}</dt>
+            <dd className="break-all text-[11px] text-ink">{item.value || "-"}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+type CodeSurfaceProps = {
+  title: string;
+  value: string;
+};
+
+function CodeSurface({ title, value }: CodeSurfaceProps) {
+  if (!value) return null;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">{title}</p>
+      <pre className="max-h-56 overflow-auto rounded-md border border-stroke bg-surface p-2.5 text-[11px] leading-5 text-ink">
+        <code className="whitespace-pre-wrap break-all">{value}</code>
+      </pre>
+    </div>
+  );
 }
 
 export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailSheetProps) {
@@ -171,131 +281,203 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
   const dataDriven = testCase.style === "data_driven" ? parseDataDriven(testCase.steps) : null;
   const api = testCase.style === "api" ? parseApi(testCase.steps) : null;
 
+  const executionLabel = testCase.isAutomated ? testCase.automationType ?? "Automated" : "Manual";
+
+  const styleMetric = (() => {
+    if (testCase.style === "step_by_step") {
+      return { label: "Step Count", value: String(stepByStep.length) };
+    }
+    if (testCase.style === "gherkin") {
+      return { label: "Clause Count", value: String(gherkin.length) };
+    }
+    if (testCase.style === "data_driven" && dataDriven) {
+      return {
+        label: "Scenario Rows",
+        value: `${dataDriven.template.length} clauses · ${dataDriven.rows.length} rows`,
+      };
+    }
+    if (testCase.style === "api" && api) {
+      const requestFields = countDefined([api.method, api.endpoint, api.requestBody]) + api.requestHeaders.length + api.queryParams.length;
+      const responseFields = countDefined([api.expectedStatus, api.expectedBody]) + api.expectedHeaders.length + api.assertions.length;
+      return {
+        label: "Request/Response Fields",
+        value: `${requestFields}/${responseFields}`,
+      };
+    }
+    return { label: "Design Coverage", value: "Not defined" };
+  })();
+
+  const overviewItems: InfoTileProps[] = [
+    { label: "Project", value: `${testCase.suite.testPlan.project.key} · ${testCase.suite.testPlan.project.name}` },
+    { label: "Suite", value: testCase.suite.name, hint: testCase.suite.testPlan.name },
+    { label: "Style", value: styleLabels[testCase.style] ?? "Unknown" },
+    { label: "Priority", value: `P${Number.isFinite(testCase.priority) ? testCase.priority : 3}` },
+    { label: "Execution Mode", value: executionLabel },
+    { label: "Created", value: formatDate(testCase.createdAt) },
+    { label: "Updated", value: formatDate(testCase.updatedAt) },
+    { label: styleMetric.label, value: styleMetric.value },
+  ];
+
+  const qaContextItems: InfoTileProps[] = [
+    {
+      label: "Automation Status",
+      value: testCase.isAutomated ? "Automated" : "Manual",
+      hint: testCase.isAutomated ? "Automation-enabled test case" : "Executed manually",
+    },
+    {
+      label: "Execution Signal",
+      value: executionLabel,
+      hint: testCase.isAutomated && !testCase.automationRef ? "No automation reference attached" : undefined,
+    },
+  ];
+
+  if (testCase.automationRef) {
+    qaContextItems.push({
+      label: "Automation Ref",
+      value: testCase.automationRef,
+      mono: true,
+    });
+  }
+
   return (
     <Sheet
       open={open}
-      title={testCase.title}
-      description={`${testCase.suite.testPlan.project.key} · ${testCase.suite.testPlan.name} · ${testCase.suite.name}`}
+      title="Test Case Detail"
+      description="Structured QA context and style-aware test design."
       onClose={onClose}
       width="2xl"
     >
-      <div className="space-y-6">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Badge tone={statusTones[testCase.status]}>{statusLabels[testCase.status]}</Badge>
-            <Badge tone={styleTones[testCase.style]}>{styleLabels[testCase.style]}</Badge>
-            <Badge tone="neutral">P{Number.isFinite(testCase.priority) ? testCase.priority : 3}</Badge>
-            <Badge tone="neutral">
-              {testCase.isAutomated ? testCase.automationType ?? "Automated" : "Manual"}
-            </Badge>
-          </div>
-          <AssistantHubTrigger
-            context={{ type: "testCase", testCaseId: testCase.id, testCaseTitle: testCase.title, projectId: testCase.suite.testPlan.project.id }}
-            label="Ask AI"
-            variant="button"
-            onBeforeOpen={onClose}
-          />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Project</p>
-            <p className="mt-1 text-sm text-ink">{testCase.suite.testPlan.project.name}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Suite</p>
-            <p className="mt-1 text-sm text-ink">{testCase.suite.name}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Created</p>
-            <p className="mt-1 text-sm text-ink">{formatDate(testCase.createdAt)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Updated</p>
-            <p className="mt-1 text-sm text-ink">{formatDate(testCase.updatedAt)}</p>
-          </div>
-          {testCase.automationRef ? (
-            <div className="sm:col-span-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Automation Ref</p>
-              <p className="mt-1 break-all text-sm text-ink">{testCase.automationRef}</p>
+      <div className="space-y-5">
+        <header className="sticky top-0 z-20 rounded-xl border border-stroke bg-surface-elevated/95 p-3.5 shadow-sm backdrop-blur dark:bg-surface-muted/95">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-2">
+              <h3 className="break-words text-lg font-semibold leading-snug text-ink">{testCase.title}</h3>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge tone={statusTones[testCase.status]}>{statusLabels[testCase.status]}</Badge>
+                <Badge tone={styleTones[testCase.style]}>{styleLabels[testCase.style]}</Badge>
+                <Badge tone="neutral">P{Number.isFinite(testCase.priority) ? testCase.priority : 3}</Badge>
+                <Badge tone="neutral">{executionLabel}</Badge>
+              </div>
+              <p className="text-xs text-ink-muted">
+                {testCase.suite.testPlan.project.key} · {testCase.suite.testPlan.project.name} · {testCase.suite.testPlan.name} · {testCase.suite.name}
+              </p>
             </div>
-          ) : null}
-        </div>
+            <div className="shrink-0">
+              <AssistantHubTrigger
+                context={{ type: "testCase", testCaseId: testCase.id, testCaseTitle: testCase.title, projectId: testCase.suite.testPlan.project.id }}
+                label="Ask AI"
+                variant="button"
+                onBeforeOpen={onClose}
+              />
+            </div>
+          </div>
+        </header>
+
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-ink">Overview</h4>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-ink-soft">Quick Scan</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {overviewItems.map((item) => (
+              <InfoTile key={item.label} {...item} />
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-ink">QA Context</h4>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-ink-soft">Traceability</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {qaContextItems.map((item) => (
+              <InfoTile key={item.label} {...item} />
+            ))}
+          </div>
+          <p className="text-xs text-ink-muted">
+            Linked runs, bugs, and requirement references are not included in this case payload.
+          </p>
+        </section>
 
         {testCase.description ? (
-          <section>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Description</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-ink">{testCase.description}</p>
+          <section className="rounded-lg border border-stroke/70 bg-surface-muted/20 px-3 py-3">
+            <h4 className="text-sm font-semibold text-ink">Description</h4>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{testCase.description}</p>
           </section>
         ) : null}
 
         {testCase.preconditions ? (
-          <section>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Preconditions</p>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-ink">{testCase.preconditions}</p>
+          <section className="rounded-lg border border-stroke/70 bg-surface-muted/20 px-3 py-3">
+            <h4 className="text-sm font-semibold text-ink">Preconditions</h4>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{testCase.preconditions}</p>
           </section>
         ) : null}
 
-        {(testCase.tags?.length ?? 0) > 0 ? (
-          <section>
-            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Tags</p>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {testCase.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium text-stone-600"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-soft">Steps</p>
+        <section className="space-y-3 rounded-xl border border-stroke bg-surface-elevated p-4 shadow-[0_10px_24px_-18px_rgba(21,33,62,0.35)] dark:bg-surface-muted">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold text-ink">Test Design</h4>
+            <Badge tone={styleTones[testCase.style]}>{styleLabels[testCase.style]}</Badge>
+          </div>
 
           {testCase.style === "step_by_step" ? (
             stepByStep.length > 0 ? (
-              <div className="mt-2 space-y-3">
+              <ol className="space-y-2.5">
                 {stepByStep.map((item, index) => (
-                  <div key={`${index}-${item.step}`} className="rounded-lg border border-stroke bg-surface-muted p-3">
-                    <p className="text-xs font-semibold text-ink-muted">Step {index + 1}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{item.step || "-"}</p>
-                    <p className="mt-2 text-xs font-semibold text-ink-muted">Expected result</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{item.expectedResult || "-"}</p>
-                  </div>
+                  <li key={`${index}-${item.step}`} className="relative rounded-lg border border-stroke bg-surface-muted/35 px-3 py-2.5">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-stroke bg-surface text-xs font-semibold text-ink">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Action</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{item.step || "-"}</p>
+                        </div>
+                        <div className="rounded-md border border-stroke/80 bg-surface-elevated px-2.5 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Expected Result</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{item.expectedResult || "-"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             ) : (
-              <p className="mt-2 text-sm text-ink-muted">No steps were defined.</p>
+              <p className="text-sm text-ink-muted">No steps were defined.</p>
             )
           ) : null}
 
           {testCase.style === "gherkin" ? (
             gherkin.length > 0 ? (
-              <div className="mt-2 space-y-2 rounded-lg border border-stroke bg-surface-muted p-3">
+              <div className="space-y-2 rounded-lg border border-stroke bg-surface-muted/30 p-3">
                 {gherkin.map((item, index) => (
-                  <p key={`${index}-${item.keyword}`} className="text-sm text-ink">
-                    <span className="font-semibold">{item.keyword}</span> {item.text}
-                  </p>
+                  <div key={`${index}-${item.keyword}`} className="grid grid-cols-[auto_1fr] items-start gap-2 rounded-md border border-stroke/70 bg-surface-elevated px-2.5 py-2">
+                    <Badge tone={gherkinTones[item.keyword as keyof typeof gherkinTones] ?? "neutral"} className="font-mono">
+                      {item.keyword}
+                    </Badge>
+                    <p className="whitespace-pre-wrap font-mono text-sm leading-6 text-ink">{item.text}</p>
+                  </div>
                 ))}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-ink-muted">No clauses were defined.</p>
+              <p className="text-sm text-ink-muted">No clauses were defined.</p>
             )
           ) : null}
 
           {testCase.style === "data_driven" && dataDriven ? (
-            <div className="mt-2 space-y-3">
+            <div className="space-y-3">
               {dataDriven.template.length > 0 ? (
-                <div className="rounded-lg border border-stroke bg-surface-muted p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Template</p>
-                  <div className="mt-2 space-y-1.5">
+                <div className="rounded-lg border border-stroke bg-surface-muted/30 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Scenario Template</p>
+                  <div className="mt-2 space-y-2">
                     {dataDriven.template.map((item, index) => (
-                      <p key={`${index}-${item.keyword}`} className="text-sm text-ink">
-                        <span className="font-semibold">{item.keyword}</span> {item.text}
-                      </p>
+                      <div key={`${index}-${item.keyword}`} className="grid grid-cols-[auto_1fr] items-start gap-2 rounded-md border border-stroke/70 bg-surface-elevated px-2.5 py-2">
+                        <Badge tone={gherkinTones[item.keyword as keyof typeof gherkinTones] ?? "neutral"} className="font-mono">
+                          {item.keyword}
+                        </Badge>
+                        <p className="whitespace-pre-wrap font-mono text-sm leading-6 text-ink">{item.text}</p>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -305,9 +487,9 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
                 <div className="overflow-x-auto rounded-lg border border-stroke">
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
-                      <tr className="bg-surface-muted">
+                      <tr className="bg-surface-muted/70">
                         {dataDriven.columns.map((column) => (
-                          <th key={column} className="border-b border-stroke px-3 py-2 text-left text-ink">
+                          <th key={column} className="border-b border-stroke px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">
                             {column}
                           </th>
                         ))}
@@ -317,7 +499,7 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
                       {dataDriven.rows.map((row, rowIndex) => (
                         <tr key={rowIndex} className="border-t border-stroke">
                           {dataDriven.columns.map((column, colIndex) => (
-                            <td key={`${rowIndex}-${column}`} className="px-3 py-2 text-ink-muted">
+                            <td key={`${rowIndex}-${column}`} className="px-2.5 py-2 text-sm text-ink">
                               {row[colIndex] || "-"}
                             </td>
                           ))}
@@ -333,60 +515,65 @@ export function TestCaseDetailSheet({ open, testCase, onClose }: TestCaseDetailS
           ) : null}
 
           {testCase.style === "api" && api ? (
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-stroke bg-surface-muted p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Request</p>
-                <p className="mt-2 text-sm text-ink">
-                  <span className="font-semibold">Method:</span> {api.method || "-"}
-                </p>
-                <p className="mt-1 break-all text-sm text-ink">
-                  <span className="font-semibold">Endpoint:</span> {api.endpoint || "-"}
-                </p>
-                {api.requestHeaders.length > 0 ? (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold text-ink-muted">Headers</p>
-                    <div className="mt-1 space-y-1">
-                      {api.requestHeaders.map((header, index) => (
-                        <p key={`${header.key}-${index}`} className="text-xs text-ink-muted">
-                          {header.key || "-"}: {header.value || "-"}
-                        </p>
-                      ))}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-3 rounded-lg border border-stroke bg-surface-muted/35 p-3">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Request</p>
+                  <div className="rounded-md border border-stroke bg-surface-elevated p-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="danger" className="font-mono uppercase">{api.method || "METHOD"}</Badge>
+                      <p className="break-all font-mono text-xs text-ink">{api.endpoint || "-"}</p>
                     </div>
                   </div>
-                ) : null}
-                {api.requestBody ? (
-                  <pre className="mt-2 overflow-x-auto rounded bg-surface-elevated p-2 text-xs text-ink">
-                    {api.requestBody}
-                  </pre>
-                ) : null}
+                </div>
+                <KeyValueList title="Headers" items={api.requestHeaders} />
+                <KeyValueList title="Query Params" items={api.queryParams} />
+                <CodeSurface title="Request Body" value={api.requestBody} />
               </div>
 
-              <div className="rounded-lg border border-stroke bg-surface-muted p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Expected Response</p>
-                <p className="mt-2 text-sm text-ink">
-                  <span className="font-semibold">Status:</span> {api.expectedStatus || "-"}
-                </p>
-                {api.expectedHeaders.length > 0 ? (
-                  <div className="mt-2">
-                    <p className="text-xs font-semibold text-ink-muted">Headers</p>
-                    <div className="mt-1 space-y-1">
-                      {api.expectedHeaders.map((header, index) => (
-                        <p key={`${header.key}-${index}`} className="text-xs text-ink-muted">
-                          {header.key || "-"}: {header.value || "-"}
-                        </p>
+              <div className="space-y-3 rounded-lg border border-stroke bg-surface-muted/35 p-3">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Expected Response</p>
+                  <div className="rounded-md border border-stroke bg-surface-elevated p-2.5">
+                    <p className="text-xs font-semibold text-ink">
+                      Status Code: <span className="font-mono">{api.expectedStatus || "-"}</span>
+                    </p>
+                  </div>
+                </div>
+                <KeyValueList title="Headers" items={api.expectedHeaders} />
+                {api.assertions.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Assertions</p>
+                    <ul className="space-y-1 rounded-md border border-stroke bg-surface-muted/30 p-2.5">
+                      {api.assertions.map((assertion, index) => (
+                        <li key={`${assertion}-${index}`} className="font-mono text-[11px] text-ink">
+                          {assertion}
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   </div>
                 ) : null}
-                {api.expectedBody ? (
-                  <pre className="mt-2 overflow-x-auto rounded bg-surface-elevated p-2 text-xs text-ink">
-                    {api.expectedBody}
-                  </pre>
-                ) : null}
+                <CodeSurface title="Expected Body" value={api.expectedBody} />
               </div>
             </div>
           ) : null}
         </section>
+
+        {(testCase.tags?.length ?? 0) > 0 ? (
+          <section className="space-y-2">
+            <h4 className="text-sm font-semibold text-ink">Tags</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {testCase.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md border border-stroke bg-surface-muted/45 px-2 py-0.5 text-[10px] font-medium text-ink-muted"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </Sheet>
   );

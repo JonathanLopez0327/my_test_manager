@@ -223,6 +223,13 @@ export function BugsPage() {
   const handleView = (bug: BugRecord) => {
     setViewing(bug);
     setDetailOpen(true);
+    void fetchBugById(bug.id).then((latestBug) => {
+      if (!latestBug) return;
+      setViewing((current) => {
+        if (!current || current.id !== bug.id) return current;
+        return latestBug;
+      });
+    });
   };
 
   const handleDelete = (bug: BugRecord) => {

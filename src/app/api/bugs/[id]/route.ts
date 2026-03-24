@@ -72,12 +72,26 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
         select: {
           id: true,
           title: true,
+          suite: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
       testRunItem: {
         select: {
           id: true,
           status: true,
+          executedAt: true,
+          executedBy: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
         },
       },
       testRun: {
@@ -85,6 +99,27 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
           id: true,
           name: true,
           status: true,
+          startedAt: true,
+          finishedAt: true,
+          triggeredBy: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+          suite: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          testPlan: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
       comments: {

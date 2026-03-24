@@ -54,8 +54,27 @@ export type BugRecord = {
   };
   assignedTo: { id: string; email: string; fullName: string | null } | null;
   reporter: { id: string; email: string; fullName: string | null } | null;
-  testCase: { id: string; title: string } | null;
-  testRun: { id: string; name: string | null; status: string } | null;
+  testCase: {
+    id: string;
+    title: string;
+    suite?: { id: string; name: string } | null;
+  } | null;
+  testRun: {
+    id: string;
+    name: string | null;
+    status: string;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+    triggeredBy?: { id: string; email: string; fullName: string | null } | null;
+    suite?: { id: string; name: string } | null;
+    testPlan?: { id: string; name: string } | null;
+  } | null;
+  testRunItem?: {
+    id: string;
+    status: string;
+    executedAt?: string | null;
+    executedBy?: { id: string; email: string; fullName: string | null } | null;
+  } | null;
   attachments?: BugAttachmentRecord[];
   _count?: { comments: number; attachments?: number };
   comments?: BugCommentRecord[];
