@@ -7,7 +7,7 @@ import Image from "next/image";
 export default async function SignUpPage() {
   const session = await getServerSession(authOptions);
   if (session?.user?.id) {
-    redirect("/manager");
+    redirect("/manager/projects");
   }
 
   return (

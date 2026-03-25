@@ -19,17 +19,15 @@ export function ManagerShell({ children }: ManagerShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  const variant = pathname === "/manager"
-    ? "default"
-    : (
-      {
-        "/manager/bugs": "wide",
-        "/manager/settings": "wide",
-        "/manager/projects": "full",
-        "/manager/test-management": "full",
-        "/manager/test-runs-workspace": "full",
-      } as const
-    )[pathname] ?? "default";
+  const variant = (
+    {
+      "/manager/bugs": "wide",
+      "/manager/settings": "wide",
+      "/manager/projects": "full",
+      "/manager/test-management": "full",
+      "/manager/test-runs-workspace": "full",
+    } as const
+  )[pathname] ?? "default";
 
   return (
     <AssistantHubProvider>

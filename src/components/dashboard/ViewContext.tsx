@@ -7,7 +7,7 @@ import type { OrganizationsResponse } from "../organizations/types";
 import { uiMessages } from "@/lib/ui/messages";
 
 function getSectionLabel(pathname: string) {
-  if (pathname === "/manager") return "Summary";
+  if (pathname === "/manager" || pathname === "/manager/projects") return "Projects";
   if (pathname.startsWith("/manager/organizations")) return "Organizations";
   if (pathname.startsWith("/manager/projects")) return "Projects";
   if (pathname.startsWith("/manager/users")) return "Users";

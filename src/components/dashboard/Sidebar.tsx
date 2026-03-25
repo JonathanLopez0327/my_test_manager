@@ -7,7 +7,6 @@ import {
   IconBug,
   IconChevronDown,
   IconFolder,
-  IconGrid,
   IconLayers,
 } from "../icons";
 import { Badge } from "../ui/Badge";
@@ -53,14 +52,6 @@ const navSections: NavSection[] = [
     nodes: [
       {
         type: "item",
-        id: "dashboard",
-        label: "Dashboard",
-        icon: IconGrid,
-        href: "/manager",
-        permission: PERMISSIONS.PROJECT_LIST,
-      },
-      {
-        type: "item",
         id: "projects",
         label: "Projects",
         icon: IconFolder,
@@ -95,7 +86,7 @@ type SidebarProps = {
 };
 
 function isItemActive(pathname: string, href: string) {
-  return pathname === href || (href !== "/manager" && pathname.startsWith(`${href}/`));
+  return pathname === href || (href !== "/manager/projects" && pathname.startsWith(`${href}/`));
 }
 
 function getActiveGroupId(pathname: string, nodes: NavNode[]) {
@@ -259,7 +250,7 @@ function SidebarContent({
         }`}
     >
       <div className="flex items-center gap-2 px-1 pb-3">
-        <Link href="/manager" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
+        <Link href="/manager/projects" className={`flex min-w-0 items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
           <BrandLogo
             variant={collapsed ? "icon" : "full"}
             className={collapsed ? "h-11 w-11 rounded-md object-contain" : "h-12 w-auto object-contain"}
