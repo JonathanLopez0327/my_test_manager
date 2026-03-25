@@ -5,13 +5,6 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "@/components/ui/Card";
 import type { ManagerDashboardData } from "@/server/manager-dashboard";
 
-const VISIBLE_KPI_IDS = new Set([
-  "quality-status",
-  "ready-test-cases",
-  "open-defects",
-  "latest-manual-run",
-]);
-
 const toneClassMap: Record<string, string> = {
   success: "text-success-500",
   danger: "text-danger-500",
@@ -39,6 +32,39 @@ type DashboardResponse = ManagerDashboardData & {
 type ProjectOverviewTabProps = {
   projectId: string;
 };
+
+function KpiFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-stroke bg-surface-muted/50 px-3 py-2.5">
+      {children}
+    </div>
+  );
+}
+
+function KpiLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-soft">
+      {children}
+    </p>
+  );
+}
+
+function KpiMicro({ children }: { children: React.ReactNode }) {
+  return <p className="mt-1 text-[11px] text-ink-muted">{children}</p>;
+}
+
+function formatDelta(delta: number | null): string | null {
+  if (delta === null || delta === 0) return null;
+  const sign = delta > 0 ? "+" : "";
+  return `${sign}${delta}pp vs previous`;
+}
+
+function buildDistInsight(dist: AllRunsDistribution): string {
+  const failedCount = dist.data.find((s) => s.name === "Failed")?.value ?? 0;
+  if (failedCount > 0) return `${failedCount} failed case${failedCount === 1 ? "" : "s"} need${failedCount === 1 ? "s" : ""} attention`;
+  if (dist.passRate >= 90) return `Execution health is stable at ${dist.passRate}%`;
+  return `Overall pass rate across all runs: ${dist.passRate}%`;
+}
 
 export function ProjectOverviewTab({ projectId }: ProjectOverviewTabProps) {
   const [data, setData] = useState<DashboardResponse | null>(null);
@@ -81,27 +107,85 @@ export function ProjectOverviewTab({ projectId }: ProjectOverviewTabProps) {
     );
   }
 
-  const kpis = data.header.filter((item) => VISIBLE_KPI_IDS.has(item.id));
+  const qualityKpi = data.header.find((h) => h.id === "quality-status");
+  const defectsKpi = data.header.find((h) => h.id === "open-defects");
+  const readyKpi = data.header.find((h) => h.id === "ready-test-cases");
+  const health = data.latestRunHealth;
+  const latestRun = data.latestRuns?.[0] ?? null;
+  const defectRisk = data.defectRisk;
+  const coverage = data.coverageReadiness;
   const dist = data.allRunsDistribution;
+
+  const delta = formatDelta(health.deltaVsPreviousRun);
+  const distInsight = buildDistInsight(dist);
 
   return (
     <div className="space-y-5">
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {kpis.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-lg border border-stroke bg-surface-muted/50 px-3 py-2.5"
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-soft">
-                {item.label}
-              </p>
-              <p className={`mt-2 text-lg font-semibold ${toneClassMap[item.tone] ?? "text-ink"}`}>
-                {item.value}
-              </p>
-              <p className="mt-1 text-[11px] text-ink-muted">{item.microcopy}</p>
-            </div>
-          ))}
+          {/* Quality Status */}
+          <KpiFrame>
+            <KpiLabel>Quality Status</KpiLabel>
+            <p className={`mt-2 text-lg font-semibold ${toneClassMap[qualityKpi?.tone ?? "neutral"]}`}>
+              {qualityKpi?.value ?? "—"}
+            </p>
+            <KpiMicro>
+              {delta ? `from latest run · ${delta}` : "from latest run"}
+            </KpiMicro>
+          </KpiFrame>
+
+          {/* Latest Manual Run */}
+          <KpiFrame>
+            <KpiLabel>Latest Manual Run</KpiLabel>
+            {latestRun ? (
+              <>
+                <p className="mt-2 truncate text-sm font-semibold text-ink">
+                  {latestRun.title}
+                </p>
+                <p className="mt-0.5 truncate text-[11px] text-ink-muted">
+                  {[latestRun.suite, latestRun.environment]
+                    .filter((s) => s && s !== "No suite" && s !== "No environment")
+                    .join(" · ") || latestRun.when}
+                </p>
+                <p className="mt-0.5 text-[11px] text-ink-muted">
+                  {health.passed} passed · {health.failed} failed · {health.skipped} skipped
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-lg font-semibold text-warning-500">No runs</p>
+                <KpiMicro>Create your first manual run</KpiMicro>
+              </>
+            )}
+          </KpiFrame>
+
+          {/* Open Defects */}
+          <KpiFrame>
+            <KpiLabel>Open Defects</KpiLabel>
+            <p className={`mt-2 text-lg font-semibold ${toneClassMap[defectsKpi?.tone ?? "neutral"]}`}>
+              {defectsKpi?.value ?? "0"}
+            </p>
+            <KpiMicro>
+              {defectRisk.openCriticalHigh} critical/high
+              {defectRisk.linkedToLatestRun > 0
+                ? ` · ${defectRisk.linkedToLatestRun} from latest run`
+                : ""}
+            </KpiMicro>
+          </KpiFrame>
+
+          {/* Ready Test Cases */}
+          <KpiFrame>
+            <KpiLabel>Ready Test Cases</KpiLabel>
+            <p className={`mt-2 text-lg font-semibold ${toneClassMap[readyKpi?.tone ?? "neutral"]}`}>
+              {readyKpi?.value ?? "0"}
+            </p>
+            <KpiMicro>
+              {coverage.readyRate}% readiness
+              {coverage.readyWithoutRecentExecution > 0
+                ? ` · ${coverage.readyWithoutRecentExecution} untested`
+                : ""}
+            </KpiMicro>
+          </KpiFrame>
         </div>
       </Card>
 
@@ -110,6 +194,7 @@ export function ProjectOverviewTab({ projectId }: ProjectOverviewTabProps) {
           <div>
             <p className="text-sm font-semibold text-ink">Run Distribution</p>
             <p className="mt-1 text-xs text-ink-muted">All executions across all runs</p>
+            <p className="mt-1.5 text-xs font-medium text-ink-soft">{distInsight}</p>
           </div>
           <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
             {dist.total.toLocaleString("en-US")} cases
