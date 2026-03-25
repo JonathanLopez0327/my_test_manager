@@ -39,7 +39,56 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrga
     const data = await getManagerDashboardData(activeOrganizationId, {
       projectId: id,
     });
-    return NextResponse.json(data);
+
+    // Aggregate status distribution across ALL runs for this project
+    const STATUSES = ["passed", "failed", "blocked", "skipped", "not_run"] as const;
+    const STATUS_COLORS: Record<string, string> = {
+      passed: "#059669",
+      failed: "#DC2626",
+      blocked: "#D97706",
+      skipped: "#94A3B8",
+      not_run: "#D1D5DB",
+    };
+    const STATUS_LABELS: Record<string, string> = {
+      passed: "Passed",
+      failed: "Failed",
+      blocked: "Blocked",
+      skipped: "Skipped",
+      not_run: "Not Run",
+    };
+
+    const statusGrouped = await prisma.testRunItem.groupBy({
+      by: ["status"],
+      where: {
+        run: { projectId: id, runType: "manual" },
+        status: { in: [...STATUSES] },
+      },
+      _count: { _all: true },
+    });
+
+    const counts: Record<string, number> = {
+      passed: 0, failed: 0, blocked: 0, skipped: 0, not_run: 0,
+    };
+    for (const row of statusGrouped) {
+      counts[row.status] = row._count._all;
+    }
+
+    const total = STATUSES.reduce((sum, s) => sum + counts[s], 0);
+    const executed = total - counts.not_run;
+    const passRate = executed > 0 ? Math.round((counts.passed / executed) * 100) : 0;
+
+    const allRunsDistribution = {
+      data: STATUSES.map((s) => ({
+        name: STATUS_LABELS[s],
+        value: counts[s],
+        color: STATUS_COLORS[s],
+        percentage: total > 0 ? Math.round((counts[s] / total) * 100) : 0,
+      })),
+      total,
+      passRate,
+    };
+
+    return NextResponse.json({ ...data, allRunsDistribution });
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
