@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
-import { getProjectRelatedCounts } from "@/lib/api/related-counts";
+import { getManagerDashboardData } from "@/server/manager-dashboard";
 
 export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
@@ -36,12 +36,14 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, activeOrga
   });
 
   try {
-    const counts = await getProjectRelatedCounts(id);
-    return NextResponse.json({ counts });
+    const data = await getManagerDashboardData(activeOrganizationId, {
+      projectId: id,
+    });
+    return NextResponse.json(data);
   } catch (error) {
     if (error instanceof AuthorizationError) throw error;
     return NextResponse.json(
-      { message: "Could not retrieve project stats." },
+      { message: "Could not retrieve project dashboard data." },
       { status: 500 },
     );
   }

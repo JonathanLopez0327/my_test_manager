@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { IconEdit, IconFolder, IconPlus } from "../icons";
 import { ProjectFormSheet } from "./ProjectFormSheet";
+import { ProjectOverviewTab } from "./ProjectOverviewTab";
 import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
-import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 import { useAssistantHub, useScreenDataSync } from "@/lib/assistant-hub";
 import type { ScreenData } from "@/lib/assistant-hub";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
@@ -49,8 +49,6 @@ export function ProjectsPage() {
   });
 
   const [activeTab, setActiveTab] = useState<ProjectTab>("overview");
-  const [projectCounts, setProjectCounts] = useState<Record<string, number> | null>(null);
-  const [countsLoading, setCountsLoading] = useState(false);
 
   const isReadOnlyGlobal = useMemo(
     () =>
@@ -128,29 +126,10 @@ export function ProjectsPage() {
     });
   }, [items]);
 
-  const fetchProjectStats = useCallback(async (projectId: string) => {
-    setCountsLoading(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/stats`);
-      if (!res.ok) throw new Error("Failed to load stats");
-      const data = (await res.json()) as { counts: Record<string, number> };
-      setProjectCounts(data.counts);
-    } catch {
-      setProjectCounts(null);
-    } finally {
-      setCountsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!selectedProjectId) return;
     setActiveTab("overview");
   }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (!selectedProjectId || activeTab !== "overview") return;
-    void fetchProjectStats(selectedProjectId);
-  }, [selectedProjectId, activeTab, fetchProjectStats]);
 
   const handleCreate = () => {
     if (!canManage) return;
@@ -389,32 +368,7 @@ export function ProjectsPage() {
 
               <div className="min-h-0 flex-1 overflow-y-auto p-8">
                 {activeTab === "overview" ? (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                      {countsLoading ? (
-                        <p className="col-span-full text-sm text-ink-muted">Loading stats...</p>
-                      ) : projectCounts ? (
-                        <>
-                          <StatCard label="Test Plans" value={projectCounts.testPlans} />
-                          <StatCard label="Test Suites" value={projectCounts.testSuites} />
-                          <StatCard label="Test Cases" value={projectCounts.testCases} />
-                          <StatCard label="Test Runs" value={projectCounts.testRuns} />
-                          <StatCard label="Bugs" value={projectCounts.bugs} />
-                        </>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-col items-center gap-4">
-                      <p className="text-sm text-ink-muted">
-                        Use the QA Assistant to analyze this project, generate test plans, or review coverage.
-                      </p>
-                      <AssistantHubTrigger
-                        context={{ type: "project", projectId: project.id, projectName: project.name }}
-                        label="Open QA Assistant"
-                        variant="button"
-                      />
-                    </div>
-                  </div>
+                  <ProjectOverviewTab projectId={project.id} />
                 ) : (
                   <div className="flex flex-1 items-center justify-center">
                     <div className="text-center">
@@ -524,15 +478,6 @@ export function ProjectsPage() {
           Boolean(deleteConfirmation.hasRelated)
         }
       />
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl border border-stroke bg-surface p-4">
-      <p className="text-2xl font-bold text-ink">{value}</p>
-      <p className="text-xs text-ink-muted">{label}</p>
     </div>
   );
 }
