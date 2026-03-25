@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { TestStatusChart } from "@/components/dashboard/TestStatusChart";
 import type { ManagerDashboardData } from "@/server/manager-dashboard";
 
 const VISIBLE_KPI_IDS = new Set([
@@ -66,23 +67,32 @@ export function ProjectOverviewTab({ projectId }: ProjectOverviewTabProps) {
   const kpis = data.header.filter((item) => VISIBLE_KPI_IDS.has(item.id));
 
   return (
-    <Card className="p-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-lg border border-stroke bg-surface-muted/50 px-3 py-2.5"
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-soft">
-              {item.label}
-            </p>
-            <p className={`mt-2 text-lg font-semibold ${toneClassMap[item.tone] ?? "text-ink"}`}>
-              {item.value}
-            </p>
-            <p className="mt-1 text-[11px] text-ink-muted">{item.microcopy}</p>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <div className="space-y-5">
+      <Card className="p-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-lg border border-stroke bg-surface-muted/50 px-3 py-2.5"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-soft">
+                {item.label}
+              </p>
+              <p className={`mt-2 text-lg font-semibold ${toneClassMap[item.tone] ?? "text-ink"}`}>
+                {item.value}
+              </p>
+              <p className="mt-1 text-[11px] text-ink-muted">{item.microcopy}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <TestStatusChart
+        data={data.latestRunDistribution.data}
+        total={data.latestRunDistribution.total}
+        passRate={data.latestRunDistribution.passRate}
+        runLabel={data.latestRunDistribution.runLabel}
+      />
+    </div>
   );
 }
