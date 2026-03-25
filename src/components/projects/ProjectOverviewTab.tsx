@@ -55,8 +55,8 @@ function KpiMicro({ children }: { children: React.ReactNode }) {
 
 function formatDelta(delta: number | null): string | null {
   if (delta === null || delta === 0) return null;
-  const sign = delta > 0 ? "+" : "";
-  return `${sign}${delta}pp vs previous`;
+  const arrow = delta > 0 ? "▲" : "▼";
+  return `${arrow} ${Math.abs(delta)}% vs previous`;
 }
 
 function buildDistInsight(dist: AllRunsDistribution): string {
