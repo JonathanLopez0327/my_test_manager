@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { IconEdit, IconFolder, IconPlus } from "../icons";
 import { ProjectFormSheet } from "./ProjectFormSheet";
 import { ProjectOverviewTab } from "./ProjectOverviewTab";
+import { RequirementsChat } from "./requirements-chat";
 import { Button } from "../ui/Button";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
@@ -366,18 +367,16 @@ export function ProjectsPage() {
                 </button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-8">
+              <div className={cn(
+                "min-h-0 flex-1",
+                activeTab === "overview"
+                  ? "overflow-y-auto p-8"
+                  : "flex flex-col overflow-hidden",
+              )}>
                 {activeTab === "overview" ? (
                   <ProjectOverviewTab projectId={project.id} />
                 ) : (
-                  <div className="flex flex-1 items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-sm font-medium text-ink">Requirements</p>
-                      <p className="mt-1 text-sm text-ink-muted">
-                        This feature is coming soon.
-                      </p>
-                    </div>
-                  </div>
+                  <RequirementsChat key={project.id} projectId={project.id} />
                 )}
               </div>
             </>
