@@ -229,7 +229,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     const langgraphApiUrl = resolveLanggraphApiUrl();
     const langgraphApiKey = resolveLanggraphApiKey();
     const langgraphHeaders = createLanggraphHeaders(langgraphApiKey);
-    const assistantId = process.env.LANGGRAPH_ASSISTANT_ID || DEFAULT_ASSISTANT_ID;
+    const assistantId = process.env.LANGGRAPH_QA_ID || DEFAULT_ASSISTANT_ID;
 
     const mtmApiToken = await getOrCreateAgentToken({
       userId,

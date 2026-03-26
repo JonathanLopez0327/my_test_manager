@@ -98,7 +98,7 @@ The core entities in the system are:
 
     # AI chat integration
     LANGGRAPH_API_URL="http://localhost:2024"
-    LANGGRAPH_ASSISTANT_ID="your-assistant-id"
+    LANGGRAPH_QA_ID="your-assistant-id"
     NEXT_PUBLIC_LANGGRAPH_API_KEY="your-langgraph-api-key"
     AI_AGENT_TOKEN_ENCRYPTION_KEY="base64-encoded-32-byte-key"
 
@@ -139,7 +139,7 @@ The core entities in the system are:
 ### Pre-deploy
 
 1. Configure environment variables (see `.env.example`):
-   - Required in runtime: `DATABASE_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, `S3_PUBLIC_URL`, `LANGGRAPH_API_URL`, `LANGGRAPH_ASSISTANT_ID`, `NEXT_PUBLIC_LANGGRAPH_API_KEY`, `AI_AGENT_TOKEN_ENCRYPTION_KEY`
+   - Required in runtime: `DATABASE_URL`, `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`, `S3_BUCKET`, `S3_PUBLIC_URL`, `LANGGRAPH_API_URL`, `LANGGRAPH_QA_ID`, `NEXT_PUBLIC_LANGGRAPH_API_KEY`, `AI_AGENT_TOKEN_ENCRYPTION_KEY`
    - Seed-only variables: `SEED_QA_EMAIL`, `SEED_QA_PASSWORD`, `SEED_SUPER_ADMIN_EMAIL`, `SEED_SUPER_ADMIN_PASSWORD`
    - Optional controls: `AI_AGENT_TOKEN_TTL_DAYS`, `AI_AGENT_TOKEN_ROTATE_BEFORE_DAYS` (when `NEXT_PUBLIC_LANGGRAPH_API_KEY` is missing, chat falls back only in development and fails in production).
    - `NODE_ENV` is set by the hosting platform.
