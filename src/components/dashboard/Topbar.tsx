@@ -10,6 +10,7 @@ import { ViewContext } from "./ViewContext";
 import { usePermissions } from "@/lib/auth/use-can";
 import { uiMessages } from "@/lib/ui/messages";
 import { ProfileSheet } from "./ProfileSheet";
+import { AssistantHubFab } from "@/components/assistant-hub/AssistantHubFab";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
@@ -53,6 +54,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
       {/* Right side: theme + user menu */}
       <div className="flex items-center gap-3">
+        <AssistantHubFab />
         <ThemeToggle />
 
         <div className="relative">

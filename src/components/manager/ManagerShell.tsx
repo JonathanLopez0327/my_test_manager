@@ -8,7 +8,7 @@ import { Topbar } from "../dashboard/Topbar";
 import { WorkspaceShell } from "../ui/WorkspaceShell";
 import { AssistantHubProvider } from "@/lib/assistant-hub";
 import { AssistantHubPanel } from "@/components/assistant-hub/AssistantHubPanel";
-import { AssistantHubFab } from "@/components/assistant-hub/AssistantHubFab";
+
 import { AssistantHubRouteSync } from "@/components/assistant-hub/AssistantHubRouteSync";
 
 type ManagerShellProps = {
@@ -47,7 +47,6 @@ export function ManagerShell({ children }: ManagerShellProps) {
             <AssistantHubPanel />
           </div>
         </div>
-        <AssistantHubFab />
       </div>
     </AssistantHubProvider>
   );

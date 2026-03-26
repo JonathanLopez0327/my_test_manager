@@ -27,15 +27,14 @@ export function AssistantHubFab() {
       onClick={() => actions.toggle()}
       aria-label="Open QA Assistant"
       className={cn(
-        "fixed bottom-20 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full",
-        "bg-brand-600 text-white shadow-lg",
-        "transition-all duration-200 ease-[var(--ease-emphasis)]",
-        "hover:bg-brand-700 hover:scale-105 hover:shadow-xl",
+        "flex h-8 w-8 items-center justify-center rounded-md",
+        "text-brand-600 transition-colors duration-200",
+        "hover:bg-brand-50 hover:text-brand-700",
         "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
         "active:scale-95",
       )}
     >
-      <IconSpark className="h-6 w-6" />
+      <IconSpark className="h-5 w-5" />
     </button>
   );
 }
