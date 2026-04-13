@@ -33,7 +33,7 @@ export async function createKeygenUser(email: string, name: string): Promise<str
     body: JSON.stringify({
       data: {
         type: "users",
-        attributes: { email, firstName, lastName, role: "user" },
+        attributes: { email, firstName, lastName },
       },
     }),
   });
