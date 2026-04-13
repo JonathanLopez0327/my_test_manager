@@ -453,11 +453,13 @@ model Organization {
   createdById   String?  @map("created_by") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  maxProjects   Int       @default(3)   @map("max_projects")
-  maxMembers    Int       @default(5)   @map("max_members")
-  maxTestCases  Int       @default(200) @map("max_test_cases")
-  maxTestRuns   Int       @default(100) @map("max_test_runs")
-  betaExpiresAt DateTime? @default(dbgenerated("now() + interval '10 days'")) @map("beta_expires_at") @db.Timestamptz(6)
+  maxProjects     Int       @default(3)   @map("max_projects")
+  maxMembers      Int       @default(5)   @map("max_members")
+  maxTestCases    Int       @default(200) @map("max_test_cases")
+  maxTestRuns     Int       @default(100) @map("max_test_runs")
+  betaExpiresAt   DateTime? @default(dbgenerated("now() + interval '10 days'")) @map("beta_expires_at") @db.Timestamptz(6)
+  keygenLicenseId String?   @map("keygen_license_id")
+  keygenUserId    String?   @map("keygen_user_id")
 
   createdBy User?                @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   members   OrganizationMember[]
