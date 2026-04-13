@@ -21,6 +21,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
 
   const variant = (
     {
+      "/manager/assistant": "full",
       "/manager/bugs": "wide",
       "/manager/settings": "wide",
       "/manager/projects": "full",

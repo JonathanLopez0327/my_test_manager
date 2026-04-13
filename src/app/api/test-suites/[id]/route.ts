@@ -112,7 +112,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
         }
         if (visited.has(cursorId)) break;
         visited.add(cursorId);
-        const cursorSuite = await prisma.testSuite.findUnique({
+        const cursorSuite: { parentSuiteId: string | null } | null = await prisma.testSuite.findUnique({
           where: { id: cursorId },
           select: { parentSuiteId: true },
         });

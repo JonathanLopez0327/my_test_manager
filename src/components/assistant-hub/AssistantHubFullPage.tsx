@@ -94,9 +94,9 @@ export function AssistantHubFullPage() {
   }, [selectedMessages, selectedThreadId, threadDocState]);
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex h-full min-h-0 w-full overflow-hidden">
       {/* Main chat area */}
-      <div className="flex flex-1 flex-col bg-surface-elevated">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-elevated">
         <AssistantHubFullPageHeader />
         <AssistantHubConversationList />
         <AssistantHubMessages generatedAttachments={generatedAttachments} />

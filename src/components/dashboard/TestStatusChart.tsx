@@ -90,9 +90,9 @@ export function TestStatusChart({ data, total, passRate, runLabel }: TestStatusC
               }}
               itemStyle={{ color: "var(--ink)" }}
               labelStyle={{ color: "var(--ink-muted)", fontWeight: 600 }}
-              formatter={(value: number, name: string) => [
-                `${value.toLocaleString("en-US")} cases`,
-                name,
+              formatter={(value: number | undefined, name: string | undefined) => [
+                `${(value ?? 0).toLocaleString("en-US")} cases`,
+                name ?? "",
               ]}
             />
           </PieChart>

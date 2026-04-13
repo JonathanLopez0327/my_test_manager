@@ -80,31 +80,27 @@ function parseStepSnapshots(style: TestCaseStyle, steps: unknown): StepSnapshot[
   }
 
   if (style === "gherkin" && Array.isArray(steps)) {
-    return steps
-      .map((entry) => {
-        if (!entry || typeof entry !== "object") return null;
-        const value = entry as { keyword?: unknown; text?: unknown };
-        const keyword = typeof value.keyword === "string" ? value.keyword : "";
-        const text = typeof value.text === "string" ? value.text : "";
-        const line = `${keyword} ${text}`.trim();
-        return line ? { stepTextSnapshot: line, expectedSnapshot: null } : null;
-      })
-      .filter((entry): entry is StepSnapshot => Boolean(entry));
+    return steps.flatMap((entry): StepSnapshot[] => {
+      if (!entry || typeof entry !== "object") return [];
+      const value = entry as { keyword?: unknown; text?: unknown };
+      const keyword = typeof value.keyword === "string" ? value.keyword : "";
+      const text = typeof value.text === "string" ? value.text : "";
+      const line = `${keyword} ${text}`.trim();
+      return line ? [{ stepTextSnapshot: line, expectedSnapshot: null }] : [];
+    });
   }
 
   if (style === "data_driven" && typeof steps === "object" && steps !== null) {
     const value = steps as { template?: unknown };
     if (Array.isArray(value.template)) {
-      return value.template
-        .map((entry) => {
-          if (!entry || typeof entry !== "object") return null;
-          const row = entry as { keyword?: unknown; text?: unknown };
-          const keyword = typeof row.keyword === "string" ? row.keyword : "";
-          const text = typeof row.text === "string" ? row.text : "";
-          const line = `${keyword} ${text}`.trim();
-          return line ? { stepTextSnapshot: line, expectedSnapshot: null } : null;
-        })
-        .filter((entry): entry is StepSnapshot => Boolean(entry));
+      return value.template.flatMap((entry): StepSnapshot[] => {
+        if (!entry || typeof entry !== "object") return [];
+        const row = entry as { keyword?: unknown; text?: unknown };
+        const keyword = typeof row.keyword === "string" ? row.keyword : "";
+        const text = typeof row.text === "string" ? row.text : "";
+        const line = `${keyword} ${text}`.trim();
+        return line ? [{ stepTextSnapshot: line, expectedSnapshot: null }] : [];
+      });
     }
   }
 
@@ -120,9 +116,11 @@ function parseStepSnapshots(style: TestCaseStyle, steps: unknown): StepSnapshot[
   }
 
   if (Array.isArray(steps)) {
-    return steps
-      .map((entry) => (typeof entry === "string" ? { stepTextSnapshot: entry, expectedSnapshot: null } : null))
-      .filter((entry): entry is StepSnapshot => Boolean(entry?.stepTextSnapshot?.trim()));
+    return steps.flatMap((entry): StepSnapshot[] =>
+      typeof entry === "string" && entry.trim()
+        ? [{ stepTextSnapshot: entry, expectedSnapshot: null }]
+        : [],
+    );
   }
 
   return [];
@@ -675,7 +673,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
                 ? { executedBy: { connect: { id: execExecutedById } } }
                 : { executedBy: { disconnect: true } }),
               startedAt: executedAt ?? undefined,
-              completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
+              completedAt: status === "in_progress" ? null : (executedAt ?? new Date()),
               errorMessage: item.errorMessage?.trim() || null,
             },
           });
@@ -689,7 +687,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
               status,
               durationMs,
               startedAt: executedAt ?? new Date(),
-              completedAt: status === "not_run" || status === "in_progress" ? null : (executedAt ?? new Date()),
+              completedAt: status === "in_progress" ? null : (executedAt ?? new Date()),
               ...(createExecById ? { executedBy: { connect: { id: createExecById } } } : {}),
               errorMessage: item.errorMessage?.trim() || null,
             },

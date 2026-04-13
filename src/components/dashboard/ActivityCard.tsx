@@ -13,6 +13,7 @@ type RunItem = {
   outcome: string;
   status: string;
   tone: "success" | "danger" | "warning" | "info" | "neutral";
+  failedCount: number;
 };
 
 type ActivityCardProps = {
