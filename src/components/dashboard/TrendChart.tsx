@@ -67,8 +67,8 @@ export function TrendChart({
                 boxShadow: "var(--shadow-soft-sm)",
               }}
               labelStyle={{ fontWeight: 600, color: "var(--ink)" }}
-              formatter={(value: number, _name: string, item: { payload?: TrendPoint }) => [
-                `${value}%`,
+              formatter={(value: number | undefined, _name: string | undefined, item: { payload?: TrendPoint }) => [
+                `${value ?? 0}%`,
                 item.payload?.runName ? `Pass rate · ${item.payload.runName}` : "Pass rate",
               ]}
             />

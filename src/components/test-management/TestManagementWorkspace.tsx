@@ -749,7 +749,7 @@ export function TestManagementWorkspace() {
       }
 
       await fetchAllPlansAndSuites();
-      const createdSuite = "item" in data ? data.item : data;
+      const createdSuite: TestSuiteRecord | undefined = "item" in data ? data.item : (data as TestSuiteRecord);
       if (createdSuite) {
         setSelectedPlanId(createdSuite.testPlanId);
         setSelectedSuiteId(createdSuite.id);

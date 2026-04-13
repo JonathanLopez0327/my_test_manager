@@ -255,7 +255,7 @@ export const PATCH = withAuth(null, async (req, { userId, globalRoles, activeOrg
       body.durationMs === undefined || body.durationMs === null
         ? existing.durationMs
         : Number(body.durationMs);
-    if (!Number.isFinite(durationMs) || durationMs < 0) {
+    if (durationMs !== null && (!Number.isFinite(durationMs) || durationMs < 0)) {
       return NextResponse.json({ message: "Invalid duration." }, { status: 400 });
     }
     const now = new Date();

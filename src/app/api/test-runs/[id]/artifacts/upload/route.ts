@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
-import { ArtifactType } from "@/generated/prisma/client";
+import { ArtifactType, Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
@@ -212,7 +212,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           mimeType: file.type || null,
           sizeBytes: uploadPolicy.sizeBytes,
           checksumSha256: hash,
-          metadata,
+          metadata: metadata as Prisma.InputJsonValue,
         },
         select: {
           id: true,
@@ -241,7 +241,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           mimeType: file.type || null,
           sizeBytes: uploadPolicy.sizeBytes,
           checksumSha256: hash,
-          metadata,
+          metadata: metadata as Prisma.InputJsonValue,
         },
         select: {
           id: true,

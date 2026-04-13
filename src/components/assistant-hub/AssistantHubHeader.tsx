@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAssistantHub, getContextLabel } from "@/lib/assistant-hub";
 import { IconSpark, IconPlus } from "@/components/icons";
 import {
@@ -33,6 +33,8 @@ const CONTEXT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
 export function AssistantHubHeader() {
   const { state, actions } = useAssistantHub();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const currentProjectId = getProjectIdFromContext(state.context);
 
   const isEntityContext = state.context.type !== "global" && state.context.type !== "project";
@@ -43,7 +45,9 @@ export function AssistantHubHeader() {
   };
 
   const handleOpenInHub = () => {
-    const url = buildAssistantHubUrl(state.context);
+    const currentSearch = searchParams.toString();
+    const returnTo = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
+    const url = buildAssistantHubUrl(state.context, { returnTo });
     actions.close();
     router.push(url);
   };

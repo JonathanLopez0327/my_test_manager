@@ -1589,9 +1589,9 @@ export function TestRunsWorkspace() {
                                   ))}
                                 </Pie>
                                 <Tooltip
-                                  formatter={(value: number | string, name: string, item) => {
+                                  formatter={(value: number | string | undefined, name: string | undefined, item) => {
                                     const percent = (item?.payload as { percent?: number } | undefined)?.percent ?? 0;
-                                    return [`${value} (${percent}%)`, name];
+                                    return [`${value ?? 0} (${percent}%)`, name ?? ""];
                                   }}
                                   contentStyle={{
                                     backgroundColor: "var(--surface-elevated)",
@@ -1712,7 +1712,7 @@ export function TestRunsWorkspace() {
                                                 <p className="text-xs text-ink-muted">{artifact.mimeType ?? "Unknown mime"}</p>
                                               </td>
                                               <td className="px-3 py-2 text-ink-muted">{artifact.type ?? "other"}</td>
-                                              <td className="px-3 py-2 text-ink-muted">{formatSize(artifact.sizeBytes)}</td>
+                                              <td className="px-3 py-2 text-ink-muted">{formatSize(artifact.sizeBytes != null ? Number(artifact.sizeBytes) : null)}</td>
                                               <td className="px-3 py-2 text-ink-muted">{formatDate(artifact.createdAt)}</td>
                                               <td className="px-3 py-2 text-right">
                                                 <a

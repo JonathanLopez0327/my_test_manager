@@ -442,9 +442,19 @@ export function getParentContext(
   };
 }
 
-export function buildAssistantHubUrl(context: import("./types").AssistantEntityContext): string {
-  if (context.type === "global") return "/manager/assistant";
+export function buildAssistantHubUrl(
+  context: import("./types").AssistantEntityContext,
+  options?: { returnTo?: string },
+): string {
+  const returnTo = options?.returnTo?.trim();
+  if (context.type === "global") {
+    if (!returnTo) return "/manager/assistant";
+    const params = new URLSearchParams();
+    params.set("returnTo", returnTo);
+    return `/manager/assistant?${params.toString()}`;
+  }
   const params = new URLSearchParams();
+  if (returnTo) params.set("returnTo", returnTo);
   params.set("contextType", context.type);
   for (const [key, value] of Object.entries(context)) {
     if (key !== "type" && value) params.set(key, String(value));

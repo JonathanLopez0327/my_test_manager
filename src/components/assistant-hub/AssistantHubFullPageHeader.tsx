@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAssistantHub, getContextLabel } from "@/lib/assistant-hub";
 import { IconSpark, IconPlus } from "@/components/icons";
 import {
@@ -7,6 +8,7 @@ import {
   ClockIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ArrowsPointingInIcon,
   BugAntIcon,
   PlayIcon,
   BeakerIcon,
@@ -29,6 +31,8 @@ const CONTEXT_ICONS: Record<string, React.ComponentType<{ className?: string }>>
 
 export function AssistantHubFullPageHeader() {
   const { state, actions } = useAssistantHub();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const currentProjectId = getProjectIdFromContext(state.context);
   const isEntityContext = state.context.type !== "global" && state.context.type !== "project";
 
@@ -45,6 +49,16 @@ export function AssistantHubFullPageHeader() {
 
   const ContextIcon = CONTEXT_ICONS[state.context.type] ?? null;
   const contextLabel = getContextLabel(state.context);
+  const requestedReturnTo = searchParams.get("returnTo")?.trim();
+  const returnTo =
+    requestedReturnTo && requestedReturnTo.startsWith("/manager")
+      ? requestedReturnTo
+      : "/manager";
+
+  const handleMinimizeToPanel = () => {
+    actions.open(state.context);
+    router.push(returnTo);
+  };
 
   return (
     <header className="shrink-0 border-b border-stroke">
@@ -56,6 +70,16 @@ export function AssistantHubFullPageHeader() {
           </span>
           <p className="truncate text-sm font-semibold text-ink">QA Assistant</p>
         </div>
+        <button
+          type="button"
+          onClick={handleMinimizeToPanel}
+          className="flex h-7 items-center gap-1.5 rounded-md border border-stroke bg-surface px-2.5 text-[11px] font-medium text-ink-muted transition-colors hover:border-brand-500/40 hover:bg-brand-50/50 hover:text-ink"
+          aria-label="Minimize to panel"
+          title="Minimize to panel"
+        >
+          <ArrowsPointingInIcon className="h-3.5 w-3.5" />
+          Minimize
+        </button>
       </div>
 
       {/* Context breadcrumb */}

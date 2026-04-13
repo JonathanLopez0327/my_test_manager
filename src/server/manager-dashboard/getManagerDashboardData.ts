@@ -346,7 +346,7 @@ export async function getManagerDashboardData(
         by: ["runId", "status"],
         where: {
           runId: { in: runIds },
-          status: { in: ORDERED_STATUSES },
+          status: { in: [...ORDERED_STATUSES] },
         },
         _count: { _all: true },
       })
