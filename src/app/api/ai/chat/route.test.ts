@@ -73,7 +73,7 @@ describe("POST /api/ai/chat", () => {
     process.env = {
       ...originalEnv,
       LANGGRAPH_API_URL: "http://langgraph.local",
-      LANGGRAPH_ASSISTANT_ID: "assistant-id",
+      LANGGRAPH_QA_ID: "assistant-id",
       NEXT_PUBLIC_LANGGRAPH_API_KEY: "lg-key",
       NODE_ENV: "test",
     };

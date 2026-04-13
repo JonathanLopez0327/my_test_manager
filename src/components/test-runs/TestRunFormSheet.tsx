@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { TestRunPayload, TestRunRecord, TestRunStatus, TestRunType } from "./types";
 
 type ProjectOption = {
@@ -36,6 +37,7 @@ type TestRunFormSheetProps = {
   suites: TestSuiteOption[];
   onClose: () => void;
   onSave: (payload: TestRunPayload, runId?: string) => Promise<void>;
+  onDelete?: (run: TestRunRecord) => Promise<void>;
 };
 
 type TestRunFormState = {
@@ -103,9 +105,12 @@ export function TestRunFormSheet({
   suites,
   onClose,
   onSave,
+  onDelete,
 }: TestRunFormSheetProps) {
   const [form, setForm] = useState<TestRunFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const title = useMemo(() => (run ? "Edit test run" : "New test run"), [run]);
@@ -147,6 +152,7 @@ export function TestRunFormSheet({
       setForm(emptyForm);
     }
     setError(null);
+    setConfirmDeleteOpen(false);
   }, [run, open]);
 
   useEffect(() => {
@@ -200,6 +206,25 @@ export function TestRunFormSheet({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!run || !onDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onDelete(run);
+      setConfirmDeleteOpen(false);
+      onClose();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete test run.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -408,6 +433,16 @@ export function TestRunFormSheet({
         ) : null}
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+          {run && onDelete ? (
+            <Button
+              variant="critical"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={submitting || deleting}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -416,6 +451,15 @@ export function TestRunFormSheet({
           </Button>
         </div>
       </div>
+      <ConfirmationDialog
+        open={confirmDeleteOpen}
+        title={`Delete test run "${run?.name ?? run?.id ?? ""}"?`}
+        description="This action will permanently delete the test run. This cannot be undone."
+        confirmText="Delete"
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        isConfirming={deleting}
+      />
     </Sheet>
   );
 }

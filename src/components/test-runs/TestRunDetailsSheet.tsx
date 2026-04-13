@@ -22,6 +22,7 @@ import {
     TrashIcon,
 } from "@heroicons/react/24/outline";
 import type { TestRunMetricsRecord, TestRunRecord } from "./types";
+import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
 
 type TestRunDetailsSheetProps = {
     open: boolean;
@@ -960,6 +961,14 @@ export function TestRunDetailsSheet({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        {run ? (
+                            <AssistantHubTrigger
+                                context={{ type: "testRun", testRunId: run.id, testRunTitle: run.name ?? `Run #${run.id.slice(0, 8)}`, projectId: run.projectId }}
+                                label="Ask AI"
+                                variant="button"
+                                onBeforeOpen={onClose}
+                            />
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => run?.id && window.open(`/api/test-runs/${run.id}/export?format=pdf`, "_blank")}

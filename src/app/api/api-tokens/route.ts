@@ -112,8 +112,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       name: parsed.data.name,
       tokenPrefix: generated.tokenPrefix,
       tokenHash: generated.tokenHash,
-      userId,
-      organizationId: targetOrganizationId,
+      user: { connect: { id: userId } },
+      ...(targetOrganizationId ? { organization: { connect: { id: targetOrganizationId } } } : {}),
       expiresAt,
     },
     select: {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { TestSuitePayload, TestSuiteRecord } from "./types";
 
 type TestPlanOption = {
@@ -22,8 +23,10 @@ type TestSuiteFormSheetProps = {
   open: boolean;
   suite: TestSuiteRecord | null;
   testPlans: TestPlanOption[];
+  defaultTestPlanId?: string;
   onClose: () => void;
   onSave: (payload: TestSuitePayload, suiteId?: string) => Promise<void>;
+  onDelete?: (suite: TestSuiteRecord) => Promise<void>;
 };
 
 type TestSuiteFormState = {
@@ -46,13 +49,17 @@ export function TestSuiteFormSheet({
   open,
   suite,
   testPlans,
+  defaultTestPlanId,
   onClose,
   onSave,
+  onDelete,
 }: TestSuiteFormSheetProps) {
   const [form, setForm] = useState<TestSuiteFormState>(emptyForm);
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
   const [loadingParents, setLoadingParents] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const title = useMemo(
@@ -70,10 +77,11 @@ export function TestSuiteFormSheet({
         displayOrder: String(suite.displayOrder ?? 0),
       });
     } else {
-      setForm(emptyForm);
+      setForm({ ...emptyForm, testPlanId: defaultTestPlanId ?? "" });
     }
     setError(null);
-  }, [suite, open]);
+    setConfirmDeleteOpen(false);
+  }, [suite, open, defaultTestPlanId]);
 
   useEffect(() => {
     if (!open || !form.testPlanId) {
@@ -155,6 +163,25 @@ export function TestSuiteFormSheet({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!suite || !onDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onDelete(suite);
+      setConfirmDeleteOpen(false);
+      onClose();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete suite.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -261,6 +288,16 @@ export function TestSuiteFormSheet({
         ) : null}
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+          {suite && onDelete ? (
+            <Button
+              variant="critical"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={submitting || deleting}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -269,6 +306,15 @@ export function TestSuiteFormSheet({
           </Button>
         </div>
       </div>
+      <ConfirmationDialog
+        open={confirmDeleteOpen}
+        title={`Delete test suite "${suite?.name ?? ""}"?`}
+        description="This action will permanently delete the test suite. This cannot be undone."
+        confirmText="Delete"
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        isConfirming={deleting}
+      />
     </Sheet>
   );
 }

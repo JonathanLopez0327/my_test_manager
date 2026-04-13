@@ -59,6 +59,9 @@ export const PERMISSIONS = {
   BUG_CREATE: "bug:create",
   BUG_UPDATE: "bug:update",
   BUG_DELETE: "bug:delete",
+  BUG_ATTACHMENT_LIST: "bug-attachment:list",
+  BUG_ATTACHMENT_UPLOAD: "bug-attachment:upload",
+  BUG_ATTACHMENT_DELETE: "bug-attachment:delete",
   BUG_COMMENT_CREATE: "bug-comment:create",
   BUG_COMMENT_DELETE: "bug-comment:delete",
 
@@ -91,5 +94,6 @@ export const READ_ONLY_PERMISSIONS: Permission[] = [
   PERMISSIONS.TEST_RUN_METRICS_VIEW,
   PERMISSIONS.ARTIFACT_LIST,
   PERMISSIONS.BUG_LIST,
+  PERMISSIONS.BUG_ATTACHMENT_LIST,
   PERMISSIONS.USER_LIST,
 ];

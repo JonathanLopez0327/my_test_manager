@@ -20,11 +20,22 @@ import type {
   SortDir,
 } from "./types";
 import { nextSort } from "@/lib/sorting";
+import { useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 type ProjectOption = { id: string; key: string; name: string };
 type UserOption = { id: string; email: string; fullName: string | null };
+type TestRunOption = { id: string; name: string | null; status: string };
+
+function inferAttachmentType(file: File) {
+  const mime = (file.type || "").toLowerCase();
+  if (mime.startsWith("image/")) return "screenshot";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("text/") || mime.includes("json") || mime.includes("xml")) return "log";
+  return "other";
+}
 
 export function BugsPage() {
   const { data: session } = useSession();
@@ -36,6 +47,9 @@ export function BugsPage() {
   const canDelete = useCan(PERMISSIONS.BUG_DELETE);
   const canComment = useCan(PERMISSIONS.BUG_COMMENT_CREATE);
   const canDeleteComment = useCan(PERMISSIONS.BUG_COMMENT_DELETE);
+  const canListAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_LIST);
+  const canUploadAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_UPLOAD);
+  const canDeleteAttachments = useCan(PERMISSIONS.BUG_ATTACHMENT_DELETE);
 
   const [items, setItems] = useState<BugRecord[]>([]);
   const [page, setPage] = useState(1);
@@ -61,6 +75,7 @@ export function BugsPage() {
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [testRuns, setTestRuns] = useState<TestRunOption[]>([]);
 
   const currentUserId = session?.user?.id;
   const sortBy = (searchParams.get("sortBy") as BugSortBy | null) ?? null;
@@ -70,6 +85,24 @@ export function BugsPage() {
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize],
   );
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "bugsList",
+    visibleItems: items.slice(0, 30).map((bug) => ({
+      id: bug.id,
+      title: bug.title,
+      status: bug.status,
+      priority: bug.severity,
+    })),
+    filters: {
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(severityFilter ? { severity: severityFilter } : {}),
+      ...(query ? { search: query } : {}),
+    },
+    summary: { total, page, pageSize },
+  }), [items, statusFilter, severityFilter, query, total, page, pageSize]);
+
+  useScreenDataSync(screenData);
 
   const fetchBugs = useCallback(async () => {
     setLoading(true);
@@ -139,6 +172,24 @@ export function BugsPage() {
     }
   }, []);
 
+  const fetchTestRuns = useCallback(async () => {
+    try {
+      const response = await fetch("/api/test-runs?page=1&pageSize=100");
+      if (response.ok) {
+        const data = await response.json();
+        setTestRuns(
+          (data.items ?? []).map((r: { id: string; name: string | null; status: string }) => ({
+            id: r.id,
+            name: r.name,
+            status: r.status,
+          })),
+        );
+      }
+    } catch {
+      // silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchBugs();
   }, [fetchBugs]);
@@ -146,7 +197,8 @@ export function BugsPage() {
   useEffect(() => {
     fetchProjects();
     fetchUsers();
-  }, [fetchProjects, fetchUsers]);
+    fetchTestRuns();
+  }, [fetchProjects, fetchUsers, fetchTestRuns]);
 
   useEffect(() => {
     setPage(1);
@@ -171,6 +223,13 @@ export function BugsPage() {
   const handleView = (bug: BugRecord) => {
     setViewing(bug);
     setDetailOpen(true);
+    void fetchBugById(bug.id).then((latestBug) => {
+      if (!latestBug) return;
+      setViewing((current) => {
+        if (!current || current.id !== bug.id) return current;
+        return latestBug;
+      });
+    });
   };
 
   const handleDelete = (bug: BugRecord) => {
@@ -203,7 +262,36 @@ export function BugsPage() {
     }
   };
 
-  const handleSave = async (payload: BugPayload, bugId?: string) => {
+  const fetchBugById = useCallback(async (bugId: string) => {
+    const response = await fetch(`/api/bugs/${bugId}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    return (await response.json()) as BugRecord;
+  }, []);
+
+  const uploadAttachmentsForBug = useCallback(async (bugId: string, files: File[]) => {
+    let failed = 0;
+    await Promise.all(
+      files.map(async (file) => {
+        const formData = new FormData();
+        formData.set("file", file);
+        formData.set("type", inferAttachmentType(file));
+        try {
+          const response = await fetch(`/api/bugs/${bugId}/attachments/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!response.ok) {
+            failed += 1;
+          }
+        } catch {
+          failed += 1;
+        }
+      }),
+    );
+    return failed;
+  }, []);
+
+  const handleSave = async (payload: BugPayload, bugId?: string, files?: File[]) => {
     const method = bugId ? "PUT" : "POST";
     const endpoint = bugId ? `/api/bugs/${bugId}` : "/api/bugs";
     const response = await fetch(endpoint, {
@@ -211,10 +299,25 @@ export function BugsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await response.json()) as { message?: string };
+    const data = (await response.json()) as (BugRecord & { message?: string });
     if (!response.ok) {
       throw new Error(data.message || "Could not save bug.");
     }
+
+    if (!bugId && canUploadAttachments && files && files.length > 0) {
+      const failedUploads = await uploadAttachmentsForBug(data.id, files);
+      if (failedUploads > 0) {
+        setError(
+          `Bug created, but ${failedUploads} attachment${failedUploads === 1 ? "" : "s"} could not be uploaded.`,
+        );
+        const latestBug = await fetchBugById(data.id);
+        if (latestBug) {
+          setViewing(latestBug);
+          setDetailOpen(true);
+        }
+      }
+    }
+
     await fetchBugs();
   };
 
@@ -294,6 +397,8 @@ export function BugsPage() {
         bug={editing}
         projects={projects}
         users={users}
+        testRuns={testRuns}
+        canUploadAttachments={canUploadAttachments}
         onClose={() => setFormOpen(false)}
         onSave={handleSave}
       />
@@ -304,6 +409,9 @@ export function BugsPage() {
         onClose={() => setDetailOpen(false)}
         canComment={canComment}
         canDeleteComment={canDeleteComment}
+        canListAttachments={canListAttachments}
+        canUploadAttachments={canUploadAttachments}
+        canDeleteAttachment={canDeleteAttachments}
         currentUserId={currentUserId}
       />
 

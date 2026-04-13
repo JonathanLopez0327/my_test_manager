@@ -7,13 +7,14 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 type ConfirmationDialogProps = {
     open: boolean;
     title: string;
-    description: string;
+    description: string | React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     variant?: "danger" | "warning" | "info";
     onConfirm: () => void | Promise<void>;
     onCancel: () => void;
     isConfirming?: boolean;
+    disableConfirm?: boolean;
 };
 
 export function ConfirmationDialog({
@@ -26,6 +27,7 @@ export function ConfirmationDialog({
     onConfirm,
     onCancel,
     isConfirming = false,
+    disableConfirm = false,
 }: ConfirmationDialogProps) {
     return (
         <Modal open={open} onClose={onCancel} size="md">
@@ -41,7 +43,7 @@ export function ConfirmationDialog({
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-ink">{title}</h3>
-                        <p className="text-sm text-ink-muted">{description}</p>
+                        <div className="text-sm text-ink-muted">{description}</div>
                     </div>
                 </div>
 
@@ -52,7 +54,7 @@ export function ConfirmationDialog({
                     <Button
                         variant={variant === "danger" ? "critical" : "primary"}
                         onClick={onConfirm}
-                        disabled={isConfirming}
+                        disabled={isConfirming || disableConfirm}
                     >
                         {isConfirming ? "Processing..." : confirmText}
                     </Button>

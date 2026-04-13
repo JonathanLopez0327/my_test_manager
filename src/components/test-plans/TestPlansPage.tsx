@@ -46,7 +46,11 @@ export function TestPlansPage() {
     id: string | null;
     name: string;
     isConfirming: boolean;
-  }>({ open: false, id: null, name: "", isConfirming: false });
+    loadingCounts: boolean;
+    hasRelated: boolean | null;
+    counts: Record<string, number> | null;
+    countsError: string | null;
+  }>({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
   const [editing, setEditing] = useState<TestPlanRecord | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -162,14 +166,35 @@ export function TestPlansPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = (plan: TestPlanRecord) => {
+  const handleDelete = async (plan: TestPlanRecord) => {
     if (!canManage) return;
     setDeleteConfirmation({
       open: true,
       id: plan.id,
       name: plan.name,
       isConfirming: false,
+      loadingCounts: true,
+      hasRelated: null,
+      counts: null,
+      countsError: null,
     });
+    try {
+      const res = await fetch(`/api/test-plans/${plan.id}/related-counts`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Could not load related counts.");
+      setDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        hasRelated: data.hasRelated,
+        counts: data.counts,
+      }));
+    } catch (err) {
+      setDeleteConfirmation((prev) => ({
+        ...prev,
+        loadingCounts: false,
+        countsError: err instanceof Error ? err.message : "Could not load related counts.",
+      }));
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -187,7 +212,7 @@ export function TestPlansPage() {
         throw new Error(data.message || "Could not delete test plan.");
       }
       await fetchTestPlans();
-      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false });
+      setDeleteConfirmation({ open: false, id: null, name: "", isConfirming: false, loadingCounts: false, hasRelated: null, counts: null, countsError: null });
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -309,7 +334,25 @@ export function TestPlansPage() {
       <ConfirmationDialog
         open={deleteConfirmation.open}
         title={`Delete test plan "${deleteConfirmation.name}"?`}
-        description="This action will permanently delete the test plan. This cannot be undone."
+        description={
+          deleteConfirmation.loadingCounts ? (
+            <p>Loading related elements...</p>
+          ) : deleteConfirmation.countsError ? (
+            <p className="text-danger-600">{deleteConfirmation.countsError}</p>
+          ) : deleteConfirmation.hasRelated && deleteConfirmation.counts ? (
+            <div className="space-y-2">
+              <p>Cannot delete this test plan. It has related elements:</p>
+              <ul className="list-disc pl-5 text-sm">
+                {deleteConfirmation.counts.testSuites > 0 && <li>{deleteConfirmation.counts.testSuites} test suites</li>}
+                {deleteConfirmation.counts.testCases > 0 && <li>{deleteConfirmation.counts.testCases} test cases</li>}
+                {deleteConfirmation.counts.testRuns > 0 && <li>{deleteConfirmation.counts.testRuns} test runs</li>}
+              </ul>
+              <p>Please delete these elements first.</p>
+            </div>
+          ) : (
+            "This action will permanently delete the test plan. This cannot be undone."
+          )
+        }
         confirmText="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() =>
@@ -318,9 +361,14 @@ export function TestPlansPage() {
             id: null,
             name: "",
             isConfirming: false,
+            loadingCounts: false,
+            hasRelated: null,
+            counts: null,
+            countsError: null,
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
+        disableConfirm={deleteConfirmation.loadingCounts || !!deleteConfirmation.countsError || !!deleteConfirmation.hasRelated}
       />
     </div>
   );

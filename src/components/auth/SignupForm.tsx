@@ -26,7 +26,7 @@ export function SignupForm() {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [slugEditedManually, setSlugEditedManually] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
-  const callbackUrl = searchParams.get("callbackUrl") || "/manager";
+  const callbackUrl = searchParams.get("callbackUrl") || "/manager/projects";
 
   const {
     control,

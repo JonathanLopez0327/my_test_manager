@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
 import { TestCasesHeader } from "./TestCasesHeader";
 import { TestCaseFormSheet } from "./TestCaseFormSheet";
+import { TestCaseDetailSheet } from "./TestCaseDetailSheet";
 import { TestCasesTable } from "./TestCasesTable";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { DataWorkspace } from "../ui/DataWorkspace";
@@ -20,6 +21,8 @@ import type {
 } from "./types";
 import type { TestSuitesResponse } from "../test-suites/types";
 import { nextSort } from "@/lib/sorting";
+import { useScreenDataSync } from "@/lib/assistant-hub";
+import type { ScreenData } from "@/lib/assistant-hub";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -47,7 +50,15 @@ export function TestCasesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedDetailCase, setSelectedDetailCase] = useState<TestCaseRecord | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    open: boolean;
+    id: string | null;
+    title: string;
+    isConfirming: boolean;
+  }>({ open: false, id: null, title: "", isConfirming: false });
+  const [duplicateConfirmation, setDuplicateConfirmation] = useState<{
     open: boolean;
     id: string | null;
     title: string;
@@ -74,6 +85,29 @@ export function TestCasesPage() {
     () => Math.max(1, Math.ceil(total / pageSize)),
     [total, pageSize],
   );
+
+  const selectedSuiteName = useMemo(() => {
+    if (!suiteFilter) return undefined;
+    return suites.find((s) => s.id === suiteFilter)?.name;
+  }, [suiteFilter, suites]);
+
+  const screenData = useMemo<ScreenData>(() => ({
+    viewType: "testCasesList",
+    visibleItems: items.slice(0, 30).map((tc) => ({
+      id: tc.id,
+      title: tc.title,
+      status: tc.status,
+      priority: tc.priority != null ? String(tc.priority) : undefined,
+    })),
+    filters: {
+      ...(suiteFilter && selectedSuiteName ? { suite: selectedSuiteName } : {}),
+      ...(tagFilter ? { tag: tagFilter } : {}),
+      ...(query ? { search: query } : {}),
+    },
+    summary: { total, page, pageSize },
+  }), [items, suiteFilter, selectedSuiteName, tagFilter, query, total, page, pageSize]);
+
+  useScreenDataSync(screenData);
 
   const fetchCases = useCallback(async () => {
     setLoading(true);
@@ -229,6 +263,11 @@ export function TestCasesPage() {
     setModalOpen(true);
   };
 
+  const handleView = (testCase: TestCaseRecord) => {
+    setSelectedDetailCase(testCase);
+    setIsDetailOpen(true);
+  };
+
   const handleDelete = (testCase: TestCaseRecord) => {
     if (!canManage) return;
     setDeleteConfirmation({
@@ -239,11 +278,24 @@ export function TestCasesPage() {
     });
   };
 
-  const handleDuplicate = async (testCase: TestCaseRecord) => {
+  const handleDuplicate = (testCase: TestCaseRecord) => {
     if (!canManage) return;
+    setDuplicateConfirmation({
+      open: true,
+      id: testCase.id,
+      title: testCase.title,
+      isConfirming: false,
+    });
+  };
+
+  const handleConfirmDuplicate = async () => {
+    const { id } = duplicateConfirmation;
+    if (!id) return;
+
+    setDuplicateConfirmation((prev) => ({ ...prev, isConfirming: true }));
     setError(null);
     try {
-      const response = await fetch(`/api/test-cases/${testCase.id}/duplicate`, {
+      const response = await fetch(`/api/test-cases/${id}/duplicate`, {
         method: "POST",
       });
       const data = (await response.json()) as { message?: string };
@@ -251,12 +303,14 @@ export function TestCasesPage() {
         throw new Error(data.message || "Could not duplicate test case.");
       }
       await fetchCases();
+      setDuplicateConfirmation({ open: false, id: null, title: "", isConfirming: false });
     } catch (dupError) {
       setError(
         dupError instanceof Error
           ? dupError.message
           : "Could not duplicate test case.",
       );
+      setDuplicateConfirmation((prev) => ({ ...prev, isConfirming: false }));
     }
   };
 
@@ -408,6 +462,7 @@ export function TestCasesPage() {
           <TestCasesTable
             items={items}
             loading={loading}
+            onView={handleView}
             onEdit={handleEdit}
             onDelete={handleDelete}
             onDuplicate={handleDuplicate}
@@ -437,6 +492,12 @@ export function TestCasesPage() {
         />
       ) : null}
 
+      <TestCaseDetailSheet
+        open={isDetailOpen}
+        testCase={selectedDetailCase}
+        onClose={() => setIsDetailOpen(false)}
+      />
+
       <ConfirmationDialog
         open={deleteConfirmation.open}
         title={`Delete test case "${deleteConfirmation.title}"?`}
@@ -452,6 +513,23 @@ export function TestCasesPage() {
           })
         }
         isConfirming={deleteConfirmation.isConfirming}
+      />
+      <ConfirmationDialog
+        open={duplicateConfirmation.open}
+        title={`Duplicate test case "${duplicateConfirmation.title}"?`}
+        description="A new copy will be created in the same suite."
+        confirmText="Duplicate"
+        variant="info"
+        onConfirm={handleConfirmDuplicate}
+        onCancel={() =>
+          setDuplicateConfirmation({
+            open: false,
+            id: null,
+            title: "",
+            isConfirming: false,
+          })
+        }
+        isConfirming={duplicateConfirmation.isConfirming}
       />
     </div>
   );

@@ -14,6 +14,7 @@ type StatCardProps = {
   icon: ReactNode;
   accentClassName: string;
   emphasized?: boolean;
+  compact?: boolean;
 };
 
 export function StatCard({
@@ -25,20 +26,23 @@ export function StatCard({
   icon,
   accentClassName,
   emphasized = false,
+  compact = false,
 }: StatCardProps) {
   return (
     <Card
       className={`overflow-hidden ${emphasized ? "border-brand-300/60 bg-gradient-to-br from-brand-50/50 via-surface-elevated to-surface-elevated shadow-[0_24px_44px_-28px_rgba(74,58,208,0.42)]" : ""}`}
     >
-      <div className="flex items-start justify-between gap-4 p-6">
+      <div className={`flex items-start justify-between gap-4 ${compact ? "p-5" : "p-6"}`}>
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-soft">
             {label}
           </p>
-          <p className={`mt-3 ${emphasized ? "text-[38px]" : "text-[30px]"} font-semibold leading-none text-ink`}>
+          <p
+            className={`mt-3 ${emphasized ? "text-[38px]" : compact ? "text-[24px]" : "text-[30px]"} font-semibold leading-none text-ink`}
+          >
             {value}
           </p>
-          <p className="mt-2 text-sm text-ink-muted">{supportText}</p>
+          <p className={`mt-2 ${compact ? "text-xs" : "text-sm"} text-ink-muted`}>{supportText}</p>
           {microInsight ? (
             <p className="mt-2 text-xs font-medium text-ink-soft">{microInsight}</p>
           ) : null}
@@ -49,7 +53,7 @@ export function StatCard({
               {statusBadge.label}
             </Badge>
           ) : null}
-          <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${accentClassName}`}>
+          <div className={`flex ${compact ? "h-9 w-9" : "h-11 w-11"} items-center justify-center rounded-xl ${accentClassName}`}>
             {icon}
           </div>
         </div>

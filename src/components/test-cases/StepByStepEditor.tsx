@@ -17,9 +17,9 @@ export function StepByStepEditor({ steps, onAdd, onRemove, onUpdate }: StepBySte
       <label className="text-sm font-semibold text-ink">Steps</label>
       <div className="flex flex-col gap-3">
         {steps.map((item, index) => (
-          <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-gray-50 p-3">
+          <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-surface-muted p-3">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-medium text-ink/60">Step {index + 1}</span>
+              <span className="text-xs font-medium text-ink-muted">Step {index + 1}</span>
               <button
                 type="button"
                 onClick={() => onRemove(item.id)}
@@ -32,13 +32,13 @@ export function StepByStepEditor({ steps, onAdd, onRemove, onUpdate }: StepBySte
               value={item.step}
               onChange={(e) => onUpdate(item.id, "step", e.target.value)}
               placeholder="Step description"
-              className="min-h-[60px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[60px] w-full rounded-lg border border-stroke bg-surface-elevated px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
             <textarea
               value={item.expectedResult}
               onChange={(e) => onUpdate(item.id, "expectedResult", e.target.value)}
               placeholder="Expected result"
-              className="min-h-[40px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[40px] w-full rounded-lg border border-stroke bg-surface-elevated px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </div>
         ))}

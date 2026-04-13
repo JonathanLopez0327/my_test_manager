@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma, TestCaseStatus } from "@/generated/prisma/client";
+import { Prisma, TestCaseStatus, TestRunStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
+import { upsertRunMetrics } from "@/lib/test-runs";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
 import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
 const STATUS_VALUES: TestCaseStatus[] = ["draft", "ready", "deprecated"];
+const ACTIVE_RUN_STATUSES: TestRunStatus[] = ["queued", "running"];
 const SORTABLE_FIELDS = [
   "case",
   "suite",
@@ -33,6 +35,14 @@ function parseStatus(value?: string | null) {
     : null;
 }
 
+function parsePriorityFilter(value?: string | null) {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return null;
+  if (parsed < 1 || parsed > 5) return null;
+  return parsed;
+}
+
 function parsePriority(value?: number | null) {
   if (value === null || value === undefined) return 3;
   const parsed = Number(value);
@@ -53,6 +63,7 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   const testPlanId = searchParams.get("testPlanId")?.trim();
   const projectId = searchParams.get("projectId")?.trim();
   const status = parseStatus(searchParams.get("status")?.trim() ?? null);
+  const priority = parsePriorityFilter(searchParams.get("priority")?.trim() ?? null);
   const requestedSortBy = searchParams.get("sortBy");
   const sortBy =
     requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as TestCaseSortBy)
@@ -97,6 +108,9 @@ export const GET = withAuth(PERMISSIONS.TEST_CASE_LIST, async (req, { userId, gl
   }
   if (status) {
     filters.push({ status });
+  }
+  if (priority !== null) {
+    filters.push({ priority });
   }
   if (query) {
     filters.push({
@@ -276,22 +290,49 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       }
     }
 
-    const testCase = await prisma.testCase.create({
-      data: {
-        suiteId,
-        title,
-        style,
-        description: body.description?.trim() || null,
-        preconditions: body.preconditions?.trim() || null,
-        steps,
-        tags,
-        status,
-        priority,
-        isAutomated,
-        automationType: isAutomated ? automationType : null,
-        automationRef: isAutomated ? automationRef : null,
-        createdById: userId,
-      },
+    const testCase = await prisma.$transaction(async (tx) => {
+      const created = await tx.testCase.create({
+        data: {
+          suite: { connect: { id: suiteId } },
+          title,
+          style,
+          description: body.description?.trim() || null,
+          preconditions: body.preconditions?.trim() || null,
+          steps,
+          tags,
+          status,
+          priority,
+          isAutomated,
+          automationType: isAutomated ? automationType : null,
+          automationRef: isAutomated ? automationRef : null,
+          ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
+        },
+      });
+
+      const targetRuns = await tx.testRun.findMany({
+        where: {
+          status: { in: ACTIVE_RUN_STATUSES },
+          OR: [
+            { suiteId: suite.id },
+            { suiteId: null, testPlanId: suite.testPlanId },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (targetRuns.length > 0) {
+        await tx.testRunItem.createMany({
+          data: targetRuns.map((run) => ({
+            runId: run.id,
+            testCaseId: created.id,
+          })),
+          skipDuplicates: true,
+        });
+
+        await Promise.all(targetRuns.map((run) => upsertRunMetrics(tx, run.id)));
+      }
+
+      return created;
     });
 
     return NextResponse.json(testCase, { status: 201 });

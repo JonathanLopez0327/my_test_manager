@@ -5,6 +5,7 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   hint?: string;
   label?: string;
   leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
 };
 
 export function Input({
@@ -13,6 +14,7 @@ export function Input({
   hint,
   label,
   leadingIcon,
+  trailingIcon,
   id,
   ...props
 }: InputProps) {
@@ -36,9 +38,14 @@ export function Input({
         ) : null}
         <input
           id={resolvedId}
-          className={`h-10 w-full rounded-lg border-[1.5px] bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-muted focus:border-brand-500 dark:bg-surface-muted dark:text-white ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${className}`}
+          className={`h-10 w-full rounded-lg border-[1.5px] bg-surface-elevated px-4 text-sm text-ink outline-none transition-all duration-200 ease-[var(--ease-emphasis)] placeholder:text-ink-muted focus:border-brand-500 dark:bg-surface-muted dark:text-white ${error ? "border-danger-500" : "border-stroke"} ${leadingIcon ? "pl-10" : ""} ${trailingIcon ? "pr-10" : ""} ${className}`}
           {...props}
         />
+        {trailingIcon ? (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft">
+            {trailingIcon}
+          </span>
+        ) : null}
       </div>
       {error ? (
         <p className="mt-1 text-xs font-semibold text-danger-600">{error}</p>

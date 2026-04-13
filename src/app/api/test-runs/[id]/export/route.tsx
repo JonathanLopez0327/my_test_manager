@@ -7,10 +7,13 @@ import {
     Page,
     Text,
     View,
+    Image,
     StyleSheet,
     renderToStream,
 } from "@react-pdf/renderer";
 import { Readable } from "stream";
+import { parseSteps } from "@/lib/parse-steps";
+import { getPresignedUrl, getS3Config } from "@/lib/s3";
 
 type RouteParams = {
     params: Promise<{
@@ -46,6 +49,33 @@ type ExportMetrics = {
     passRate: number;
 };
 
+type ExportStepResult = {
+    stepIndex: number;
+    stepTextSnapshot: string;
+    expectedSnapshot: string | null;
+    status: string;
+    actualResult: string | null;
+    comment: string | null;
+};
+
+type ExportArtifact = {
+    url: string;
+    name: string | null;
+    mimeType: string | null;
+    metadata: unknown;
+};
+
+type ExportRunItemComplete = ExportRunItem & {
+    executions: {
+        status: string;
+        attemptNumber: number;
+        summary: string | null;
+        stepResults: ExportStepResult[];
+        artifacts: ExportArtifact[];
+    }[];
+    testCase: ExportRunItem["testCase"] & { style: string; steps: unknown };
+};
+
 // PDF Styles
 const styles = StyleSheet.create({
     page: { padding: 30, fontFamily: "Helvetica", fontSize: 10, color: "#111827" },
@@ -71,6 +101,20 @@ const styles = StyleSheet.create({
     statusSkipped: { color: "#6B7280" },
     statusBlocked: { color: "#D97706" },
     statusNotRun: { color: "#9CA3AF" },
+    // Complete mode styles
+    itemCard: { marginBottom: 14, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 4, padding: 10 },
+    itemHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+    itemTitle: { fontSize: 11, fontWeight: "bold" },
+    stepRow: { flexDirection: "row", marginBottom: 4, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: "#E5E7EB", paddingVertical: 2 },
+    stepIndex: { width: 20, fontSize: 9, color: "#6B7280" },
+    stepContent: { flex: 1 },
+    stepText: { fontSize: 9 },
+    stepExpected: { fontSize: 8, color: "#6B7280", marginTop: 1 },
+    stepActual: { fontSize: 8, color: "#374151", marginTop: 1 },
+    stepComment: { fontSize: 8, color: "#6B7280", fontStyle: "italic", marginTop: 1 },
+    stepStatusBadge: { fontSize: 8, fontWeight: "bold" },
+    artifactImage: { maxWidth: 250, maxHeight: 200, marginTop: 4, marginBottom: 4 },
+    noExecution: { fontSize: 9, color: "#9CA3AF", fontStyle: "italic", marginTop: 4 },
 });
 
 const getStatusColor = (status: string) => {
@@ -80,6 +124,16 @@ const getStatusColor = (status: string) => {
         case "skipped": return styles.statusSkipped;
         case "blocked": return styles.statusBlocked;
         default: return styles.statusNotRun;
+    }
+};
+
+const getStatusColorHex = (status: string) => {
+    switch (status) {
+        case "passed": return "#16A34A";
+        case "failed": return "#DC2626";
+        case "skipped": return "#6B7280";
+        case "blocked": return "#D97706";
+        default: return "#9CA3AF";
     }
 };
 
@@ -153,6 +207,246 @@ const PDFDocument = ({ run, metrics, items }: {
     </Document>
 );
 
+function extractS3Key(url: string): string | null {
+    try {
+        const { bucket, endpoint } = getS3Config("artifacts");
+        const base = (process.env.S3_PUBLIC_URL ?? endpoint).replace(/\/$/, "");
+        const bucketPrefix = `${base}/${bucket}/`;
+        if (url.startsWith(bucketPrefix)) {
+            return decodeURI(url.slice(bucketPrefix.length));
+        }
+    } catch { /* s3 not configured */ }
+    return null;
+}
+
+async function signArtifactUrl(url: string): Promise<string> {
+    const key = extractS3Key(url);
+    if (!key) return url;
+    try {
+        return await getPresignedUrl("artifacts", key);
+    } catch {
+        return url;
+    }
+}
+
+async function fetchImageAsDataUri(url: string, mimeType: string | null): Promise<string | null> {
+    const signedUrl = await signArtifactUrl(url);
+    try {
+        const res = await fetch(signedUrl);
+        if (!res.ok) return null;
+        const buffer = Buffer.from(await res.arrayBuffer());
+        const mime = mimeType || res.headers.get("content-type") || "image/png";
+        return `data:${mime};base64,${buffer.toString("base64")}`;
+    } catch {
+        return null;
+    }
+}
+
+async function resolveArtifactImages(
+    items: ExportRunItemComplete[],
+    target: "pdf" | "html",
+): Promise<Map<string, string>> {
+    const urlMap = new Map<string, string>();
+    const imageArtifacts: ExportArtifact[] = [];
+
+    for (const item of items) {
+        const executions = item.executions ?? [];
+        for (const exec of executions) {
+            const artifacts = exec.artifacts ?? [];
+            for (const a of artifacts) {
+                if (!a.mimeType?.startsWith("image/")) continue;
+                if (urlMap.has(a.url)) continue;
+                imageArtifacts.push(a);
+                urlMap.set(a.url, a.url); // placeholder
+            }
+        }
+    }
+
+    await Promise.all(
+        imageArtifacts.map(async (a) => {
+            if (target === "pdf") {
+                const dataUri = await fetchImageAsDataUri(a.url, a.mimeType);
+                if (dataUri) urlMap.set(a.url, dataUri);
+            } else {
+                const signed = await signArtifactUrl(a.url);
+                urlMap.set(a.url, signed);
+            }
+        }),
+    );
+
+    return urlMap;
+}
+
+function getStepArtifacts(artifacts: ExportArtifact[], stepIndex: number): ExportArtifact[] {
+    return artifacts.filter((a) => {
+        if (!a.mimeType?.startsWith("image/")) return false;
+        const meta = a.metadata as { scope?: string; stepIndex?: number } | null;
+        return meta?.scope === "step" && meta?.stepIndex === stepIndex;
+    });
+}
+
+const CompletePDFDocument = ({ run, metrics, items, resolvedUrls }: {
+    run: ExportRun;
+    metrics: ExportMetrics;
+    items: ExportRunItemComplete[];
+    resolvedUrls: Map<string, string>;
+}) => (
+    <Document>
+        <Page size="A4" style={styles.page} wrap>
+            <View style={styles.header}>
+                <Text style={styles.title}>{run.project.key} Test Run Report (Complete)</Text>
+                <Text style={styles.subtitle}>{run.name || `Run ${run.id}`}</Text>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Details</Text>
+                <View style={styles.row}>
+                    <Text style={styles.label}>Environment:</Text>
+                    <Text style={styles.value}>{run.environment || "N/A"}</Text>
+                </View>
+                <View style={styles.row}>
+                    <Text style={styles.label}>Build:</Text>
+                    <Text style={styles.value}>{run.buildNumber || "N/A"}</Text>
+                </View>
+                <View style={styles.row}>
+                    <Text style={styles.label}>Started:</Text>
+                    <Text style={styles.value}>{run.startedAt ? new Date(run.startedAt).toLocaleString() : "N/A"}</Text>
+                </View>
+                <View style={styles.row}>
+                    <Text style={styles.label}>Finished:</Text>
+                    <Text style={styles.value}>{run.finishedAt ? new Date(run.finishedAt).toLocaleString() : "N/A"}</Text>
+                </View>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Metrics</Text>
+                <View style={{ flexDirection: "row" }}>
+                    {[
+                        { label: "Total", value: metrics.total },
+                        { label: "Passed", value: metrics.passed },
+                        { label: "Failed", value: metrics.failed },
+                        { label: "Pass Rate", value: `${metrics.passRate}%` },
+                    ].map((m, i) => (
+                        <View key={i} style={styles.metricBox}>
+                            <Text style={styles.metricLabel}>{m.label}</Text>
+                            <Text style={styles.metricValue}>{m.value}</Text>
+                        </View>
+                    ))}
+                </View>
+            </View>
+
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Test Items — Detailed</Text>
+                {items.map((item) => {
+                    const executions = item.executions ?? [];
+                    const baseSteps = parseSteps(item.testCase.style, item.testCase.steps);
+
+                    return (
+                        <View key={item.id} style={styles.itemCard}>
+                            <View style={styles.itemHeader}>
+                                <Text style={styles.itemTitle}>
+                                    {item.testCase.externalKey ? `${item.testCase.externalKey} — ` : ""}
+                                    {item.testCase.title}
+                                </Text>
+                                <Text style={[styles.stepStatusBadge, getStatusColor(item.status)]}>
+                                    {item.status.toUpperCase()}
+                                </Text>
+                            </View>
+
+                            {executions.length === 0 && (
+                                <Text style={styles.noExecution}>No execution data — showing test case steps</Text>
+                            )}
+
+                            {executions.length === 0 && baseSteps.map((step, idx) => {
+                                return (
+                                    <View key={idx} style={styles.stepRow}>
+                                        <Text style={styles.stepIndex}>{idx + 1}.</Text>
+                                        <View style={styles.stepContent}>
+                                            <Text style={styles.stepText}>
+                                                {(step as { text: string }).text}
+                                            </Text>
+                                            {(step as { expected?: string | null }).expected && (
+                                                <Text style={styles.stepExpected}>
+                                                    Expected: {(step as { expected: string }).expected}
+                                                </Text>
+                                            )}
+                                            <Text style={[styles.stepStatusBadge, { color: "#9CA3AF" }]}>
+                                                Not executed
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+
+                            {executions.map((exec, eIdx) => {
+                                const steps = exec.stepResults;
+                                const artifacts = exec.artifacts ?? [];
+
+                                return (
+                                    <View key={eIdx} style={{ marginTop: eIdx > 0 ? 10 : 4, paddingTop: eIdx > 0 ? 10 : 0, borderTopWidth: eIdx > 0 ? 1 : 0, borderTopColor: "#E5E7EB" }}>
+                                        <Text style={{ fontSize: 10, fontWeight: "bold", marginBottom: 4 }}>
+                                            Attempt {exec.attemptNumber}
+                                            <Text style={[{ fontSize: 9, fontWeight: "normal" }, getStatusColor(exec.status)]}>
+                                                {" • "}{exec.status.toUpperCase()}
+                                            </Text>
+                                        </Text>
+
+                                        {exec.summary && (
+                                            <Text style={styles.stepComment}>Notes: {exec.summary}</Text>
+                                        )}
+
+                                        {steps.length === 0 && (
+                                            <Text style={styles.noExecution}>No steps recorded for this attempt</Text>
+                                        )}
+
+                                        {steps.map((step, idx) => {
+                                            const stepImages = getStepArtifacts(artifacts, step.stepIndex);
+
+                                            return (
+                                                <View key={idx} style={styles.stepRow}>
+                                                    <Text style={styles.stepIndex}>{step.stepIndex + 1}.</Text>
+                                                    <View style={styles.stepContent}>
+                                                        <Text style={styles.stepText}>
+                                                            {step.stepTextSnapshot}
+                                                        </Text>
+                                                        {step.expectedSnapshot && (
+                                                            <Text style={styles.stepExpected}>
+                                                                Expected: {step.expectedSnapshot}
+                                                            </Text>
+                                                        )}
+                                                        <Text style={[styles.stepStatusBadge, getStatusColor(step.status)]}>
+                                                            {step.status}
+                                                        </Text>
+                                                        {step.actualResult && (
+                                                            <Text style={styles.stepActual}>
+                                                                Actual: {step.actualResult}
+                                                            </Text>
+                                                        )}
+                                                        {step.comment && (
+                                                            <Text style={styles.stepComment}>
+                                                                {step.comment}
+                                                            </Text>
+                                                        )}
+                                                        {stepImages.map((img, imgIdx) => {
+                                                            const resolved = resolvedUrls.get(img.url);
+                                                            if (!resolved) return null;
+                                                            return <Image key={imgIdx} src={resolved} style={styles.artifactImage} />;
+                                                        })}
+                                                    </View>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    );
+                })}
+            </View>
+        </Page>
+    </Document>
+);
+
 const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunItem[]) => {
     return `
     <!DOCTYPE html>
@@ -181,16 +475,16 @@ const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunIt
         </style>
       </head>
       <body>
-        <h1>${run.project.key} Test Run Report</h1>
+        <h1>${escapeHtml(run.project.key)} Test Run Report</h1>
         <div class="meta">
-          ${run.name || `Run ${run.id}`} · Generated on ${new Date().toLocaleString()}
+          ${escapeHtml(run.name || `Run ${run.id}`)} &middot; Generated on ${new Date().toLocaleString()}
         </div>
 
         <div class="section">
           <h2>Details</h2>
           <div class="grid">
-            <div><span class="label">Environment:</span> ${run.environment || "N/A"}</div>
-            <div><span class="label">Build:</span> ${run.buildNumber || "N/A"}</div>
+            <div><span class="label">Environment:</span> ${escapeHtml(run.environment || "N/A")}</div>
+            <div><span class="label">Build:</span> ${escapeHtml(run.buildNumber || "N/A")}</div>
             <div><span class="label">Started:</span> ${run.startedAt ? new Date(run.startedAt).toLocaleString() : "N/A"}</div>
             <div><span class="label">Finished:</span> ${run.finishedAt ? new Date(run.finishedAt).toLocaleString() : "N/A"}</div>
           </div>
@@ -221,11 +515,11 @@ const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunIt
             <tbody>
               ${items.map((item) => `
                 <tr>
-                  <td>${item.testCase.externalKey || ""}</td>
-                  <td>${item.testCase.title}</td>
-                  <td class="status ${item.status}">${item.status}</td>
+                  <td>${escapeHtml(item.testCase.externalKey || "")}</td>
+                  <td>${escapeHtml(item.testCase.title)}</td>
+                  <td class="status ${item.status}">${escapeHtml(item.status)}</td>
                   <td>${item.durationMs ? item.durationMs + "ms" : "-"}</td>
-                  <td style="color: #DC2626">${item.errorMessage || ""}</td>
+                  <td style="color: #DC2626">${escapeHtml(item.errorMessage || "")}</td>
                 </tr>
               `).join("")}
             </tbody>
@@ -236,20 +530,205 @@ const generateHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunIt
   `;
 };
 
+const generateCompleteHTML = (run: ExportRun, metrics: ExportMetrics, items: ExportRunItemComplete[], resolvedUrls: Map<string, string>) => {
+    const itemsHTML = items.map((item) => {
+        const executions = item.executions ?? [];
+        const baseSteps = parseSteps(item.testCase.style, item.testCase.steps);
+
+        let executionsHTML = "";
+
+        if (executions.length === 0) {
+            executionsHTML += '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No execution data — showing test case steps</div>';
+            
+            executionsHTML += baseSteps.map((step, idx) => {
+                const stepText = (step as { text: string }).text;
+                const expected = (step as { expected?: string | null }).expected;
+                
+                return `
+                    <div style="border-left: 3px solid #9CA3AF; padding: 6px 10px; margin-bottom: 6px; background: #FAFAFA; border-radius: 0 4px 4px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 13px;">${idx + 1}. ${escapeHtml(stepText)}</strong>
+                            <span style="color: #9CA3AF; font-weight: 600; font-size: 12px;">not_executed</span>
+                        </div>
+                        ${expected ? `<div style="color: #6B7280; font-size: 12px; margin-top: 2px;">Expected: ${escapeHtml(expected)}</div>` : ""}
+                    </div>
+                `;
+            }).join("");
+        } else {
+            executionsHTML += executions.map((exec, eIdx) => {
+                const steps = exec.stepResults;
+                const artifacts = exec.artifacts ?? [];
+                
+                let execHeader = `
+                    <div style="margin-top: ${eIdx > 0 ? '16px' : '4px'}; margin-bottom: 8px; padding-top: ${eIdx > 0 ? '12px' : '0'}; border-top: ${eIdx > 0 ? '1px solid #E5E7EB' : 'none'};">
+                        <strong style="font-size: 13px;">Attempt ${exec.attemptNumber}</strong>
+                        <span style="color: ${getStatusColorHex(exec.status)}; font-weight: 600; font-size: 12px; margin-left: 8px;">&bull; ${escapeHtml(exec.status.toUpperCase())}</span>
+                    </div>
+                `;
+
+                if (exec.summary) {
+                    execHeader += `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-bottom: 8px; padding: 6px 10px; background: #F9FAFB; border-radius: 4px;">Notes: ${escapeHtml(exec.summary)}</div>`;
+                }
+
+                if (steps.length === 0) {
+                    execHeader += '<div style="color: #9CA3AF; font-style: italic; font-size: 12px; margin-bottom: 6px;">No steps recorded for this attempt</div>';
+                }
+
+                const stepsHTML = steps.map((step) => {
+                    const stepImages = artifacts.filter((a) => {
+                        if (!a.mimeType?.startsWith("image/")) return false;
+                        const meta = a.metadata as { scope?: string; stepIndex?: number } | null;
+                        return meta?.scope === "step" && meta?.stepIndex === step.stepIndex;
+                    });
+
+                    return `
+                        <div style="border-left: 3px solid ${getStatusColorHex(step.status)}; padding: 6px 10px; margin-bottom: 6px; background: #FAFAFA; border-radius: 0 4px 4px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="font-size: 13px;">${step.stepIndex + 1}. ${escapeHtml(step.stepTextSnapshot)}</strong>
+                                <span style="color: ${getStatusColorHex(step.status)}; font-weight: 600; font-size: 12px;">${escapeHtml(step.status)}</span>
+                            </div>
+                            ${step.expectedSnapshot ? `<div style="color: #6B7280; font-size: 12px; margin-top: 2px;">Expected: ${escapeHtml(step.expectedSnapshot)}</div>` : ""}
+                            ${step.actualResult ? `<div style="color: #374151; font-size: 12px; margin-top: 2px;">Actual: ${escapeHtml(step.actualResult)}</div>` : ""}
+                            ${step.comment ? `<div style="color: #6B7280; font-size: 12px; font-style: italic; margin-top: 2px;">${escapeHtml(step.comment)}</div>` : ""}
+                            ${stepImages.map((img) => {
+                                const resolved = resolvedUrls.get(img.url) ?? img.url;
+                                return `<img src="${escapeHtml(resolved)}" alt="${escapeHtml(img.name || "evidence")}" style="max-width: 300px; margin-top: 6px; border-radius: 4px; border: 1px solid #E5E7EB;" />`;
+                            }).join("")}
+                        </div>
+                    `;
+                }).join("");
+
+                return execHeader + stepsHTML;
+            }).join("");
+        }
+
+        return `
+            <div style="border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px; margin-bottom: 14px; page-break-inside: avoid;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <strong style="font-size: 14px;">${escapeHtml(item.testCase.externalKey ? `${item.testCase.externalKey} — ` : "")}${escapeHtml(item.testCase.title)}</strong>
+                    </div>
+                    <span style="color: ${getStatusColorHex(item.status)}; font-weight: 700; font-size: 13px; text-transform: uppercase;">${escapeHtml(item.status)}</span>
+                </div>
+                ${executionsHTML}
+            </div>
+        `;
+    }).join("");
+
+    return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: ui-sans-serif, system-ui, sans-serif; color: #111827; max-width: 900px; margin: 0 auto; padding: 40px; }
+          h1 { margin-bottom: 5px; font-size: 24px; }
+          .meta { color: #6B7280; margin-bottom: 30px; font-size: 14px; }
+          .section { margin-bottom: 30px; }
+          h2 { background: #F3F4F6; padding: 10px; font-size: 16px; margin-bottom: 15px; border-radius: 4px; }
+          .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 14px; }
+          .label { font-weight: bold; color: #4B5563; }
+          .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+          .metric { background: #F9FAFB; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #E5E7EB; }
+          .metric-label { font-size: 11px; text-transform: uppercase; color: #6B7280; letter-spacing: 0.05em; }
+          .metric-value { font-size: 20px; font-weight: bold; margin-top: 5px; }
+          @media print {
+            body { padding: 20px; }
+            div[style*="page-break-inside"] { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(run.project.key)} Test Run Report (Complete)</h1>
+        <div class="meta">
+          ${escapeHtml(run.name || `Run ${run.id}`)} &middot; Generated on ${new Date().toLocaleString()}
+        </div>
+
+        <div class="section">
+          <h2>Details</h2>
+          <div class="grid">
+            <div><span class="label">Environment:</span> ${escapeHtml(run.environment || "N/A")}</div>
+            <div><span class="label">Build:</span> ${escapeHtml(run.buildNumber || "N/A")}</div>
+            <div><span class="label">Started:</span> ${run.startedAt ? new Date(run.startedAt).toLocaleString() : "N/A"}</div>
+            <div><span class="label">Finished:</span> ${run.finishedAt ? new Date(run.finishedAt).toLocaleString() : "N/A"}</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Metrics</h2>
+          <div class="metrics">
+            <div class="metric"><div class="metric-label">Total</div><div class="metric-value">${metrics.total}</div></div>
+            <div class="metric"><div class="metric-label">Passed</div><div class="metric-value">${metrics.passed}</div></div>
+            <div class="metric"><div class="metric-label">Failed</div><div class="metric-value">${metrics.failed}</div></div>
+            <div class="metric"><div class="metric-label">Pass Rate</div><div class="metric-value">${metrics.passRate}%</div></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Test Items — Detailed</h2>
+          ${itemsHTML}
+        </div>
+      </body>
+    </html>
+  `;
+};
+
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+async function streamToResponse(stream: NodeJS.ReadableStream, run: ExportRun, id: string): Promise<NextResponse> {
+    const nodeStream = stream as unknown as Readable;
+    const webStream = new ReadableStream({
+        start(controller) {
+            nodeStream.on("data", (chunk: Buffer | string) => controller.enqueue(chunk));
+            nodeStream.on("end", () => controller.close());
+            nodeStream.on("error", (err: Error) => controller.error(err));
+        },
+    });
+
+    return new NextResponse(webStream, {
+        headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="run-${run.project.key}-${id}.pdf"`,
+        },
+    });
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const searchParams = request.nextUrl.searchParams;
     const format = searchParams.get("format") || "html";
+    const mode = searchParams.get("mode") || "simple";
 
     try {
-            const run = await prisma.testRun.findUnique({
-                where: { id },
+        const isComplete = mode === "complete";
+
+        const run = await prisma.testRun.findUnique({
+            where: { id },
             include: {
                 project: true,
                 items: {
                     include: {
                         testCase: true,
                         executedBy: true,
+                        ...(isComplete
+                            ? {
+                                  executions: {
+                                      include: {
+                                          stepResults: { orderBy: { stepIndex: "asc" } },
+                                          artifacts: true,
+                                      },
+                                      orderBy: {
+                                          attemptNumber: "asc"
+                                      }
+                                  },
+                              }
+                            : {}),
                     },
                     orderBy: { testCase: { title: "asc" } },
                 },
@@ -267,25 +746,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
         const metrics = { total, passed, failed, passRate };
 
+        if (isComplete) {
+            const completeItems = run.items as unknown as ExportRunItemComplete[];
+            const resolvedUrls = await resolveArtifactImages(
+                completeItems,
+                format === "pdf" ? "pdf" : "html",
+            );
+
+            if (format === "pdf") {
+                const stream = await renderToStream(
+                    <CompletePDFDocument run={run} metrics={metrics} items={completeItems} resolvedUrls={resolvedUrls} />
+                );
+                return streamToResponse(stream, run, id);
+            } else {
+                const html = generateCompleteHTML(run, metrics, completeItems, resolvedUrls);
+                return new NextResponse(html, {
+                    headers: {
+                        "Content-Type": "text/html",
+                        "Content-Disposition": `attachment; filename="run-${run.project.key}-${id}-complete.html"`,
+                    },
+                });
+            }
+        }
+
         if (format === "pdf") {
             const stream = await renderToStream(<PDFDocument run={run} metrics={metrics} items={run.items} />);
-
-            // Convert Node stream to Web ReadableStream
-            const nodeStream = stream as unknown as Readable;
-            const webStream = new ReadableStream({
-                start(controller) {
-                    nodeStream.on("data", (chunk: Buffer | string) => controller.enqueue(chunk));
-                    nodeStream.on("end", () => controller.close());
-                    nodeStream.on("error", (err: Error) => controller.error(err));
-                },
-            });
-
-            return new NextResponse(webStream, {
-                headers: {
-                    "Content-Type": "application/pdf",
-                    "Content-Disposition": `attachment; filename="run-${run.project.key}-${id}.pdf"`,
-                },
-            });
+            return streamToResponse(stream, run, id);
         } else {
             const html = generateHTML(run, metrics, run.items);
             return new NextResponse(html, {
@@ -300,4 +786,3 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ message: "Export failed" }, { status: 500 });
     }
 }
-

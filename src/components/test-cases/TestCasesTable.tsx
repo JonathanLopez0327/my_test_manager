@@ -1,6 +1,7 @@
 "use client";
 
-import { IconDuplicate, IconEdit, IconTrash } from "../icons";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconDuplicate, IconEdit, IconMenu, IconTrash } from "../icons";
 import { Badge } from "../ui/Badge";
 import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
@@ -16,6 +17,7 @@ import type {
 type TestCasesTableProps = {
   items: TestCaseRecord[];
   loading: boolean;
+  onView: (testCase: TestCaseRecord) => void;
   onEdit: (testCase: TestCaseRecord) => void;
   onDelete: (testCase: TestCaseRecord) => void;
   onDuplicate: (testCase: TestCaseRecord) => void;
@@ -23,6 +25,13 @@ type TestCasesTableProps = {
   sortBy: TestCaseSortBy | null;
   sortDir: SortDir | null;
   onSort: (column: TestCaseSortBy) => void;
+  actionMenuMode?: "inline" | "contextual";
+};
+
+type DesktopContextMenuState = {
+  testCaseId: string;
+  x: number;
+  y: number;
 };
 
 const statusLabels: Record<TestCaseStatus, string> = {
@@ -84,6 +93,7 @@ function getPriorityLabel(priority: number) {
 export function TestCasesTable({
   items,
   loading,
+  onView,
   onEdit,
   onDelete,
   onDuplicate,
@@ -91,14 +101,150 @@ export function TestCasesTable({
   sortBy,
   sortDir,
   onSort,
+  actionMenuMode = "inline",
 }: TestCasesTableProps) {
+  const isContextualActions = actionMenuMode === "contextual";
+  const [desktopContextMenu, setDesktopContextMenu] = useState<DesktopContextMenuState | null>(null);
+  const [mobileMenuCaseId, setMobileMenuCaseId] = useState<string | null>(null);
+  const desktopMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const closeDesktopContextMenu = useCallback(() => {
+    setDesktopContextMenu(null);
+  }, []);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuCaseId(null);
+  }, []);
+
+  const closeAllMenus = useCallback(() => {
+    closeDesktopContextMenu();
+    closeMobileMenu();
+  }, [closeDesktopContextMenu, closeMobileMenu]);
+
+  const desktopMenuCase = useMemo(
+    () => items.find((testCase) => testCase.id === desktopContextMenu?.testCaseId) ?? null,
+    [items, desktopContextMenu?.testCaseId],
+  );
+
+  const desktopMenuPosition = useMemo(() => {
+    if (!desktopContextMenu) return null;
+    if (typeof window === "undefined") {
+      return { left: desktopContextMenu.x, top: desktopContextMenu.y };
+    }
+
+    const menuWidth = 200;
+    const menuHeight = 140;
+    const padding = 8;
+    const left = Math.max(
+      padding,
+      Math.min(desktopContextMenu.x, window.innerWidth - menuWidth - padding),
+    );
+    const top = Math.max(
+      padding,
+      Math.min(desktopContextMenu.y, window.innerHeight - menuHeight - padding),
+    );
+    return { left, top };
+  }, [desktopContextMenu]);
+
+  useEffect(() => {
+    if (!isContextualActions || !canManage) return;
+    if (!desktopContextMenu && !mobileMenuCaseId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const isDesktopMenuClick = desktopMenuRef.current?.contains(target);
+      const isMobileMenuClick = mobileMenuRef.current?.contains(target);
+      const isMobileMenuButton = (target as HTMLElement)?.closest?.("[data-test-case-mobile-menu-button]");
+      if (isDesktopMenuClick || isMobileMenuClick || isMobileMenuButton) return;
+      closeAllMenus();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeAllMenus();
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", closeAllMenus, true);
+    window.addEventListener("resize", closeAllMenus);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", closeAllMenus, true);
+      window.removeEventListener("resize", closeAllMenus);
+    };
+  }, [desktopContextMenu, mobileMenuCaseId, isContextualActions, canManage, closeAllMenus]);
+
+  useEffect(() => {
+    if (!isContextualActions || !desktopContextMenu) return;
+    const first = desktopMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    first?.focus();
+  }, [desktopContextMenu, isContextualActions]);
+
+  useEffect(() => {
+    if (!isContextualActions || !mobileMenuCaseId) return;
+    const first = mobileMenuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]');
+    first?.focus();
+  }, [mobileMenuCaseId, isContextualActions]);
+
+  const handleDesktopMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const focusable = Array.from(
+      desktopMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+    );
+    if (focusable.length === 0) return;
+
+    const currentIndex = focusable.findIndex((button) => button === document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % focusable.length;
+      focusable[nextIndex]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const nextIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+      focusable[nextIndex]?.focus();
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      (document.activeElement as HTMLButtonElement | null)?.click();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeDesktopContextMenu();
+    }
+  };
+
+  const handleMobileMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const focusable = Array.from(
+      mobileMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+    );
+    if (focusable.length === 0) return;
+
+    const currentIndex = focusable.findIndex((button) => button === document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % focusable.length;
+      focusable[nextIndex]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const nextIndex = currentIndex <= 0 ? focusable.length - 1 : currentIndex - 1;
+      focusable[nextIndex]?.focus();
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      (document.activeElement as HTMLButtonElement | null)?.click();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeMobileMenu();
+    }
+  };
+
   return (
-    <TableShell
-      loading={loading}
-      hasItems={items.length > 0}
-      emptyTitle="No test cases found."
-      emptyDescription="Create a new test case or adjust your filters."
-      desktop={
+    <>
+      <TableShell
+        loading={loading}
+        hasItems={items.length > 0}
+        emptyTitle="No test cases found."
+        emptyDescription="Create a new test case or adjust your filters."
+        desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
@@ -144,16 +290,35 @@ export function TestCasesTable({
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-3 py-2 text-right">
-                {canManage ? "Actions" : ""}
-              </th>
+              {!isContextualActions ? (
+                <th className="px-3 py-2 text-right">Actions</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
             {items.map((testCase) => (
-              <tr key={testCase.id} className="transition-colors hover:bg-brand-50/35">
+              <tr
+                key={testCase.id}
+                onContextMenu={(event) => {
+                  if (!isContextualActions || !canManage) return;
+                  event.preventDefault();
+                  setDesktopContextMenu({
+                    testCaseId: testCase.id,
+                    x: event.clientX,
+                    y: event.clientY,
+                  });
+                  closeMobileMenu();
+                }}
+                className={isContextualActions && canManage ? "cursor-context-menu transition-colors hover:bg-brand-50/35" : "transition-colors hover:bg-brand-50/35"}
+              >
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-ink">{testCase.title}</p>
+                  <button
+                    type="button"
+                    onClick={() => onView(testCase)}
+                    className="text-left font-semibold text-ink transition-colors hover:text-brand-700"
+                  >
+                    {testCase.title}
+                  </button>
                   <p className="text-xs text-ink-muted">
                     {testCase.description ?? "No description"}
                   </p>
@@ -203,52 +368,78 @@ export function TestCasesTable({
                     ? testCase.automationType ?? "Automated"
                     : "Manual"}
                 </td>
-                <td className="px-3 py-3">
-                  {canManage ? (
+                {!isContextualActions ? (
+                  <td className="px-3 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <RowActionButton
-                        onClick={() => onDuplicate(testCase)}
-                        icon={<IconDuplicate className="h-4 w-4" />}
-                        label="Duplicate case"
-                      />
-                      <RowActionButton
-                        onClick={() => onEdit(testCase)}
-                        icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit case"
-                      />
-                      <RowActionButton
-                        onClick={() => onDelete(testCase)}
-                        icon={<IconTrash className="h-4 w-4" />}
-                        label="Delete case"
-                        tone="danger"
-                      />
+                      {canManage ? (
+                        <>
+                          <RowActionButton
+                            onClick={() => onDuplicate(testCase)}
+                            icon={<IconDuplicate className="h-4 w-4" />}
+                            label="Duplicate case"
+                          />
+                          <RowActionButton
+                            onClick={() => onEdit(testCase)}
+                            icon={<IconEdit className="h-4 w-4" />}
+                            label="Edit case"
+                          />
+                          <RowActionButton
+                            onClick={() => onDelete(testCase)}
+                            icon={<IconTrash className="h-4 w-4" />}
+                            label="Delete case"
+                            tone="danger"
+                          />
+                        </>
+                      ) : null}
                     </div>
-                  ) : null}
-                </td>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
         </table>
       }
-      mobile={
+        mobile={
         <>
         {items.map((testCase) => (
           <div
             key={testCase.id}
-            className="rounded-lg bg-surface-elevated p-5 shadow-sm"
+            className="relative rounded-lg bg-surface-elevated p-5 shadow-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                   {testCase.suite.testPlan.project.key}
                 </p>
-                <p className="text-lg font-semibold text-ink">
+                <button
+                  type="button"
+                  onClick={() => onView(testCase)}
+                  className="text-left text-lg font-semibold text-ink transition-colors hover:text-brand-700"
+                >
                   {testCase.title}
-                </p>
+                </button>
               </div>
-              <Badge tone={statusTones[testCase.status]}>
-                {statusLabels[testCase.status]}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone={statusTones[testCase.status]}>
+                  {statusLabels[testCase.status]}
+                </Badge>
+                {canManage && isContextualActions ? (
+                  <button
+                    type="button"
+                    data-test-case-mobile-menu-button
+                    onClick={() => {
+                      setMobileMenuCaseId((current) => (current === testCase.id ? null : testCase.id));
+                      closeDesktopContextMenu();
+                    }}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-surface-muted"
+                    aria-label="Case actions"
+                    aria-haspopup="menu"
+                    aria-expanded={mobileMenuCaseId === testCase.id}
+                  >
+                    <IconMenu className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
             </div>
             <p className="mt-2 text-sm text-ink-muted">
               {testCase.suite.testPlan.name} · {testCase.suite.name}
@@ -277,7 +468,7 @@ export function TestCasesTable({
                   : "Manual"}
               </span>
             </div>
-            {canManage ? (
+            {canManage && !isContextualActions ? (
               <div className="mt-4 flex items-center gap-3">
                 <RowActionButton
                   onClick={() => onDuplicate(testCase)}
@@ -300,10 +491,99 @@ export function TestCasesTable({
                 />
               </div>
             ) : null}
+            {canManage && isContextualActions && mobileMenuCaseId === testCase.id ? (
+              <div
+                ref={mobileMenuRef}
+                role="menu"
+                aria-label="Case actions"
+                className="absolute right-4 top-14 z-40 min-w-[180px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
+                onKeyDown={handleMobileMenuKeyDown}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                  onClick={() => {
+                    onDuplicate(testCase);
+                    closeMobileMenu();
+                  }}
+                >
+                  <span>Duplicate case</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+                  onClick={() => {
+                    onEdit(testCase);
+                    closeMobileMenu();
+                  }}
+                >
+                  <span>Edit case</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-500/10"
+                  onClick={() => {
+                    onDelete(testCase);
+                    closeMobileMenu();
+                  }}
+                >
+                  <span>Delete case</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         ))}
         </>
       }
-    />
+      />
+
+      {isContextualActions && canManage && desktopContextMenu && desktopMenuPosition && desktopMenuCase ? (
+        <div
+          ref={desktopMenuRef}
+          role="menu"
+          aria-label="Case actions"
+          className="fixed z-50 min-w-[200px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
+          style={{ top: desktopMenuPosition.top, left: desktopMenuPosition.left }}
+          onKeyDown={handleDesktopMenuKeyDown}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+            onClick={() => {
+              onDuplicate(desktopMenuCase);
+              closeDesktopContextMenu();
+            }}
+          >
+            <span>Duplicate case</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-ink hover:bg-surface-muted"
+            onClick={() => {
+              onEdit(desktopMenuCase);
+              closeDesktopContextMenu();
+            }}
+          >
+            <span>Edit case</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-danger-600 hover:bg-danger-500/10"
+            onClick={() => {
+              onDelete(desktopMenuCase);
+              closeDesktopContextMenu();
+            }}
+          >
+            <span>Delete case</span>
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }

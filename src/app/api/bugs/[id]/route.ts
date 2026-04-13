@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/prisma";
+import { getS3Client, getS3Config } from "@/lib/s3";
 import { BugStatus, BugSeverity, BugType } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
+import { maybeSignAttachmentUrl, serializeSizeBytes } from "@/lib/bug-attachments";
 
 const STATUS_VALUES: BugStatus[] = ["open", "in_progress", "resolved", "verified", "closed", "reopened"];
 const SEVERITY_VALUES: BugSeverity[] = ["critical", "high", "medium", "low"];
@@ -69,12 +72,54 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
         select: {
           id: true,
           title: true,
+          suite: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
       testRunItem: {
         select: {
           id: true,
           status: true,
+          executedAt: true,
+          executedBy: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      },
+      testRun: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          startedAt: true,
+          finishedAt: true,
+          triggeredBy: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+          suite: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          testPlan: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       },
       comments: {
@@ -92,6 +137,22 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
       },
       _count: {
         select: { comments: true },
+      },
+      attachments: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          id: true,
+          bugId: true,
+          type: true,
+          name: true,
+          url: true,
+          mimeType: true,
+          sizeBytes: true,
+          checksumSha256: true,
+          metadata: true,
+          createdAt: true,
+        },
       },
     },
   });
@@ -111,7 +172,18 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (_req, { activeOrganizat
     );
   }
 
-  return NextResponse.json(bug);
+  const attachments = await Promise.all(
+    bug.attachments.map(async (attachment) => ({
+      ...attachment,
+      url: await maybeSignAttachmentUrl(attachment.url),
+      sizeBytes: serializeSizeBytes(attachment.sizeBytes),
+    })),
+  );
+
+  return NextResponse.json({
+    ...bug,
+    attachments,
+  });
 });
 
 export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
@@ -161,6 +233,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       assignedToId?: string | null;
       testRunItemId?: string | null;
       testCaseId?: string | null;
+      testRunId?: string | null;
       reproductionSteps?: string | null;
       expectedResult?: string | null;
       actualResult?: string | null;
@@ -197,9 +270,22 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       const type = parseType(body.type);
       if (type) data.type = type;
     }
-    if (body.assignedToId !== undefined) data.assignedToId = body.assignedToId?.trim() || null;
-    if (body.testRunItemId !== undefined) data.testRunItemId = body.testRunItemId?.trim() || null;
-    if (body.testCaseId !== undefined) data.testCaseId = body.testCaseId?.trim() || null;
+    if (body.assignedToId !== undefined) {
+      const val = body.assignedToId?.trim() || null;
+      data.assignedTo = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testRunItemId !== undefined) {
+      const val = body.testRunItemId?.trim() || null;
+      data.testRunItem = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testCaseId !== undefined) {
+      const val = body.testCaseId?.trim() || null;
+      data.testCase = val ? { connect: { id: val } } : { disconnect: true };
+    }
+    if (body.testRunId !== undefined) {
+      const val = body.testRunId?.trim() || null;
+      data.testRun = val ? { connect: { id: val } } : { disconnect: true };
+    }
     if (body.reproductionSteps !== undefined) data.reproductionSteps = body.reproductionSteps?.trim() || null;
     if (body.expectedResult !== undefined) data.expectedResult = body.expectedResult?.trim() || null;
     if (body.actualResult !== undefined) data.actualResult = body.actualResult?.trim() || null;
@@ -261,6 +347,28 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles, activeO
       organizationRole,
       projectId: existing.projectId,
     });
+
+    // Delete attachment files from S3 before cascading DB delete
+    const attachments = await prisma.bugAttachment.findMany({
+      where: { bugId: id },
+      select: { url: true },
+    });
+
+    if (attachments.length > 0) {
+      const { bucket } = getS3Config("artifacts");
+      const config = getS3Config("artifacts");
+      const base = (process.env.S3_PUBLIC_URL ?? config.endpoint).replace(/\/$/, "");
+      const bucketPrefix = `${base}/${bucket}/`;
+      const client = getS3Client("artifacts");
+
+      await Promise.allSettled(
+        attachments.map((a) => {
+          if (!a.url.startsWith(bucketPrefix)) return Promise.resolve();
+          const key = decodeURI(a.url.slice(bucketPrefix.length));
+          return client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+        }),
+      );
+    }
 
     await prisma.bug.delete({ where: { id } });
     return NextResponse.json({ ok: true });

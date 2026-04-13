@@ -20,12 +20,12 @@ export function GherkinEditor({ clauses, onAdd, onRemove, onUpdate }: GherkinEdi
       <label className="text-sm font-semibold text-ink">Gherkin Clauses</label>
       <div className="flex flex-col gap-3">
         {clauses.map((item) => (
-          <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-gray-50 p-3">
+          <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-stroke bg-surface-muted p-3">
             <div className="flex items-start justify-between gap-2">
               <select
                 value={item.keyword}
                 onChange={(e) => onUpdate(item.id, "keyword", e.target.value)}
-                className="h-8 rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 text-sm font-medium text-ink"
+                className="h-8 rounded-lg border border-stroke bg-surface-elevated px-2 text-sm font-medium text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               >
                 {keywords.map((kw) => (
                   <option key={kw} value={kw}>{kw}</option>
@@ -43,7 +43,7 @@ export function GherkinEditor({ clauses, onAdd, onRemove, onUpdate }: GherkinEdi
               value={item.text}
               onChange={(e) => onUpdate(item.id, "text", e.target.value)}
               placeholder="the user is on the login page"
-              className="min-h-[50px] w-full rounded border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm text-ink outline-none focus:border-brand-300"
+              className="min-h-[50px] w-full rounded-lg border border-stroke bg-surface-elevated px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </div>
         ))}
