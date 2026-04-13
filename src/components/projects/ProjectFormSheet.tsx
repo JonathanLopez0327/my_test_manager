@@ -14,6 +14,7 @@ type ProjectFormSheetProps = {
   project: ProjectRecord | null;
   onClose: () => void;
   onSave: (payload: ProjectPayload, projectId?: string) => Promise<void>;
+  onDelete?: (project: ProjectRecord) => Promise<void> | void;
 };
 
 export function ProjectFormSheet({
@@ -21,8 +22,10 @@ export function ProjectFormSheet({
   project,
   onClose,
   onSave,
+  onDelete,
 }: ProjectFormSheetProps) {
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const {
     register,
@@ -79,6 +82,24 @@ export function ProjectFormSheet({
           ? submitError.message
           : "Could not save project.",
       );
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!project || !onDelete) return;
+
+    setGlobalError(null);
+    setIsDeleting(true);
+    try {
+      await onDelete(project);
+    } catch (deleteError) {
+      setGlobalError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete project.",
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -153,13 +174,28 @@ export function ProjectFormSheet({
           </p>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <div>
+            {project && onDelete ? (
+              <Button
+                type="button"
+                variant="critical"
+                onClick={() => void handleDelete()}
+                disabled={isSubmitting || isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete project"}
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3">
           <Button variant="ghost" onClick={onClose} type="button">
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || isDeleting}>
             {isSubmitting ? "Saving..." : "Save project"}
           </Button>
+          </div>
         </div>
       </form>
     </Sheet>

@@ -11,6 +11,20 @@ export type BugSortBy =
 export type BugSeverity = "critical" | "high" | "medium" | "low";
 export type BugStatus = "open" | "in_progress" | "resolved" | "verified" | "closed" | "reopened";
 export type BugType = "bug" | "enhancement" | "task";
+export type BugAttachmentType = "screenshot" | "video" | "log" | "report" | "link" | "other";
+
+export type BugAttachmentRecord = {
+  id: string;
+  bugId: string;
+  type: BugAttachmentType;
+  name: string | null;
+  url: string;
+  mimeType: string | null;
+  sizeBytes?: number | string | null;
+  checksumSha256: string | null;
+  metadata: unknown;
+  createdAt: string;
+};
 
 export type BugRecord = {
   id: string;
@@ -25,6 +39,7 @@ export type BugRecord = {
   reporterId: string | null;
   testRunItemId: string | null;
   testCaseId: string | null;
+  testRunId: string | null;
   reproductionSteps: string | null;
   expectedResult: string | null;
   actualResult: string | null;
@@ -39,8 +54,29 @@ export type BugRecord = {
   };
   assignedTo: { id: string; email: string; fullName: string | null } | null;
   reporter: { id: string; email: string; fullName: string | null } | null;
-  testCase: { id: string; title: string } | null;
-  _count?: { comments: number };
+  testCase: {
+    id: string;
+    title: string;
+    suite?: { id: string; name: string } | null;
+  } | null;
+  testRun: {
+    id: string;
+    name: string | null;
+    status: string;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+    triggeredBy?: { id: string; email: string; fullName: string | null } | null;
+    suite?: { id: string; name: string } | null;
+    testPlan?: { id: string; name: string } | null;
+  } | null;
+  testRunItem?: {
+    id: string;
+    status: string;
+    executedAt?: string | null;
+    executedBy?: { id: string; email: string; fullName: string | null } | null;
+  } | null;
+  attachments?: BugAttachmentRecord[];
+  _count?: { comments: number; attachments?: number };
   comments?: BugCommentRecord[];
 };
 
@@ -55,6 +91,7 @@ export type BugPayload = {
   assignedToId?: string | null;
   testRunItemId?: string | null;
   testCaseId?: string | null;
+  testRunId?: string | null;
   reproductionSteps?: string | null;
   expectedResult?: string | null;
   actualResult?: string | null;

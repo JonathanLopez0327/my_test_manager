@@ -2,25 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconChevronUpDown, IconPlus } from "../icons";
-import { useCan } from "@/lib/auth/use-can";
-import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { IconChevronUpDown } from "../icons";
 import type { OrganizationRecord, OrganizationsResponse } from "../organizations/types";
 import { uiMessages } from "@/lib/ui/messages";
 
-type OrgSwitcherProps = {
-  onCreateOrg: () => void;
-};
-
-export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
+export function OrgSwitcher() {
   const { data: session, update, status } = useSession();
   const [orgs, setOrgs] = useState<OrganizationRecord[]>([]);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const canCreate = useCan(PERMISSIONS.ORG_CREATE);
-
   const activeOrgId = session?.user?.activeOrganizationId;
   const activeOrg = orgs.find((o) => o.id === activeOrgId);
 
@@ -154,22 +146,6 @@ export function OrgSwitcher({ onCreateOrg }: OrgSwitcherProps) {
               </button>
             ))}
           </div>
-          {canCreate && (
-            <>
-              <hr className="my-1 border-stroke" />
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onCreateOrg();
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-brand-600 transition hover:bg-brand-50"
-              >
-                <IconPlus className="h-4 w-4" />
-                Nueva organization
-              </button>
-            </>
-          )}
         </div>
       )}
     </div>

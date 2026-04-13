@@ -2,23 +2,26 @@
 
 import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { IconChevronDown, IconMenu } from "../icons";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { ViewContext } from "./ViewContext";
-import { OrganizationCreateSheet } from "../organizations/OrganizationCreateSheet";
-import type { OrganizationRecord } from "../organizations/types";
 import { usePermissions } from "@/lib/auth/use-can";
 import { uiMessages } from "@/lib/ui/messages";
+import { ProfileSheet } from "./ProfileSheet";
+import { AssistantHubFab } from "@/components/assistant-hub/AssistantHubFab";
 
 type TopbarProps = {
   onToggleSidebar?: () => void;
 };
 
 export function Topbar({ onToggleSidebar }: TopbarProps) {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [createOrgOpen, setCreateOrgOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
   const displayName = session?.user?.name ?? uiMessages.common.userFallback;
   const email = session?.user?.email ?? "";
   const { globalRoles } = usePermissions();
@@ -30,11 +33,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-
-  const handleOrgCreated = async (org: OrganizationRecord) => {
-    await update({ activeOrganizationId: org.id });
-    window.location.reload();
-  };
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-stroke bg-surface px-4 dark:bg-surface sm:px-6">
@@ -49,17 +47,14 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
           <IconMenu className="h-4 w-4" />
         </button>
 
-        {!isSuperAdmin && (
-          <OrgSwitcher
-            onCreateOrg={() => setCreateOrgOpen(true)}
-          />
-        )}
+        {!isSuperAdmin && <OrgSwitcher />}
 
         <ViewContext />
       </div>
 
       {/* Right side: theme + user menu */}
       <div className="flex items-center gap-3">
+        <AssistantHubFab />
         <ThemeToggle />
 
         <div className="relative">
@@ -93,6 +88,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
               <div className="p-1.5">
                 <button
                   type="button"
+                  onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -102,6 +98,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 </button>
                 <button
                   type="button"
+                  onClick={() => { router.push("/manager/settings"); setMenuOpen(false); }}
                   className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -129,11 +126,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </div>
       </div>
 
-      <OrganizationCreateSheet
-        open={createOrgOpen}
-        onClose={() => setCreateOrgOpen(false)}
-        onCreated={handleOrgCreated}
-      />
+      <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
     </header>
   );
 }

@@ -17,10 +17,9 @@ type RunItem = {
 
 type ActivityCardProps = {
   runs: RunItem[];
-  passRate: number;
 };
 
-export function ActivityCard({ runs, passRate }: ActivityCardProps) {
+export function ActivityCard({ runs }: ActivityCardProps) {
   const today = new Date().toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "long",
@@ -28,17 +27,16 @@ export function ActivityCard({ runs, passRate }: ActivityCardProps) {
   });
 
   return (
-    <Card className="flex h-full flex-col p-6">
+    <Card className="flex h-full flex-col p-5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-ink">Latest runs</p>
-          <p className="mt-1 text-xs text-ink-muted">Operational activity, {today}</p>
+          <p className="mt-1 text-xs text-ink-muted">Latest manual runs, {today}</p>
         </div>
-        <Badge tone="info">Live</Badge>
       </div>
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-4 flex flex-col gap-3">
         {runs.length === 0 ? (
-          <p className="py-4 text-center text-sm text-ink-muted">No recent runs</p>
+          <p className="py-4 text-center text-sm text-ink-muted">No recent manual runs</p>
         ) : (
           runs.map((item) => (
             <div
@@ -56,21 +54,13 @@ export function ActivityCard({ runs, passRate }: ActivityCardProps) {
                   {item.suite} · {item.environment} · {item.when}
                 </p>
                 <p className="mt-1 text-xs text-ink-soft">
-                  {item.duration} · {item.tests} · {item.outcome}
+                  {item.duration} · {item.tests} · {item.outcome} · {item.failedCount} failed
                 </p>
               </div>
               <IconChevronRight className="h-4 w-4 shrink-0 text-ink-soft" />
             </div>
           ))
         )}
-      </div>
-      <div className="mt-auto pt-5">
-        <div className="rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 px-5 py-4 text-white shadow-soft-sm">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-            Salud del pipeline
-          </p>
-          <p className="mt-2 text-lg font-semibold">{passRate}% success rate</p>
-        </div>
       </div>
     </Card>
   );

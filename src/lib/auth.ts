@@ -133,6 +133,11 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
+        // Handle profile name update via session update
+        if (trigger === "update" && session?.name !== undefined) {
+          token.name = session.name;
+        }
+
         // Handle org switching via session update
         if (trigger === "update" && session?.activeOrganizationId) {
           const membership = await prisma.organizationMember.findUnique({

@@ -213,8 +213,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const suite = await prisma.testSuite.create({
       data: {
-        testPlanId,
-        parentSuiteId,
+        testPlan: { connect: { id: testPlanId } },
+        ...(parentSuiteId ? { parent: { connect: { id: parentSuiteId } } } : {}),
         name,
         description: body.description?.trim() || null,
         displayOrder: parseDisplayOrder(body.displayOrder),

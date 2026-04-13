@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { getTestSuiteRelatedCounts, hasAnyRelated, formatRelatedMessage } from "@/lib/api/related-counts";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 
@@ -98,13 +99,32 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
           { status: 400 },
         );
       }
+
+      // Prevent indirect cycles in the hierarchy (A -> ... -> B, then setting A.parent = B)
+      let cursorId: string | null = parentSuiteId;
+      const visited = new Set<string>();
+      while (cursorId) {
+        if (cursorId === id) {
+          return NextResponse.json(
+            { message: "Invalid parent suite: cyclical hierarchy is not allowed." },
+            { status: 400 },
+          );
+        }
+        if (visited.has(cursorId)) break;
+        visited.add(cursorId);
+        const cursorSuite = await prisma.testSuite.findUnique({
+          where: { id: cursorId },
+          select: { parentSuiteId: true },
+        });
+        cursorId = cursorSuite?.parentSuiteId ?? null;
+      }
     }
 
     const suite = await prisma.testSuite.update({
       where: { id },
       data: {
-        testPlanId,
-        parentSuiteId,
+        testPlan: { connect: { id: testPlanId } },
+        ...(parentSuiteId ? { parent: { connect: { id: parentSuiteId } } } : { parent: { disconnect: true } }),
         name,
         description: body.description?.trim() || null,
         displayOrder: parseDisplayOrder(body.displayOrder),
@@ -153,6 +173,18 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
       globalRoles,
       projectId: existing.testPlan.projectId,
     });
+
+    const counts = await getTestSuiteRelatedCounts(id);
+    if (hasAnyRelated(counts)) {
+      return NextResponse.json(
+        {
+          message: formatRelatedMessage("test suite", counts),
+          code: "HAS_RELATED_ELEMENTS",
+          counts,
+        },
+        { status: 409 },
+      );
+    }
 
     await prisma.testSuite.delete({ where: { id } });
     return NextResponse.json({ ok: true });

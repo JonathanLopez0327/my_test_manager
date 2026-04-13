@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma, TestPlanStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { getTestPlanRelatedCounts, hasAnyRelated, formatRelatedMessage } from "@/lib/api/related-counts";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 
@@ -103,7 +104,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx)
     const plan = await prisma.testPlan.update({
       where: { id },
       data: {
-        projectId,
+        project: { connect: { id: projectId } },
         name,
         description: body.description?.trim() || null,
         status,
@@ -152,6 +153,18 @@ export const DELETE = withAuth(null, async (_req, { userId, globalRoles }, route
       globalRoles,
       projectId: existing.projectId,
     });
+
+    const counts = await getTestPlanRelatedCounts(id);
+    if (hasAnyRelated(counts)) {
+      return NextResponse.json(
+        {
+          message: formatRelatedMessage("test plan", counts),
+          code: "HAS_RELATED_ELEMENTS",
+          counts,
+        },
+        { status: 409 },
+      );
+    }
 
     await prisma.testPlan.delete({ where: { id } });
     return NextResponse.json({ ok: true });

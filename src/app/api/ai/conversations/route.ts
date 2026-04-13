@@ -11,6 +11,7 @@ import { aiConversationsQuerySchema, aiCreateConversationSchema } from "@/lib/ai
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+const DEFAULT_CONVERSATION_ENVIRONMENT = "DEV";
 
 export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
   const { activeOrganizationId, userId, organizationRole } = authCtx;
@@ -35,21 +36,23 @@ export const GET = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   const { projectId } = parsed.data;
 
-  const hasAccess = await ensureProjectAccess({
-    userId,
-    organizationId: activeOrganizationId,
-    organizationRole,
-    projectId,
-  });
+  if (projectId) {
+    const hasAccess = await ensureProjectAccess({
+      userId,
+      organizationId: activeOrganizationId,
+      organizationRole,
+      projectId,
+    });
 
-  if (!hasAccess) {
-    return NextResponse.json(
-      { message: "You do not have access to the specified project." },
-      { status: 403 },
-    );
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: "You do not have access to the specified project." },
+        { status: 403 },
+      );
+    }
   }
 
-  const rows = await listActiveConversations({ userId, projectId });
+  const rows = await listActiveConversations({ userId, projectId: projectId ?? null });
 
   return NextResponse.json({
     items: rows.map(mapConversationDto),
@@ -78,28 +81,30 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
 
   const { projectId, environment } = parsed.data;
 
-  const hasAccess = await ensureProjectAccess({
-    userId,
-    organizationId: activeOrganizationId,
-    organizationRole,
-    projectId,
-  });
+  if (projectId) {
+    const hasAccess = await ensureProjectAccess({
+      userId,
+      organizationId: activeOrganizationId,
+      organizationRole,
+      projectId,
+    });
 
-  if (!hasAccess) {
-    return NextResponse.json(
-      { message: "You do not have access to the specified project." },
-      { status: 403 },
-    );
+    if (!hasAccess) {
+      return NextResponse.json(
+        { message: "You do not have access to the specified project." },
+        { status: 403 },
+      );
+    }
   }
 
   const now = new Date();
   const created = await prisma.aiConversation.create({
     data: {
-      organizationId: activeOrganizationId,
-      projectId,
-      userId,
+      organization: { connect: { id: activeOrganizationId } },
+      ...(projectId ? { project: { connect: { id: projectId } } } : {}),
+      user: { connect: { id: userId } },
       title: "New conversation",
-      environment,
+      environment: environment?.trim() || DEFAULT_CONVERSATION_ENVIRONMENT,
       status: "active",
       lastMessageAt: now,
     },
@@ -110,7 +115,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     },
   });
 
-  await archiveOverflowConversations({ userId, projectId });
+  await archiveOverflowConversations({ userId, projectId: projectId ?? null });
 
   return NextResponse.json({ item: mapConversationDto(created) }, { status: 201 });
 });

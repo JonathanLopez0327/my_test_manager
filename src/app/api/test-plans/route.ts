@@ -208,13 +208,13 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const plan = await prisma.testPlan.create({
       data: {
-        projectId,
+        project: { connect: { id: projectId } },
         name,
         description: body.description?.trim() || null,
         status,
         startsOn,
         endsOn,
-        createdById: userId,
+        ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
       },
     });
 

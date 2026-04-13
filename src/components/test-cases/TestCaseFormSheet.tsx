@@ -30,6 +30,7 @@ type TestCaseFormSheetProps = {
     open: boolean;
     testCase: TestCaseRecord | null;
     suites: TestSuiteOption[];
+    defaultSuiteId?: string;
     onClose: () => void;
     onSave: (payload: TestCasePayload, testCaseId?: string) => Promise<void>;
 };
@@ -130,6 +131,7 @@ export function TestCaseFormSheet({
     open,
     testCase,
     suites,
+    defaultSuiteId,
     onClose,
     onSave,
 }: TestCaseFormSheetProps) {
@@ -266,12 +268,15 @@ export function TestCaseFormSheet({
 
             setForm(newForm);
         } else {
-            setForm({ ...emptyForm });
+            setForm({
+                ...emptyForm,
+                suiteId: defaultSuiteId ?? "",
+            });
         }
 
         setCurrentTag("");
         setError(null);
-    }, [testCase, open]);
+    }, [testCase, open, defaultSuiteId]);
 
     useEffect(() => {
         if (!form.isAutomated) {

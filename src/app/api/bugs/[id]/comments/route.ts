@@ -120,8 +120,8 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
 
     const comment = await prisma.bugComment.create({
       data: {
-        bugId: id,
-        authorId: userId,
+        bug: { connect: { id } },
+        ...(userId ? { author: { connect: { id: userId } } } : {}),
         content,
       },
       include: {

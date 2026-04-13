@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -18,13 +18,21 @@ type UserOption = {
   fullName: string | null;
 };
 
+type TestRunOption = {
+  id: string;
+  name: string | null;
+  status: string;
+};
+
 type BugFormSheetProps = {
   open: boolean;
   bug: BugRecord | null;
   projects: ProjectOption[];
   users: UserOption[];
+  testRuns?: TestRunOption[];
+  canUploadAttachments?: boolean;
   onClose: () => void;
-  onSave: (payload: BugPayload, bugId?: string) => Promise<void>;
+  onSave: (payload: BugPayload, bugId?: string, files?: File[]) => Promise<void>;
 };
 
 type BugFormState = {
@@ -37,6 +45,7 @@ type BugFormState = {
   type: BugType;
   assignedToId: string;
   testCaseId: string;
+  testRunId: string;
   reproductionSteps: string;
   expectedResult: string;
   actualResult: string;
@@ -54,6 +63,7 @@ const emptyForm: BugFormState = {
   type: "bug",
   assignedToId: "",
   testCaseId: "",
+  testRunId: "",
   reproductionSteps: "",
   expectedResult: "",
   actualResult: "",
@@ -83,18 +93,28 @@ const typeOptions: Array<{ value: BugType; label: string }> = [
   { value: "task", label: "Task" },
 ];
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function BugFormSheet({
   open,
   bug,
   projects,
   users,
+  testRuns = [],
+  canUploadAttachments = false,
   onClose,
   onSave,
 }: BugFormSheetProps) {
   const [form, setForm] = useState<BugFormState>(emptyForm);
   const [currentTag, setCurrentTag] = useState("");
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const title = useMemo(() => (bug ? "Edit Bug" : "New Bug"), [bug]);
 
@@ -110,6 +130,7 @@ export function BugFormSheet({
         type: bug.type,
         assignedToId: bug.assignedToId ?? "",
         testCaseId: bug.testCaseId ?? "",
+        testRunId: bug.testRunId ?? "",
         reproductionSteps: bug.reproductionSteps ?? "",
         expectedResult: bug.expectedResult ?? "",
         actualResult: bug.actualResult ?? "",
@@ -120,6 +141,7 @@ export function BugFormSheet({
       setForm(emptyForm);
     }
     setCurrentTag("");
+    setAttachmentFiles([]);
     setError(null);
   }, [bug, open]);
 
@@ -159,13 +181,14 @@ export function BugFormSheet({
         type: form.type,
         assignedToId: form.assignedToId || null,
         testCaseId: form.testCaseId || null,
+        testRunId: form.testRunId || null,
         reproductionSteps: form.reproductionSteps.trim() || null,
         expectedResult: form.expectedResult.trim() || null,
         actualResult: form.actualResult.trim() || null,
         environment: form.environment.trim() || null,
         tags: form.tags,
       };
-      await onSave(payload, bug?.id);
+      await onSave(payload, bug?.id, !bug ? attachmentFiles : []);
       onClose();
     } catch (submitError) {
       setError(
@@ -326,6 +349,24 @@ export function BugFormSheet({
         </div>
 
         <label className="text-sm font-semibold text-ink">
+          Test Run
+          <select
+            value={form.testRunId}
+            onChange={(event) =>
+              setForm((prev) => ({ ...prev, testRunId: event.target.value }))
+            }
+            className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
+          >
+            <option value="">None</option>
+            {testRuns.map((run) => (
+              <option key={run.id} value={run.id}>
+                {run.name || run.id}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm font-semibold text-ink">
           Reproduction Steps
           <textarea
             value={form.reproductionSteps}
@@ -403,6 +444,54 @@ export function BugFormSheet({
             className="mt-1"
           />
         </div>
+
+        {!bug && canUploadAttachments ? (
+          <div className="grid gap-2">
+            <label className="text-sm font-semibold text-ink">Attachments</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="sr-only"
+              onChange={(event) => {
+                const newFiles = Array.from(event.target.files ?? []);
+                setAttachmentFiles((prev) => [...prev, ...newFiles]);
+                event.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-10 w-full rounded-lg border border-dashed border-stroke bg-surface-elevated dark:bg-surface-muted px-4 text-sm text-ink-muted hover:border-brand-300 hover:text-ink transition"
+            >
+              Browse files&hellip;
+            </button>
+            {attachmentFiles.length > 0 && (
+              <ul className="grid gap-1">
+                {attachmentFiles.map((file, idx) => (
+                  <li
+                    key={`${file.name}-${idx}`}
+                    className="flex items-center gap-2 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 py-2 text-sm"
+                  >
+                    <span className="truncate flex-1 text-ink">{file.name}</span>
+                    <span className="shrink-0 text-xs text-ink-muted">
+                      {formatFileSize(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="shrink-0 ml-1 text-ink-muted hover:text-danger-500 transition"
+                    >
+                      &times;
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
 
         {!projects.length ? (
           <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">

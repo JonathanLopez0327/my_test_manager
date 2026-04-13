@@ -51,7 +51,10 @@ export function BugSeverityChart({ data, total }: BugSeverityChartProps) {
                                 borderRadius: 8,
                                 fontSize: 12,
                                 boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                                color: "var(--ink)",
                             }}
+                            itemStyle={{ color: "var(--ink)" }}
+                            labelStyle={{ color: "var(--ink-muted)", fontWeight: 600 }}
                             formatter={(value: number | undefined) => [`${value ?? 0} bugs`, ""]}
                         />
                     </PieChart>

@@ -610,7 +610,7 @@ curl http://localhost:3000/api/projects \
 
 ### `GET /api/bugs/{id}`
 - Permiso: `BUG_LIST`.
-- Retorna detalle del bug + comentarios (hasta 50).
+- Retorna detalle del bug + comentarios (hasta 50) + attachments recientes (hasta 20).
 
 ### `PUT /api/bugs/{id}`
 - Permiso: `BUG_UPDATE`.
@@ -618,6 +618,23 @@ curl http://localhost:3000/api/projects \
 
 ### `DELETE /api/bugs/{id}`
 - Permiso: `BUG_DELETE`.
+
+## Attachments de bugs
+
+### `GET /api/bugs/{id}/attachments`
+- Permiso: `BUG_ATTACHMENT_LIST`.
+- Query: `page`, `pageSize`.
+- Retorna URLs firmadas cuando el archivo está en S3 del proyecto.
+
+### `POST /api/bugs/{id}/attachments/upload`
+- Permiso: `BUG_ATTACHMENT_UPLOAD`.
+- `multipart/form-data`.
+- Campos: `file` (obligatorio), `type` (opcional, se infiere por MIME si no se envía).
+- Sube binario a S3 y crea registro en DB.
+
+### `DELETE /api/bugs/{id}/attachments/{attachmentId}`
+- Permiso: `BUG_ATTACHMENT_DELETE`.
+- Elimina en S3 (si aplica) y en DB.
 
 ## Comentarios de bugs
 

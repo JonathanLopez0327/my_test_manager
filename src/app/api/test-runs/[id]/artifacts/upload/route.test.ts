@@ -64,6 +64,18 @@ describe("POST /api/test-runs/[id]/artifacts/upload", () => {
       id: "item-1",
       testCase: { title: "Case", externalKey: "TC-1" },
     });
+    prismaMock.testRunArtifact.create.mockResolvedValue({
+      id: "artifact-1",
+      runId: "run-1",
+      runItemId: "item-1",
+      type: "screenshot",
+      name: "screenshot.png",
+      url: "http://localhost/artifacts/file",
+      mimeType: "image/png",
+      checksumSha256: "hash",
+      metadata: { scope: "step", stepIndex: 0 },
+      createdAt: new Date().toISOString(),
+    });
   });
 
   it("returns 400 when file exceeds 10 MB", async () => {
@@ -109,5 +121,55 @@ describe("POST /api/test-runs/[id]/artifacts/upload", () => {
     expect(response.status).toBe(400);
     expect(body.message).toBe("Video uploads are disabled in beta.");
     expect(prismaMock.testRunArtifact.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when screenshot is not an image", async () => {
+    const formData = new FormData();
+    formData.set("type", "screenshot");
+    formData.set("runItemId", "item-1");
+    formData.set("file", new File([new Uint8Array(1024)], "proof.txt", { type: "text/plain" }));
+
+    const response = await POST(
+      new Request("http://localhost/api/test-runs/run-1/artifacts/upload", {
+        method: "POST",
+        body: formData,
+      }),
+      {
+        params: Promise.resolve({ id: "run-1" }),
+      } as { params: Promise<Record<string, string>> },
+    );
+
+    const body = (await response.json()) as { message: string };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("Only image files are allowed for execution evidence.");
+    expect(prismaMock.testRunArtifact.create).not.toHaveBeenCalled();
+  });
+
+  it("persists metadata for step evidence uploads", async () => {
+    const formData = new FormData();
+    formData.set("type", "screenshot");
+    formData.set("runItemId", "item-1");
+    formData.set("metadata", JSON.stringify({ scope: "step", stepIndex: 2 }));
+    formData.set("file", new File([new Uint8Array(1024)], "proof.png", { type: "image/png" }));
+
+    const response = await POST(
+      new Request("http://localhost/api/test-runs/run-1/artifacts/upload", {
+        method: "POST",
+        body: formData,
+      }),
+      {
+        params: Promise.resolve({ id: "run-1" }),
+      } as { params: Promise<Record<string, string>> },
+    );
+
+    expect(response.status).toBe(201);
+    expect(prismaMock.testRunArtifact.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          metadata: { scope: "step", stepIndex: 2 },
+        }),
+      }),
+    );
   });
 });

@@ -27,6 +27,10 @@ import {
   DocumentTextIcon,
   ArrowDownTrayIcon,
   ArrowTopRightOnSquareIcon,
+  PaperClipIcon,
+  XMarkIcon,
+  FunnelIcon,
+  CalendarDaysIcon,
 } from "@heroicons/react/24/outline";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
@@ -59,3 +63,7 @@ export const IconDocument = DocumentTextIcon;
 export const IconDownload = ArrowDownTrayIcon;
 export const IconExternalLink = ArrowTopRightOnSquareIcon;
 export const IconDuplicate = DocumentDuplicateIcon;
+export const IconPaperClip = PaperClipIcon;
+export const IconX = XMarkIcon;
+export const IconFilter = FunnelIcon;
+export const IconCalendar = CalendarDaysIcon;

@@ -126,10 +126,23 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, organizati
       );
     }
 
+    // Check if user already belongs to any organization
+    const existingMembership = await prisma.organizationMember.findFirst({
+      where: { userId: targetUserId },
+      select: { organizationId: true },
+    });
+
+    if (existingMembership) {
+      return NextResponse.json(
+        { message: "The user already belongs to an organization. In this version, users can only belong to one organization." },
+        { status: 409 },
+      );
+    }
+
     const member = await prisma.organizationMember.create({
       data: {
-        organizationId: id,
-        userId: targetUserId,
+        organization: { connect: { id } },
+        user: { connect: { id: targetUserId } },
         role,
       },
     });

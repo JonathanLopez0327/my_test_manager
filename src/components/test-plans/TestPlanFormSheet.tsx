@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import type { TestPlanPayload, TestPlanRecord, TestPlanStatus } from "./types";
 
 type ProjectOption = {
@@ -18,6 +19,7 @@ type TestPlanFormSheetProps = {
   projects: ProjectOption[];
   onClose: () => void;
   onSave: (payload: TestPlanPayload, planId?: string) => Promise<void>;
+  onDelete?: (plan: TestPlanRecord) => Promise<void>;
 };
 
 type TestPlanFormState = {
@@ -56,9 +58,12 @@ export function TestPlanFormSheet({
   projects,
   onClose,
   onSave,
+  onDelete,
 }: TestPlanFormSheetProps) {
   const [form, setForm] = useState<TestPlanFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const title = useMemo(
@@ -80,6 +85,7 @@ export function TestPlanFormSheet({
       setForm(emptyForm);
     }
     setError(null);
+    setConfirmDeleteOpen(false);
   }, [plan, open]);
 
   const handleSubmit = async () => {
@@ -109,6 +115,25 @@ export function TestPlanFormSheet({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!plan || !onDelete) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onDelete(plan);
+      setConfirmDeleteOpen(false);
+      onClose();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete test plan.",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -215,6 +240,16 @@ export function TestPlanFormSheet({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+          {plan && onDelete ? (
+            <Button
+              variant="critical"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={submitting || deleting}
+              className="mr-auto"
+            >
+              Delete
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -223,6 +258,15 @@ export function TestPlanFormSheet({
           </Button>
         </div>
       </div>
+      <ConfirmationDialog
+        open={confirmDeleteOpen}
+        title={`Delete test plan "${plan?.name ?? ""}"?`}
+        description="This action will permanently delete the test plan. This cannot be undone."
+        confirmText="Delete"
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        isConfirming={deleting}
+      />
     </Sheet>
   );
 }

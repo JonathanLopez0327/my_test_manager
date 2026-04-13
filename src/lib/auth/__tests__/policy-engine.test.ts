@@ -41,10 +41,12 @@ describe("PolicyEngine", () => {
             expect(canSync(PERMISSIONS.PROJECT_LIST, roles)).toBe(true);
             expect(canSync(PERMISSIONS.TEST_RUN_LIST, roles)).toBe(true);
             expect(canSync(PERMISSIONS.USER_LIST, roles)).toBe(true);
+            expect(canSync(PERMISSIONS.BUG_ATTACHMENT_LIST, roles)).toBe(true);
             // Should NOT have write permissions
             expect(canSync(PERMISSIONS.PROJECT_CREATE, roles)).toBe(false);
             expect(canSync(PERMISSIONS.PROJECT_DELETE, roles)).toBe(false);
             expect(canSync(PERMISSIONS.USER_CREATE, roles)).toBe(false);
+            expect(canSync(PERMISSIONS.BUG_ATTACHMENT_UPLOAD, roles)).toBe(false);
         });
 
         it("auditor should only have read permissions", () => {

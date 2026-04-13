@@ -68,6 +68,7 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
   const severity = parseSeverity(searchParams.get("severity")?.trim() ?? null);
   const type = parseType(searchParams.get("type")?.trim() ?? null);
   const assignedToId = searchParams.get("assignedToId")?.trim();
+  const testRunId = searchParams.get("testRunId")?.trim();
   const requestedSortBy = searchParams.get("sortBy");
   const sortBy =
     requestedSortBy && SORTABLE_FIELDS.includes(requestedSortBy as BugSortBy)
@@ -112,6 +113,9 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
   }
   if (assignedToId) {
     filters.push({ assignedToId });
+  }
+  if (testRunId) {
+    filters.push({ testRunId });
   }
   if (query) {
     filters.push({
@@ -205,6 +209,13 @@ export const GET = withAuth(PERMISSIONS.BUG_LIST, async (req, { userId, globalRo
             title: true,
           },
         },
+        testRun: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
         _count: {
           select: { comments: true },
         },
@@ -232,6 +243,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       assignedToId?: string | null;
       testRunItemId?: string | null;
       testCaseId?: string | null;
+      testRunId?: string | null;
       reproductionSteps?: string | null;
       expectedResult?: string | null;
       actualResult?: string | null;
@@ -265,19 +277,25 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       ? body.tags.map((t) => String(t).trim()).filter((t) => t.length > 0)
       : [];
 
+    const assignedToId = body.assignedToId?.trim() || null;
+    const testRunItemId = body.testRunItemId?.trim() || null;
+    const testCaseId = body.testCaseId?.trim() || null;
+    const testRunId = body.testRunId?.trim() || null;
+
     const bug = await prisma.bug.create({
       data: {
-        projectId,
+        project: { connect: { id: projectId } },
         title,
         description: body.description?.trim() || null,
         severity,
         priority,
         status,
         type,
-        assignedToId: body.assignedToId?.trim() || null,
-        reporterId: userId,
-        testRunItemId: body.testRunItemId?.trim() || null,
-        testCaseId: body.testCaseId?.trim() || null,
+        ...(assignedToId ? { assignedTo: { connect: { id: assignedToId } } } : {}),
+        ...(userId ? { reporter: { connect: { id: userId } } } : {}),
+        ...(testRunItemId ? { testRunItem: { connect: { id: testRunItemId } } } : {}),
+        ...(testCaseId ? { testCase: { connect: { id: testCaseId } } } : {}),
+        ...(testRunId ? { testRun: { connect: { id: testRunId } } } : {}),
         reproductionSteps: body.reproductionSteps?.trim() || null,
         expectedResult: body.expectedResult?.trim() || null,
         actualResult: body.actualResult?.trim() || null,

@@ -19,7 +19,7 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/manager";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/manager/projects";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

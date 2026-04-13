@@ -3,6 +3,11 @@ import { hash } from "bcryptjs";
 import type { OrgRole, PrismaClient } from "@/generated/prisma/client";
 import { normalizeSlug, type SignUpInput } from "@/lib/schemas/sign-up";
 import { generateBetaCode } from "@/lib/beta/generate-code";
+import {
+  createKeygenUser,
+  createKeygenLicense,
+  getLicenseQuotas,
+} from "@/lib/keygen/client";
 
 const DEFAULT_ORG_SLUG = "organization";
 const ORG_SLUG_MAX_LENGTH = 50;
@@ -149,15 +154,15 @@ export async function registerUserWithOrganization(
       data: {
         name: input.organization.name.trim(),
         slug,
-        createdById: user.id,
+        createdBy: { connect: { id: user.id } },
       },
       select: { id: true, slug: true },
     });
 
     await tx.organizationMember.create({
       data: {
-        organizationId: organization.id,
-        userId: user.id,
+        organization: { connect: { id: organization.id } },
+        user: { connect: { id: user.id } },
         role: "owner",
       },
     });
@@ -166,7 +171,7 @@ export async function registerUserWithOrganization(
       data: {
         code: autoCode,
         email,
-        usedById: user.id,
+        usedBy: { connect: { id: user.id } },
         usedAt: new Date(),
       },
     });
@@ -178,6 +183,21 @@ export async function registerUserWithOrganization(
       organizationRole: "owner" as const,
     };
   });
+
+  try {
+    const keygenUserId = await createKeygenUser(email, fullName);
+    const licenseId = await createKeygenLicense(
+      keygenUserId,
+      process.env.KEYGEN_POLICY_BETA_ID!,
+    );
+    const quotas = await getLicenseQuotas(licenseId);
+    await prisma.organization.update({
+      where: { id: created.organizationId },
+      data: { keygenLicenseId: licenseId, keygenUserId, ...quotas },
+    });
+  } catch (err) {
+    console.error("[keygen] Failed to provision license, using defaults:", err);
+  }
 
   return created;
 }
@@ -292,15 +312,15 @@ export async function registerGoogleUserWithOrganization(
       data: {
         name: organizationName,
         slug,
-        createdById: user.id,
+        createdBy: { connect: { id: user.id } },
       },
       select: { id: true },
     });
 
     await tx.organizationMember.create({
       data: {
-        organizationId: organization.id,
-        userId: user.id,
+        organization: { connect: { id: organization.id } },
+        user: { connect: { id: user.id } },
         role: "owner",
       },
     });
@@ -309,16 +329,31 @@ export async function registerGoogleUserWithOrganization(
       data: {
         code: autoCode,
         email,
-        usedById: user.id,
+        usedBy: { connect: { id: user.id } },
         usedAt: new Date(),
       },
     });
 
-    return user.id;
+    return { userId: user.id, organizationId: organization.id };
   });
 
+  try {
+    const keygenUserId = await createKeygenUser(email, displayName);
+    const licenseId = await createKeygenLicense(
+      keygenUserId,
+      process.env.KEYGEN_POLICY_BETA_ID!,
+    );
+    const quotas = await getLicenseQuotas(licenseId);
+    await prisma.organization.update({
+      where: { id: createdUserId.organizationId },
+      data: { keygenLicenseId: licenseId, keygenUserId, ...quotas },
+    });
+  } catch (err) {
+    console.error("[keygen] Failed to provision license, using defaults:", err);
+  }
+
   return {
-    userId: createdUserId,
+    userId: createdUserId.userId,
     created: true,
   };
 }

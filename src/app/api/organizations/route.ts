@@ -85,12 +85,26 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
 
     const isSuperAdmin = globalRoles.includes("super_admin");
 
+    if (!isSuperAdmin) {
+      const existingMembership = await prisma.organizationMember.findFirst({
+        where: { userId },
+        select: { organizationId: true },
+      });
+
+      if (existingMembership) {
+        return NextResponse.json(
+          { message: "You already belong to an organization. In this version, users can only belong to one organization." },
+          { status: 409 },
+        );
+      }
+    }
+
     const org = await prisma.$transaction(async (tx) => {
       const created = await tx.organization.create({
         data: {
           slug,
           name,
-          createdById: userId,
+          ...(userId ? { createdBy: { connect: { id: userId } } } : {}),
         },
       });
 
@@ -98,8 +112,8 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
       if (!isSuperAdmin) {
         await tx.organizationMember.create({
           data: {
-            organizationId: created.id,
-            userId,
+            organization: { connect: { id: created.id } },
+            user: { connect: { id: userId } },
             role: "owner",
           },
         });

@@ -7,14 +7,12 @@ import type { OrganizationsResponse } from "../organizations/types";
 import { uiMessages } from "@/lib/ui/messages";
 
 function getSectionLabel(pathname: string) {
-  if (pathname === "/manager") return "Summary";
+  if (pathname === "/manager" || pathname === "/manager/projects") return "Projects";
   if (pathname.startsWith("/manager/organizations")) return "Organizations";
   if (pathname.startsWith("/manager/projects")) return "Projects";
   if (pathname.startsWith("/manager/users")) return "Users";
-  if (pathname.startsWith("/manager/test-plans")) return "Test Plans";
-  if (pathname.startsWith("/manager/test-suites")) return "Test Suites";
-  if (pathname.startsWith("/manager/test-runs")) return "Test Runs";
-  if (pathname.startsWith("/manager/test-cases")) return "Test Cases";
+  if (pathname.startsWith("/manager/test-management")) return "Test Workspace";
+  if (pathname.startsWith("/manager/test-runs-workspace")) return "Test Runs Workspace";
   return "Manager";
 }
 
