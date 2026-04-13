@@ -82,7 +82,7 @@ export function AssistantHubPanel() {
   return (
     <div
       className={cn(
-        "flex h-full shrink-0 flex-col border-l border-stroke bg-surface-elevated",
+        "flex h-full min-h-0 shrink-0 flex-col overflow-hidden border-l border-stroke bg-surface-elevated",
         "transition-all duration-300 ease-[var(--ease-emphasis)]",
         state.isOpen ? "w-[420px]" : "w-0 overflow-hidden border-l-0",
       )}

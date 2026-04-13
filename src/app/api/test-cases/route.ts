@@ -264,6 +264,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       where: { id: suiteId },
       select: {
         id: true,
+        testPlanId: true,
         testPlan: { select: { projectId: true } },
       },
     });

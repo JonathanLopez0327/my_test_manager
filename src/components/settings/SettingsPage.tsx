@@ -4,13 +4,13 @@ import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { IconSettings } from "../icons";
 import { usePermissions } from "@/lib/auth/use-can";
-import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
 import { OrganizationsPage } from "../organizations/OrganizationsPage";
 import { UsersPage } from "../users/UsersPage";
 
 type Tab = "org" | "users";
 
-const TABS: { id: Tab; label: string; permission: string }[] = [
+const TABS: { id: Tab; label: string; permission: Permission }[] = [
   { id: "org", label: "Organization", permission: PERMISSIONS.ORG_LIST },
   { id: "users", label: "Users", permission: PERMISSIONS.USER_LIST },
 ];

@@ -92,8 +92,9 @@ export function AssistantHubDocuments({ generatedAttachments }: Props) {
           </div>
         ) : null}
 
-        {state.attachmentsPanelOpen && generatedAttachments.length > 0
-          ? generatedAttachments.map((att) => {
+        {state.attachmentsPanelOpen && generatedAttachments.length > 0 ? (
+          <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+            {generatedAttachments.map((att) => {
               const generatedAt = formatDocumentGeneratedAt(att.createdAt);
               return (
                 <div
@@ -131,8 +132,9 @@ export function AssistantHubDocuments({ generatedAttachments }: Props) {
                   </div>
                 </div>
               );
-            })
-          : null}
+            })}
+          </div>
+        ) : null}
 
         {state.attachmentsPanelOpen &&
         generatedAttachments.length === 0 &&

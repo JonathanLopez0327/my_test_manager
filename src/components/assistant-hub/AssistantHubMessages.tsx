@@ -57,7 +57,7 @@ export function AssistantHubMessages({ generatedAttachments }: Props) {
   }
 
   return (
-    <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
       {messages.map((message, index) => {
         const isLatestAssistant =
           message.role === "assistant" &&
