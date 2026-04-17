@@ -64,6 +64,49 @@ export async function createKeygenLicense(
   return json.data.id;
 }
 
+export type KeygenLicenseStatus =
+  | "ACTIVE"
+  | "INACTIVE"
+  | "EXPIRING"
+  | "EXPIRED"
+  | "SUSPENDED"
+  | "BANNED"
+  | "UNKNOWN";
+
+export type KeygenLicenseState = {
+  status: KeygenLicenseStatus;
+  expiry: Date | null;
+};
+
+export async function getLicenseState(licenseId: string): Promise<KeygenLicenseState> {
+  const res = await fetch(`${BASE}/licenses/${licenseId}`, {
+    method: "GET",
+    headers: headers(),
+  });
+
+  const json = (await handleResponse(res, "getLicenseState")) as {
+    data: { attributes: { status?: string | null; expiry?: string | null } };
+  };
+
+  const rawStatus = (json.data.attributes.status ?? "").toUpperCase();
+  const knownStatuses: readonly string[] = [
+    "ACTIVE",
+    "INACTIVE",
+    "EXPIRING",
+    "EXPIRED",
+    "SUSPENDED",
+    "BANNED",
+  ];
+  const status: KeygenLicenseStatus = knownStatuses.includes(rawStatus)
+    ? (rawStatus as KeygenLicenseStatus)
+    : "UNKNOWN";
+
+  const expiryStr = json.data.attributes.expiry;
+  const expiry = expiryStr ? new Date(expiryStr) : null;
+
+  return { status, expiry };
+}
+
 export async function getLicenseQuotas(licenseId: string): Promise<KeygenQuotas> {
   const res = await fetch(`${BASE}/licenses/${licenseId}?include=entitlements`, {
     method: "GET",

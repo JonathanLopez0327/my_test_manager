@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { PrismaClient } from "@/generated/prisma/client";
+import { ensureLicenseStatus } from "@/lib/keygen/license-sync";
 
 export type QuotaResource = "projects" | "members" | "testCases" | "testRuns";
 
@@ -13,6 +14,8 @@ export async function checkQuota(
   organizationId: string,
   resource: QuotaResource,
 ): Promise<QuotaResult> {
+  await ensureLicenseStatus(organizationId);
+
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: {
