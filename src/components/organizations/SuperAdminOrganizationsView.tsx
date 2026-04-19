@@ -27,6 +27,9 @@ import type {
   SortDir,
 } from "./types";
 import { nextSort } from "@/lib/sorting";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages/en";
 
 async function safeJson(res: Response): Promise<{ message?: string } & Record<string, unknown>> {
   const text = await res.text();
@@ -38,6 +41,7 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
 }
 
 export function SuperAdminOrganizationsView() {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -76,15 +80,15 @@ export function SuperAdminOrganizationsView() {
         params.set("sortDir", sortDir);
       }
       const res = await fetch(`/api/organizations${params.toString() ? `?${params.toString()}` : ""}`);
-      if (!res.ok) throw new Error("Could not cargar las organizations.");
+      if (!res.ok) throw new Error(t.superAdminOrgs.errors.couldNotLoad);
       const data = (await res.json()) as OrganizationsResponse;
       setOrgs(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error loading data.");
+      setError(err instanceof Error ? err.message : t.superAdminOrgs.errors.errorLoading);
     } finally {
       setLoading(false);
     }
-  }, [sortBy, sortDir]);
+  }, [sortBy, sortDir, t]);
 
   useEffect(() => {
     fetchOrgs();
@@ -100,11 +104,11 @@ export function SuperAdminOrganizationsView() {
       });
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "Could not update the organization.");
+        throw new Error(data.message || t.superAdminOrgs.errors.couldNotUpdate);
       }
       await fetchOrgs();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error updating data.");
+      setError(err instanceof Error ? err.message : t.superAdminOrgs.errors.errorUpdating);
     }
   };
 
@@ -122,7 +126,7 @@ export function SuperAdminOrganizationsView() {
     });
     if (!res.ok) {
       const data = await safeJson(res);
-      throw new Error(data.message || "Could not update the organization.");
+      throw new Error(data.message || t.superAdminOrgs.errors.couldNotUpdate);
     }
     await fetchOrgs();
   };
@@ -145,14 +149,16 @@ export function SuperAdminOrganizationsView() {
         const data = await safeJson(res);
         throw new Error(
           data.message ??
-            `Could not ${licenseAction.type} the license.`,
+            (licenseAction.type === "suspend"
+              ? t.superAdminOrgs.errors.couldNotSuspend
+              : t.superAdminOrgs.errors.couldNotReinstate),
         );
       }
       await fetchOrgs();
       setLicenseAction(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error updating license.",
+        err instanceof Error ? err.message : t.superAdminOrgs.errors.errorUpdatingLicense,
       );
     } finally {
       setLicenseActionRunning(false);
@@ -170,12 +176,12 @@ export function SuperAdminOrganizationsView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "Could not renew the license.");
+        throw new Error(data.message || t.superAdminOrgs.errors.couldNotRenew);
       }
       await fetchOrgs();
       setRenewTarget(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error renewing license.");
+      setError(err instanceof Error ? err.message : t.superAdminOrgs.errors.errorRenewing);
     } finally {
       setRenewing(false);
     }
@@ -200,9 +206,9 @@ export function SuperAdminOrganizationsView() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-              Organization management
+              {t.superAdminOrgs.eyebrow}
             </p>
-            <h2 className="text-2xl font-semibold text-ink">Organizations</h2>
+            <h2 className="text-2xl font-semibold text-ink">{t.superAdminOrgs.heading}</h2>
           </div>
           <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:w-auto">
             <Button
@@ -211,7 +217,7 @@ export function SuperAdminOrganizationsView() {
               className="whitespace-nowrap"
             >
               <IconPlus className="h-4 w-4" />
-              New organization
+              {t.superAdminOrgs.newOrg}
             </Button>
           </div>
         </div>
@@ -219,11 +225,11 @@ export function SuperAdminOrganizationsView() {
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-ink">
-              Organizations list
+              {t.superAdminOrgs.listTitle}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Updating..." : `Total: ${orgs.length}`}
+            {loading ? t.superAdminOrgs.updating : `${t.superAdminOrgs.totalLabel}: ${orgs.length}`}
           </div>
         </div>
 
@@ -237,49 +243,49 @@ export function SuperAdminOrganizationsView() {
           <TableShell
         loading={loading}
         hasItems={orgs.length > 0}
-        emptyTitle="No organizations registered."
-        emptyDescription="Create a new organization to get started."
+        emptyTitle={t.superAdminOrgs.emptyTitle}
+        emptyDescription={t.superAdminOrgs.emptyDescription}
         desktop={
           <table className="w-full border-collapse text-[13px]">
             <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
               <tr className="text-left text-[13px] font-medium text-ink-soft">
                 <SortableHeaderCell
-                  label="Name"
+                  label={t.superAdminOrgs.columns.name}
                   sortKey="name"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
                 <SortableHeaderCell
-                  label="Slug"
+                  label={t.superAdminOrgs.columns.slug}
                   sortKey="slug"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
                 <SortableHeaderCell
-                  label="Members"
+                  label={t.superAdminOrgs.columns.members}
                   sortKey="members"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
                 <SortableHeaderCell
-                  label="Projects"
+                  label={t.superAdminOrgs.columns.projects}
                   sortKey="projects"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
                 <SortableHeaderCell
-                  label="Status"
+                  label={t.superAdminOrgs.columns.status}
                   sortKey="isActive"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
-                <th className="px-3 py-2">License</th>
-                <th className="px-3 py-2 text-right">Actions</th>
+                <th className="px-3 py-2">{t.superAdminOrgs.columns.license}</th>
+                <th className="px-3 py-2 text-right">{t.superAdminOrgs.columns.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -300,25 +306,25 @@ export function SuperAdminOrganizationsView() {
                   </td>
                   <td className="px-3 py-2.5">
                     <Badge tone={org.isActive ? "success" : "neutral"}>
-                      {org.isActive ? "Active" : "Inactive"}
+                      {org.isActive ? t.common.active : t.common.inactive}
                     </Badge>
                   </td>
                   <td className="px-3 py-2.5">
-                    {renderLicenseCell(org.betaExpiresAt)}
+                    {renderLicenseCell(org.betaExpiresAt, t)}
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center justify-end gap-1">
                       <RowActionButton
                         onClick={() => handleEditClick(org)}
                         icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit organization"
-                        title="Edit organization"
+                        label={t.superAdminOrgs.actions.editOrg}
+                        title={t.superAdminOrgs.actions.editOrg}
                       />
                       <RowActionButton
                         onClick={() => setRenewTarget(org)}
                         icon={<IconRefresh className="h-4 w-4" />}
-                        label="Renew license"
-                        title="Renew license via Keygen"
+                        label={t.superAdminOrgs.actions.renewLicense}
+                        title={t.superAdminOrgs.actions.renewLicenseTitle}
                       />
                       {isLicenseSuspended(org.betaExpiresAt) ? (
                         <RowActionButton
@@ -326,8 +332,8 @@ export function SuperAdminOrganizationsView() {
                             setLicenseAction({ type: "reinstate", org })
                           }
                           icon={<IconCheck className="h-4 w-4" />}
-                          label="Reinstate license"
-                          title="Reinstate license in Keygen"
+                          label={t.superAdminOrgs.actions.reinstateLicense}
+                          title={t.superAdminOrgs.actions.reinstateLicenseTitle}
                         />
                       ) : (
                         <RowActionButton
@@ -335,8 +341,8 @@ export function SuperAdminOrganizationsView() {
                             setLicenseAction({ type: "suspend", org })
                           }
                           icon={<IconAlert className="h-4 w-4" />}
-                          label="Suspend license"
-                          title="Suspend license in Keygen"
+                          label={t.superAdminOrgs.actions.suspendLicense}
+                          title={t.superAdminOrgs.actions.suspendLicenseTitle}
                           tone="danger"
                         />
                       )}
@@ -344,16 +350,16 @@ export function SuperAdminOrganizationsView() {
                         <RowActionButton
                           onClick={() => handleToggleActive(org)}
                           icon={<IconX className="h-4 w-4" />}
-                          label="Deactivate organization"
-                          title="Deactivate organization"
+                          label={t.superAdminOrgs.actions.deactivateOrg}
+                          title={t.superAdminOrgs.actions.deactivateOrg}
                           tone="danger"
                         />
                       ) : (
                         <RowActionButton
                           onClick={() => handleToggleActive(org)}
                           icon={<IconCheck className="h-4 w-4" />}
-                          label="Activate organization"
-                          title="Activate organization"
+                          label={t.superAdminOrgs.actions.activateOrg}
+                          title={t.superAdminOrgs.actions.activateOrg}
                         />
                       )}
                     </div>
@@ -378,26 +384,26 @@ export function SuperAdminOrganizationsView() {
                     <p className="truncate text-xs text-ink-soft">{org.slug}</p>
                   </div>
                   <Badge tone={org.isActive ? "success" : "neutral"}>
-                    {org.isActive ? "Active" : "Inactive"}
+                    {org.isActive ? t.common.active : t.common.inactive}
                   </Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-ink-muted">
-                  <div>Members: {org._count.members}</div>
-                  <div>Projects: {org._count.projects}</div>
+                  <div>{t.superAdminOrgs.mobile.members}: {org._count.members}</div>
+                  <div>{t.superAdminOrgs.mobile.projects}: {org._count.projects}</div>
                 </div>
-                <div className="mt-3">{renderLicenseCell(org.betaExpiresAt)}</div>
+                <div className="mt-3">{renderLicenseCell(org.betaExpiresAt, t)}</div>
                 <div className="mt-3 flex items-center justify-end gap-1">
                   <RowActionButton
                     onClick={() => handleEditClick(org)}
                     icon={<IconEdit className="h-4 w-4" />}
-                    label="Edit organization"
-                    title="Edit organization"
+                    label={t.superAdminOrgs.actions.editOrg}
+                    title={t.superAdminOrgs.actions.editOrg}
                   />
                   <RowActionButton
                     onClick={() => setRenewTarget(org)}
                     icon={<IconRefresh className="h-4 w-4" />}
-                    label="Renew license"
-                    title="Renew license via Keygen"
+                    label={t.superAdminOrgs.actions.renewLicense}
+                    title={t.superAdminOrgs.actions.renewLicenseTitle}
                   />
                   {isLicenseSuspended(org.betaExpiresAt) ? (
                     <RowActionButton
@@ -405,8 +411,8 @@ export function SuperAdminOrganizationsView() {
                         setLicenseAction({ type: "reinstate", org })
                       }
                       icon={<IconCheck className="h-4 w-4" />}
-                      label="Reinstate license"
-                      title="Reinstate license in Keygen"
+                      label={t.superAdminOrgs.actions.reinstateLicense}
+                      title={t.superAdminOrgs.actions.reinstateLicenseTitle}
                     />
                   ) : (
                     <RowActionButton
@@ -414,8 +420,8 @@ export function SuperAdminOrganizationsView() {
                         setLicenseAction({ type: "suspend", org })
                       }
                       icon={<IconAlert className="h-4 w-4" />}
-                      label="Suspend license"
-                      title="Suspend license in Keygen"
+                      label={t.superAdminOrgs.actions.suspendLicense}
+                      title={t.superAdminOrgs.actions.suspendLicenseTitle}
                       tone="danger"
                     />
                   )}
@@ -423,16 +429,16 @@ export function SuperAdminOrganizationsView() {
                     <RowActionButton
                       onClick={() => handleToggleActive(org)}
                       icon={<IconX className="h-4 w-4" />}
-                      label="Deactivate organization"
-                      title="Deactivate organization"
+                      label={t.superAdminOrgs.actions.deactivateOrg}
+                      title={t.superAdminOrgs.actions.deactivateOrg}
                       tone="danger"
                     />
                   ) : (
                     <RowActionButton
                       onClick={() => handleToggleActive(org)}
                       icon={<IconCheck className="h-4 w-4" />}
-                      label="Activate organization"
-                      title="Activate organization"
+                      label={t.superAdminOrgs.actions.activateOrg}
+                      title={t.superAdminOrgs.actions.activateOrg}
                     />
                   )}
                 </div>
@@ -463,9 +469,9 @@ export function SuperAdminOrganizationsView() {
 
       <ConfirmationDialog
         open={!!renewTarget}
-        title={`Renew license for "${renewTarget?.name ?? ""}"?`}
-        description="This will call Keygen to extend the organization's license expiry based on the current policy, and refresh cached quotas. Continue?"
-        confirmText="Renew"
+        title={formatMessage(t.superAdminOrgs.renewDialog.title, { name: renewTarget?.name ?? "" })}
+        description={t.superAdminOrgs.renewDialog.description}
+        confirmText={t.superAdminOrgs.renewDialog.confirm}
         variant="info"
         onConfirm={handleConfirmRenew}
         onCancel={() => {
@@ -479,15 +485,19 @@ export function SuperAdminOrganizationsView() {
         open={!!licenseAction}
         title={
           licenseAction?.type === "suspend"
-            ? `Suspend license for "${licenseAction.org.name}"?`
-            : `Reinstate license for "${licenseAction?.org.name ?? ""}"?`
+            ? formatMessage(t.superAdminOrgs.suspendDialog.title, { name: licenseAction.org.name })
+            : formatMessage(t.superAdminOrgs.reinstateDialog.title, { name: licenseAction?.org.name ?? "" })
         }
         description={
           licenseAction?.type === "suspend"
-            ? "All write actions will be blocked immediately for members of this organization until the license is reinstated."
-            : "The license will be reactivated in Keygen and write actions will be re-enabled. The expiry will be restored to Keygen's current value."
+            ? t.superAdminOrgs.suspendDialog.description
+            : t.superAdminOrgs.reinstateDialog.description
         }
-        confirmText={licenseAction?.type === "suspend" ? "Suspend" : "Reinstate"}
+        confirmText={
+          licenseAction?.type === "suspend"
+            ? t.superAdminOrgs.suspendDialog.confirm
+            : t.superAdminOrgs.reinstateDialog.confirm
+        }
         variant={licenseAction?.type === "suspend" ? "danger" : "info"}
         onConfirm={handleConfirmLicenseAction}
         onCancel={() => {
@@ -505,15 +515,15 @@ function isLicenseSuspended(betaExpiresAt: string | null): boolean {
   return new Date(betaExpiresAt).getTime() <= 0;
 }
 
-function renderLicenseCell(betaExpiresAt: string | null) {
+function renderLicenseCell(betaExpiresAt: string | null, t: Messages) {
   if (!betaExpiresAt) {
-    return <span className="text-xs text-ink-muted">No license</span>;
+    return <span className="text-xs text-ink-muted">{t.superAdminOrgs.license.none}</span>;
   }
   const expiresAt = new Date(betaExpiresAt);
   const expiresMs = expiresAt.getTime();
 
   if (expiresMs <= 0) {
-    return <Badge tone="danger">Suspended</Badge>;
+    return <Badge tone="danger">{t.superAdminOrgs.license.suspended}</Badge>;
   }
 
   const now = Date.now();
@@ -521,10 +531,10 @@ function renderLicenseCell(betaExpiresAt: string | null) {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffMs <= 0) {
-    return <Badge tone="danger">Expired</Badge>;
+    return <Badge tone="danger">{t.superAdminOrgs.license.expired}</Badge>;
   }
   if (diffDays <= 7) {
-    return <Badge tone="warning">Expires in {diffDays}d</Badge>;
+    return <Badge tone="warning">{formatMessage(t.superAdminOrgs.license.expiresInDays, { days: diffDays })}</Badge>;
   }
   return (
     <span className="text-xs text-ink-muted">
@@ -532,6 +542,3 @@ function renderLicenseCell(betaExpiresAt: string | null) {
     </span>
   );
 }
-
-
-

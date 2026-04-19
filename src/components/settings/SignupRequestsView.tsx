@@ -8,6 +8,9 @@ import { Input } from "../ui/Input";
 import { RowActionButton } from "../ui/RowActionButton";
 import { TableShell } from "../ui/TableShell";
 import { IconCheck, IconX } from "../icons";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages/en";
 
 type SignupRequestProvider = "credentials" | "google";
 type SignupRequestStatus = "pending" | "approved" | "rejected";
@@ -36,12 +39,7 @@ type SignupRequestsResponse = { items: SignupRequestRecord[] };
 
 type StatusFilter = SignupRequestStatus | "all";
 
-const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
-  { id: "pending", label: "Pending" },
-  { id: "approved", label: "Approved" },
-  { id: "rejected", label: "Rejected" },
-  { id: "all", label: "All" },
-];
+const STATUS_FILTER_IDS: StatusFilter[] = ["pending", "approved", "rejected", "all"];
 
 const POLL_INTERVAL_MS = 20_000;
 
@@ -61,18 +59,19 @@ function formatDate(value: string | null): string {
   return date.toLocaleString();
 }
 
-function statusBadge(status: SignupRequestStatus) {
+function statusBadge(status: SignupRequestStatus, t: Messages) {
   switch (status) {
     case "pending":
-      return <Badge tone="warning">Pending</Badge>;
+      return <Badge tone="warning">{t.signupRequests.status.pending}</Badge>;
     case "approved":
-      return <Badge tone="success">Approved</Badge>;
+      return <Badge tone="success">{t.signupRequests.status.approved}</Badge>;
     case "rejected":
-      return <Badge tone="danger">Rejected</Badge>;
+      return <Badge tone="danger">{t.signupRequests.status.rejected}</Badge>;
   }
 }
 
 export function SignupRequestsView() {
+  const t = useT();
   const [items, setItems] = useState<SignupRequestRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,19 +95,19 @@ export function SignupRequestsView() {
         const res = await fetch(`/api/admin/signup-requests?status=${statusFilter}`);
         if (!res.ok) {
           const data = await safeJson(res);
-          throw new Error(data.message || "Could not load signup requests.");
+          throw new Error(data.message || t.signupRequests.errors.couldNotLoad);
         }
         const data = (await res.json()) as SignupRequestsResponse;
         setItems(data.items);
       } catch (err) {
         if (!silent) {
-          setError(err instanceof Error ? err.message : "Error loading signup requests.");
+          setError(err instanceof Error ? err.message : t.signupRequests.errors.loading);
         }
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [statusFilter],
+    [statusFilter, t],
   );
 
   useEffect(() => {
@@ -150,12 +149,12 @@ export function SignupRequestsView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "Could not approve the signup request.");
+        throw new Error(data.message || t.signupRequests.errors.couldNotApprove);
       }
       setApproveTarget(null);
       await fetchItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error approving signup request.");
+      setError(err instanceof Error ? err.message : t.signupRequests.errors.approving);
     } finally {
       setApproving(false);
     }
@@ -176,13 +175,13 @@ export function SignupRequestsView() {
       );
       if (!res.ok) {
         const data = await safeJson(res);
-        throw new Error(data.message || "Could not reject the signup request.");
+        throw new Error(data.message || t.signupRequests.errors.couldNotReject);
       }
       setRejectTarget(null);
       setRejectReason("");
       await fetchItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error rejecting signup request.");
+      setError(err instanceof Error ? err.message : t.signupRequests.errors.rejecting);
     } finally {
       setRejecting(false);
     }
@@ -190,9 +189,9 @@ export function SignupRequestsView() {
 
   const total = items.length;
   const subtitle = useMemo(() => {
-    if (loading) return "Updating...";
-    return `Total: ${total}`;
-  }, [loading, total]);
+    if (loading) return t.signupRequests.updating;
+    return `${t.signupRequests.totalLabel}: ${total}`;
+  }, [loading, total, t]);
 
   return (
     <div className="space-y-6">
@@ -200,21 +199,21 @@ export function SignupRequestsView() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-              Account approvals
+              {t.signupRequests.eyebrow}
             </p>
-            <h2 className="text-2xl font-semibold text-ink">Signup requests</h2>
+            <h2 className="text-2xl font-semibold text-ink">{t.signupRequests.heading}</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              Review pending signups before a license is provisioned.
+              {t.signupRequests.subtitle}
             </p>
           </div>
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            {STATUS_FILTERS.map((filter) => {
-              const isActive = filter.id === statusFilter;
+            {STATUS_FILTER_IDS.map((id) => {
+              const isActive = id === statusFilter;
               return (
                 <button
-                  key={filter.id}
+                  key={id}
                   type="button"
-                  onClick={() => setStatusFilter(filter.id)}
+                  onClick={() => setStatusFilter(id)}
                   className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isActive
                       ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-300/60 dark:bg-brand-500/20 dark:text-white"
@@ -222,7 +221,7 @@ export function SignupRequestsView() {
                   }`}
                   aria-pressed={isActive}
                 >
-                  {filter.label}
+                  {t.signupRequests.filters[id]}
                 </button>
               );
             })}
@@ -230,7 +229,7 @@ export function SignupRequestsView() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-semibold text-ink">Requests</p>
+          <p className="text-sm font-semibold text-ink">{t.signupRequests.listTitle}</p>
           <span className="text-xs text-ink-soft">{subtitle}</span>
         </div>
 
@@ -244,19 +243,19 @@ export function SignupRequestsView() {
           <TableShell
             loading={loading}
             hasItems={items.length > 0}
-            emptyTitle="No signup requests."
-            emptyDescription="New signups will appear here for review."
+            emptyTitle={t.signupRequests.emptyTitle}
+            emptyDescription={t.signupRequests.emptyDescription}
             desktop={
               <table className="w-full border-collapse text-[13px]">
                 <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
                   <tr className="text-left text-[13px] font-medium text-ink-soft">
-                    <th className="px-3 py-2">Email</th>
-                    <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Organization</th>
-                    <th className="px-3 py-2">Provider</th>
-                    <th className="px-3 py-2">Requested</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2 text-right">Actions</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.email}</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.name}</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.organization}</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.provider}</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.requested}</th>
+                    <th className="px-3 py-2">{t.signupRequests.columns.status}</th>
+                    <th className="px-3 py-2 text-right">{t.signupRequests.columns.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -287,7 +286,7 @@ export function SignupRequestsView() {
                       <td className="px-3 py-2.5 text-ink-muted">
                         {formatDate(item.createdAt)}
                       </td>
-                      <td className="px-3 py-2.5">{statusBadge(item.status)}</td>
+                      <td className="px-3 py-2.5">{statusBadge(item.status, t)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           {item.status === "pending" ? (
@@ -295,8 +294,8 @@ export function SignupRequestsView() {
                               <RowActionButton
                                 onClick={() => setApproveTarget(item)}
                                 icon={<IconCheck className="h-4 w-4" />}
-                                label="Approve request"
-                                title="Approve request"
+                                label={t.signupRequests.actions.approve}
+                                title={t.signupRequests.actions.approve}
                               />
                               <RowActionButton
                                 onClick={() => {
@@ -304,8 +303,8 @@ export function SignupRequestsView() {
                                   setRejectTarget(item);
                                 }}
                                 icon={<IconX className="h-4 w-4" />}
-                                label="Reject request"
-                                title="Reject request"
+                                label={t.signupRequests.actions.reject}
+                                title={t.signupRequests.actions.reject}
                                 tone="danger"
                               />
                             </>
@@ -337,30 +336,30 @@ export function SignupRequestsView() {
                           {`${item.firstName} ${item.lastName}`.trim() || "—"}
                         </p>
                       </div>
-                      {statusBadge(item.status)}
+                      {statusBadge(item.status, t)}
                     </div>
                     <div className="mt-3 flex flex-col gap-1 text-xs text-ink-muted">
                       <span>
-                        <span className="font-medium text-ink-soft">Org: </span>
+                        <span className="font-medium text-ink-soft">{t.signupRequests.mobile.org}: </span>
                         {item.organizationName}
                       </span>
                       <span>
-                        <span className="font-medium text-ink-soft">Provider: </span>
+                        <span className="font-medium text-ink-soft">{t.signupRequests.mobile.provider}: </span>
                         <span className="capitalize">{item.provider}</span>
                       </span>
                       <span>
-                        <span className="font-medium text-ink-soft">Requested: </span>
+                        <span className="font-medium text-ink-soft">{t.signupRequests.mobile.requested}: </span>
                         {formatDate(item.createdAt)}
                       </span>
                       {item.status !== "pending" && item.reviewedBy ? (
                         <span>
-                          <span className="font-medium text-ink-soft">Reviewed by: </span>
+                          <span className="font-medium text-ink-soft">{t.signupRequests.mobile.reviewedBy}: </span>
                           {item.reviewedBy.email}
                         </span>
                       ) : null}
                       {item.rejectionReason ? (
                         <span>
-                          <span className="font-medium text-ink-soft">Reason: </span>
+                          <span className="font-medium text-ink-soft">{t.signupRequests.mobile.reason}: </span>
                           {item.rejectionReason}
                         </span>
                       ) : null}
@@ -370,8 +369,8 @@ export function SignupRequestsView() {
                         <RowActionButton
                           onClick={() => setApproveTarget(item)}
                           icon={<IconCheck className="h-4 w-4" />}
-                          label="Approve request"
-                          title="Approve request"
+                          label={t.signupRequests.actions.approve}
+                          title={t.signupRequests.actions.approve}
                         />
                         <RowActionButton
                           onClick={() => {
@@ -379,8 +378,8 @@ export function SignupRequestsView() {
                             setRejectTarget(item);
                           }}
                           icon={<IconX className="h-4 w-4" />}
-                          label="Reject request"
-                          title="Reject request"
+                          label={t.signupRequests.actions.reject}
+                          title={t.signupRequests.actions.reject}
                           tone="danger"
                         />
                       </div>
@@ -395,9 +394,9 @@ export function SignupRequestsView() {
 
       <ConfirmationDialog
         open={!!approveTarget}
-        title={`Approve signup for "${approveTarget?.email ?? ""}"?`}
-        description="This will provision a Keygen license and create the user and organization. The applicant will be able to sign in immediately."
-        confirmText="Approve"
+        title={formatMessage(t.signupRequests.approveDialog.title, { email: approveTarget?.email ?? "" })}
+        description={t.signupRequests.approveDialog.description}
+        confirmText={t.signupRequests.approveDialog.confirm}
         variant="info"
         onConfirm={handleApprove}
         onCancel={() => {
@@ -409,22 +408,22 @@ export function SignupRequestsView() {
 
       <ConfirmationDialog
         open={!!rejectTarget}
-        title={`Reject signup for "${rejectTarget?.email ?? ""}"?`}
+        title={formatMessage(t.signupRequests.rejectDialog.title, { email: rejectTarget?.email ?? "" })}
         description={
           <div className="mt-2 flex flex-col gap-3">
             <span>
-              The request will be marked as rejected and no license will be provisioned.
+              {t.signupRequests.rejectDialog.description}
             </span>
             <Input
-              label="Reason (optional)"
+              label={t.signupRequests.rejectDialog.reasonLabel}
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
-              placeholder="Add a note for future reference"
+              placeholder={t.signupRequests.rejectDialog.reasonPlaceholder}
               disabled={rejecting}
             />
           </div>
         }
-        confirmText="Reject"
+        confirmText={t.signupRequests.rejectDialog.confirm}
         variant="danger"
         onConfirm={handleReject}
         onCancel={() => {

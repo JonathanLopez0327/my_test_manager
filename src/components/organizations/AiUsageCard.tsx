@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "../ui/Card";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
 
 type UsageResponse = {
   limit: number;
@@ -25,6 +27,7 @@ function formatDate(iso: string): string {
 }
 
 export function AiUsageCard() {
+  const t = useT();
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +37,11 @@ export function AiUsageCard() {
     (async () => {
       try {
         const res = await fetch("/api/organizations/current/usage");
-        if (!res.ok) throw new Error("Could not load AI usage.");
+        if (!res.ok) throw new Error(t.aiUsage.couldNotLoad);
         const json = (await res.json()) as UsageResponse;
         if (!cancelled) setData(json);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Error");
+        if (!cancelled) setError(err instanceof Error ? err.message : t.common.error);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -46,12 +49,12 @@ export function AiUsageCard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   if (loading) {
     return (
       <Card className="p-6">
-        <p className="text-sm text-ink-muted">Loading AI usage...</p>
+        <p className="text-sm text-ink-muted">{t.aiUsage.loading}</p>
       </Card>
     );
   }
@@ -59,7 +62,7 @@ export function AiUsageCard() {
   if (error || !data) {
     return (
       <Card className="p-6">
-        <p className="text-sm text-danger-500">{error ?? "Could not load usage."}</p>
+        <p className="text-sm text-danger-500">{error ?? t.aiUsage.couldNotLoadFallback}</p>
       </Card>
     );
   }
@@ -84,9 +87,12 @@ export function AiUsageCard() {
     <Card className="p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-ink">AI token usage</p>
+          <p className="text-sm font-semibold text-ink">{t.aiUsage.title}</p>
           <p className="mt-1 text-xs text-ink-muted">
-            Period {formatDate(data.periodStart)} – {formatDate(data.periodEnd)}
+            {formatMessage(t.aiUsage.period, {
+              start: formatDate(data.periodStart),
+              end: formatDate(data.periodEnd),
+            })}
           </p>
         </div>
         <p className="text-sm font-medium text-ink">
@@ -104,27 +110,27 @@ export function AiUsageCard() {
 
       <dl className="mt-4 grid grid-cols-3 gap-3 text-xs">
         <div>
-          <dt className="text-ink-muted">Input</dt>
+          <dt className="text-ink-muted">{t.aiUsage.input}</dt>
           <dd className="mt-0.5 font-medium text-ink">{formatNumber(input)}</dd>
         </div>
         <div>
-          <dt className="text-ink-muted">Output</dt>
+          <dt className="text-ink-muted">{t.aiUsage.output}</dt>
           <dd className="mt-0.5 font-medium text-ink">{formatNumber(output)}</dd>
         </div>
         <div>
-          <dt className="text-ink-muted">Used</dt>
+          <dt className="text-ink-muted">{t.aiUsage.used}</dt>
           <dd className="mt-0.5 font-medium text-ink">{pct}%</dd>
         </div>
       </dl>
 
       {pct >= 100 && (
         <p className="mt-3 text-xs text-danger-500">
-          Quota exceeded. AI features are paused until the next period begins.
+          {t.aiUsage.quotaExceeded}
         </p>
       )}
       {pct >= 80 && pct < 100 && (
         <p className="mt-3 text-xs text-warning-600">
-          You are close to your monthly AI token limit.
+          {t.aiUsage.quotaNear}
         </p>
       )}
     </Card>
