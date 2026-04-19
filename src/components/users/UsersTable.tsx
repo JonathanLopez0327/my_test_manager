@@ -6,7 +6,7 @@ import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { TableShell } from "../ui/TableShell";
 import type { UserRecord, UserSortBy, SortDir } from "./types";
-import { uiMessages } from "@/lib/ui/messages";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type UsersTableProps = {
   items: UserRecord[];
@@ -29,39 +29,40 @@ export function UsersTable({
   sortDir,
   onSort,
 }: UsersTableProps) {
+  const t = useT();
   return (
     <TableShell
       loading={loading}
       hasItems={items.length > 0}
-      emptyTitle="No users to display."
-      emptyDescription="Adjust your filters or invite a new user."
+      emptyTitle={t.users.emptyTitle}
+      emptyDescription={t.users.emptyDescription}
       desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Email"
+                label={t.users.columns.email}
                 sortKey="email"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Name"
+                label={t.users.columns.name}
                 sortKey="fullName"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Organization"
+                label={t.users.columns.organization}
                 sortKey="organization"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Role"
+                label={t.users.columns.role}
                 sortKey="role"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
@@ -69,7 +70,7 @@ export function UsersTable({
               />
               {showGlobal ? (
                 <SortableHeaderCell
-                  label="Global"
+                  label={t.users.columns.global}
                   sortKey="global"
                   activeSortBy={sortBy}
                   activeSortDir={sortDir}
@@ -77,14 +78,14 @@ export function UsersTable({
                 />
               ) : null}
               <SortableHeaderCell
-                label={uiMessages.common.status}
+                label={t.common.status}
                 sortKey="isActive"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <th className="px-3 py-2 text-right">
-                {canManage ? uiMessages.common.actions : ""}
+                {canManage ? t.common.actions : ""}
               </th>
             </tr>
           </thead>
@@ -98,7 +99,7 @@ export function UsersTable({
                   {user.email}
                 </td>
                 <td className="px-3 py-2.5 text-ink">
-                  {user.fullName ?? "Unnamed"}
+                  {user.fullName ?? t.users.unnamed}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
@@ -111,7 +112,7 @@ export function UsersTable({
                       ) : null}
                     </div>
                   ) : (
-                    "Unassigned"
+                    t.users.unassigned
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
@@ -132,7 +133,7 @@ export function UsersTable({
                 ) : null}
                 <td className="px-3 py-2.5">
                   <Badge tone={user.isActive ? "success" : "neutral"}>
-                    {user.isActive ? "Active" : "Inactive"}
+                    {user.isActive ? t.common.active : t.common.inactive}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
@@ -141,8 +142,8 @@ export function UsersTable({
                       <RowActionButton
                         onClick={() => onEdit?.(user)}
                         icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit user"
-                        title="Edit user"
+                        label={t.users.editUser}
+                        title={t.users.editUser}
                       />
                     </div>
                   ) : null}
@@ -161,7 +162,7 @@ export function UsersTable({
             >
               <p className="text-sm font-semibold text-ink">{user.email}</p>
               <p className="text-xs text-ink-soft">
-                {user.fullName ?? "Unnamed"}
+                {user.fullName ?? t.users.unnamed}
               </p>
               <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
                 {user.memberships.length > 0 ? (
@@ -178,24 +179,24 @@ export function UsersTable({
                     </div>
                   ))
                 ) : (
-                  <span>Unassigned</span>
+                  <span>{t.users.unassigned}</span>
                 )}
               </div>
               {showGlobal && user.globalRoles.length ? (
                 <p className="mt-2 text-xs text-ink-muted">
-                  Global: {user.globalRoles.join(", ")}
+                  {t.users.globalPrefix}: {user.globalRoles.join(", ")}
                 </p>
               ) : null}
               <div className="mt-3 flex items-center justify-between">
                 <Badge tone={user.isActive ? "success" : "neutral"}>
-                  {user.isActive ? "Active" : "Inactive"}
+                  {user.isActive ? t.common.active : t.common.inactive}
                 </Badge>
                 {canManage ? (
                   <RowActionButton
                     onClick={() => onEdit?.(user)}
                     icon={<IconEdit className="h-4 w-4" />}
-                    label="Edit user"
-                    title="Edit user"
+                    label={t.users.editUser}
+                    title={t.users.editUser}
                   />
                 ) : null}
               </div>
@@ -206,6 +207,3 @@ export function UsersTable({
     />
   );
 }
-
-
-

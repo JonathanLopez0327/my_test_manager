@@ -5,6 +5,8 @@ import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
 import type { TestPlanPayload, TestPlanRecord, TestPlanStatus } from "./types";
 
 type ProjectOption = {
@@ -40,12 +42,7 @@ const emptyForm: TestPlanFormState = {
   endsOn: "",
 };
 
-const statusOptions: Array<{ value: TestPlanStatus; label: string }> = [
-  { value: "draft", label: "Draft" },
-  { value: "active", label: "Active" },
-  { value: "completed", label: "Completed" },
-  { value: "archived", label: "Archived" },
-];
+const statusOrder: TestPlanStatus[] = ["draft", "active", "completed", "archived"];
 
 function toDateInput(value?: string | null) {
   if (!value) return "";
@@ -60,6 +57,7 @@ export function TestPlanFormSheet({
   onSave,
   onDelete,
 }: TestPlanFormSheetProps) {
+  const t = useT();
   const [form, setForm] = useState<TestPlanFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -67,8 +65,8 @@ export function TestPlanFormSheet({
   const [error, setError] = useState<string | null>(null);
 
   const title = useMemo(
-    () => (plan ? "Edit test plan" : "New test plan"),
-    [plan],
+    () => (plan ? t.testPlans.form.titleEdit : t.testPlans.form.titleNew),
+    [plan, t],
   );
 
   useEffect(() => {
@@ -90,7 +88,7 @@ export function TestPlanFormSheet({
 
   const handleSubmit = async () => {
     if (form.startsOn && form.endsOn && form.endsOn < form.startsOn) {
-      setError("End date must be after start date.");
+      setError(t.testPlans.form.invalidDateRange);
       return;
     }
 
@@ -111,7 +109,7 @@ export function TestPlanFormSheet({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Could not save test plan.",
+          : t.testPlans.form.couldNotSave,
       );
     } finally {
       setSubmitting(false);
@@ -130,7 +128,7 @@ export function TestPlanFormSheet({
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Could not delete test plan.",
+          : t.testPlans.form.couldNotDelete,
       );
     } finally {
       setDeleting(false);
@@ -143,12 +141,12 @@ export function TestPlanFormSheet({
     <Sheet
       open={open}
       title={title}
-      description="Define project, status, and date range for this plan."
+      description={t.testPlans.form.description}
       onClose={onClose}
     >
       <div className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Project
+          {t.testPlans.form.projectLabel}
           <select
             value={form.projectId}
             onChange={(event) =>
@@ -156,7 +154,7 @@ export function TestPlanFormSheet({
             }
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
           >
-            <option value="">Select a project</option>
+            <option value="">{t.testPlans.form.selectProject}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.key} · {project.name}
@@ -165,29 +163,29 @@ export function TestPlanFormSheet({
           </select>
         </label>
         <label className="text-sm font-semibold text-ink">
-          Plan name
+          {t.testPlans.form.nameLabel}
           <Input
             value={form.name}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, name: event.target.value }))
             }
-            placeholder="Release candidate 5.2"
+            placeholder={t.testPlans.form.namePlaceholder}
             className="mt-2"
           />
         </label>
         <label className="text-sm font-semibold text-ink">
-          Description
+          {t.testPlans.form.descriptionLabel}
           <Input
             value={form.description}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, description: event.target.value }))
             }
-            placeholder="Optional"
+            placeholder={t.testPlans.form.descriptionPlaceholder}
             className="mt-2"
           />
         </label>
         <label className="text-sm font-semibold text-ink">
-          Status
+          {t.testPlans.form.statusLabel}
           <select
             value={form.status}
             onChange={(event) =>
@@ -198,16 +196,16 @@ export function TestPlanFormSheet({
             }
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
           >
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {statusOrder.map((value) => (
+              <option key={value} value={value}>
+                {t.testPlans.statuses[value]}
               </option>
             ))}
           </select>
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Start
+            {t.testPlans.form.startLabel}
             <Input
               type="date"
               value={form.startsOn}
@@ -218,7 +216,7 @@ export function TestPlanFormSheet({
             />
           </label>
           <label className="text-sm font-semibold text-ink">
-            End
+            {t.testPlans.form.endLabel}
             <Input
               type="date"
               value={form.endsOn}
@@ -231,7 +229,7 @@ export function TestPlanFormSheet({
         </div>
         {!projects.length ? (
           <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-            You need at least one project before creating a test plan.
+            {t.testPlans.form.noProjectsWarning}
           </p>
         ) : null}
         {error ? (
@@ -247,22 +245,22 @@ export function TestPlanFormSheet({
               disabled={submitting || deleting}
               className="mr-auto"
             >
-              Delete
+              {t.common.delete}
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-            {submitting ? "Saving..." : "Save plan"}
+            {submitting ? t.testPlans.form.saving : t.testPlans.form.save}
           </Button>
         </div>
       </div>
       <ConfirmationDialog
         open={confirmDeleteOpen}
-        title={`Delete test plan "${plan?.name ?? ""}"?`}
-        description="This action will permanently delete the test plan. This cannot be undone."
-        confirmText="Delete"
+        title={formatMessage(t.testPlans.form.deleteConfirmTitle, { name: plan?.name ?? "" })}
+        description={t.testPlans.form.deleteConfirmDescription}
+        confirmText={t.common.delete}
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDeleteOpen(false)}
         isConfirming={deleting}

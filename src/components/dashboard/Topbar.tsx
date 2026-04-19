@@ -56,7 +56,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
       {/* Right side: theme + user menu */}
       <div className="flex items-center gap-3">
-        <AssistantHubFab />
+        {!isSuperAdmin && <AssistantHubFab />}
         <LanguageToggle />
         <ThemeToggle />
 

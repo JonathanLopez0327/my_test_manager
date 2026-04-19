@@ -6,6 +6,7 @@ import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { TableShell } from "../ui/TableShell";
 import type { ProjectRecord, ProjectSortBy, SortDir } from "./types";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type ProjectsTableProps = {
   items: ProjectRecord[];
@@ -28,45 +29,46 @@ export function ProjectsTable({
   sortDir,
   onSort,
 }: ProjectsTableProps) {
+  const t = useT();
   return (
     <TableShell
       loading={loading}
       hasItems={items.length > 0}
-      emptyTitle="No projects found."
-      emptyDescription="Adjust your filters or create a new project."
+      emptyTitle={t.projects.emptyTitle}
+      emptyDescription={t.projects.emptyDescription}
       desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Key"
+                label={t.projects.columns.key}
                 sortKey="key"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Name"
+                label={t.projects.columns.name}
                 sortKey="name"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Description"
+                label={t.projects.columns.description}
                 sortKey="description"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Status"
+                label={t.common.status}
                 sortKey="isActive"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-3 py-2 text-right">{canManage ? "Actions" : ""}</th>
+              <th className="px-3 py-2 text-right">{canManage ? t.common.actions : ""}</th>
             </tr>
           </thead>
           <tbody>
@@ -79,11 +81,11 @@ export function ProjectsTable({
                   {project.name}
                 </td>
                 <td className="px-3 py-3 text-ink-muted">
-                  {project.description ?? "No description"}
+                  {project.description ?? t.projects.noDescription}
                 </td>
                 <td className="px-3 py-3">
                   <Badge tone={project.isActive ? "success" : "neutral"}>
-                    {project.isActive ? "Active" : "Inactive"}
+                    {project.isActive ? t.common.active : t.common.inactive}
                   </Badge>
                 </td>
                 <td className="px-3 py-3">
@@ -92,12 +94,12 @@ export function ProjectsTable({
                       <RowActionButton
                         onClick={() => onEdit(project)}
                         icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit project"
+                        label={t.projects.editProject}
                       />
                       <RowActionButton
                         onClick={() => onDelete(project)}
                         icon={<IconTrash className="h-4 w-4" />}
-                        label="Delete project"
+                        label={t.projects.deleteProject}
                         tone="danger"
                       />
                     </div>
@@ -123,24 +125,24 @@ export function ProjectsTable({
                   <p className="text-lg font-semibold text-ink">{project.name}</p>
                 </div>
                 <Badge tone={project.isActive ? "success" : "neutral"}>
-                  {project.isActive ? "Active" : "Inactive"}
+                  {project.isActive ? t.common.active : t.common.inactive}
                 </Badge>
               </div>
               <p className="mt-3 text-sm text-ink-muted">
-                {project.description ?? "No description"}
+                {project.description ?? t.projects.noDescription}
               </p>
               {canManage ? (
                 <div className="mt-4 flex items-center gap-3">
                   <RowActionButton
                     onClick={() => onEdit(project)}
                     icon={<IconEdit className="h-5 w-5" />}
-                    label="Edit project"
+                    label={t.projects.editProject}
                     size="md"
                   />
                   <RowActionButton
                     onClick={() => onDelete(project)}
                     icon={<IconTrash className="h-5 w-5" />}
-                    label="Delete project"
+                    label={t.projects.deleteProject}
                     tone="danger"
                     size="md"
                   />

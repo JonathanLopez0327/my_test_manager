@@ -5,6 +5,8 @@ import type { OrgRole } from "@/generated/prisma/client";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
 
 type InviteMemberSheetProps = {
   open: boolean;
@@ -21,11 +23,7 @@ type CreatedInvite = {
   expiresAt: string;
 };
 
-const ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
-  { value: "admin", label: "Admin" },
-  { value: "member", label: "Member" },
-  { value: "billing", label: "Billing" },
-];
+const ROLE_ORDER: OrgRole[] = ["admin", "member", "billing"];
 
 function buildInviteUrl(token: string): string {
   if (typeof window === "undefined") return `/invite/${token}`;
@@ -38,6 +36,7 @@ export function InviteMemberSheet({
   onClose,
   onCreated,
 }: InviteMemberSheetProps) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<OrgRole>("member");
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +57,7 @@ export function InviteMemberSheet({
   const handleSubmit = async () => {
     const trimmed = email.trim();
     if (!trimmed) {
-      setError("Email is required.");
+      setError(t.organizations.inviteForm.emailRequired);
       return;
     }
     setSubmitting(true);
@@ -71,13 +70,13 @@ export function InviteMemberSheet({
       });
       const data = (await res.json()) as CreatedInvite & { message?: string };
       if (!res.ok) {
-        throw new Error(data.message || "Could not create the invite.");
+        throw new Error(data.message || t.organizations.inviteForm.couldNotCreate);
       }
       setCreated(data);
       onCreated();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not create the invite.",
+        err instanceof Error ? err.message : t.organizations.inviteForm.couldNotCreate,
       );
     } finally {
       setSubmitting(false);
@@ -101,11 +100,11 @@ export function InviteMemberSheet({
   return (
     <Sheet
       open={open}
-      title="Invite member"
+      title={t.organizations.inviteForm.title}
       description={
         created
-          ? "Share the link below with the invited user. They can sign in or create an account."
-          : "We'll generate a one-time link you can share with the invitee."
+          ? t.organizations.inviteForm.descriptionCreated
+          : t.organizations.inviteForm.descriptionNew
       }
       onClose={onClose}
     >
@@ -114,18 +113,18 @@ export function InviteMemberSheet({
           <>
             <div className="rounded-lg border border-stroke bg-surface-muted p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                Invitee
+                {t.organizations.inviteForm.inviteeLabel}
               </p>
               <p className="mt-1 text-sm font-semibold text-ink">
                 {created.email}
               </p>
               <p className="mt-0.5 text-xs text-ink-muted">
-                Role: {created.role}
+                {t.organizations.inviteForm.rolePrefix}: {t.organizations.roles[created.role]}
               </p>
             </div>
 
             <label className="text-sm font-semibold text-ink">
-              Invite link
+              {t.organizations.inviteForm.inviteLinkLabel}
               <div className="mt-2 flex gap-2">
                 <input
                   readOnly
@@ -134,42 +133,42 @@ export function InviteMemberSheet({
                   className="h-10 flex-1 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-xs text-ink"
                 />
                 <Button variant="secondary" onClick={handleCopy}>
-                  {copied ? "Copied!" : "Copy"}
+                  {copied ? t.organizations.inviteForm.copied : t.organizations.inviteForm.copy}
                 </Button>
               </div>
             </label>
 
             <p className="text-xs text-ink-muted">
-              This link expires on{" "}
-              {new Date(created.expiresAt).toLocaleDateString()}. Only the
-              invited email address can use it.
+              {formatMessage(t.organizations.inviteForm.expiresOnNote, {
+                date: new Date(created.expiresAt).toLocaleDateString(),
+              })}
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button onClick={onClose}>Done</Button>
+              <Button onClick={onClose}>{t.organizations.inviteForm.done}</Button>
             </div>
           </>
         ) : (
           <>
             <Input
               type="email"
-              label="Email *"
-              placeholder="teammate@example.com"
+              label={t.organizations.inviteForm.emailLabel}
+              placeholder={t.organizations.inviteForm.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="off"
             />
 
             <label className="text-sm font-semibold text-ink">
-              Role
+              {t.organizations.inviteForm.roleLabel}
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as OrgRole)}
                 className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               >
-                {ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {ROLE_ORDER.map((value) => (
+                  <option key={value} value={value}>
+                    {t.organizations.roles[value]}
                   </option>
                 ))}
               </select>
@@ -183,10 +182,12 @@ export function InviteMemberSheet({
 
             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
               <Button variant="ghost" onClick={onClose}>
-                Cancel
+                {t.common.cancel}
               </Button>
               <Button onClick={handleSubmit} disabled={submitting}>
-                {submitting ? "Creating..." : "Create invite"}
+                {submitting
+                  ? t.organizations.inviteForm.creating
+                  : t.organizations.inviteForm.createInvite}
               </Button>
             </div>
           </>
