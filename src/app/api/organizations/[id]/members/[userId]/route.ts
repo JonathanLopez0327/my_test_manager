@@ -24,6 +24,13 @@ export const PUT = withAuth(null, async (req, authCtx, routeCtx) => {
     );
   }
 
+  if (targetUserId === authCtx.userId) {
+    return NextResponse.json(
+      { message: "You cannot change your own role." },
+      { status: 400 },
+    );
+  }
+
   const body = (await req.json()) as { role?: OrgRole };
 
   if (!body.role || !VALID_ROLES.includes(body.role)) {
@@ -80,6 +87,13 @@ export const DELETE = withAuth(null, async (_req, authCtx, routeCtx) => {
     return NextResponse.json(
       { message: "You do not have permission to manage members." },
       { status: 403 },
+    );
+  }
+
+  if (targetUserId === authCtx.userId) {
+    return NextResponse.json(
+      { message: "You cannot remove yourself from the organization." },
+      { status: 400 },
     );
   }
 

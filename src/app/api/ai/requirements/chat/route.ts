@@ -3,6 +3,40 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { aiRequirementsChatRequestSchema } from "@/lib/ai/schemas";
 import { getOrCreateAgentToken } from "@/lib/ai/agent-token";
+import { checkOrgQuota, extractUsageFromEvent, recordAiUsage } from "@/lib/ai/usage";
+
+type UsageState = {
+  pending: string;
+  inputTokens: number;
+  outputTokens: number;
+  model: string | null;
+};
+
+function scanSseForUsage(chunkText: string, state: UsageState) {
+  state.pending += chunkText;
+  const lines = state.pending.split("\n");
+  state.pending = lines.pop() ?? "";
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data) as unknown;
+    } catch {
+      continue;
+    }
+
+    const usage = extractUsageFromEvent(parsed);
+    if (!usage) continue;
+    if (usage.inputTokens > state.inputTokens) state.inputTokens = usage.inputTokens;
+    if (usage.outputTokens > state.outputTokens) state.outputTokens = usage.outputTokens;
+    if (usage.model) state.model = usage.model;
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -75,6 +109,19 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     return NextResponse.json(
       { message: "You do not have an active organization." },
       { status: 403 },
+    );
+  }
+
+  const quota = await checkOrgQuota(activeOrganizationId);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        message: "AI token quota exceeded for this billing period.",
+        used: quota.used.toString(),
+        limit: quota.limit,
+        periodEnd: quota.periodEnd.toISOString(),
+      },
+      { status: 402 },
     );
   }
 
@@ -158,7 +205,46 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       );
     }
 
-    return new NextResponse(runResponse.body as ReadableStream, {
+    const decoder = new TextDecoder();
+    const usageState: UsageState = {
+      pending: "",
+      inputTokens: 0,
+      outputTokens: 0,
+      model: null,
+    };
+
+    const persistedStream = runResponse.body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          controller.enqueue(chunk);
+          scanSseForUsage(decoder.decode(chunk, { stream: true }), usageState);
+        },
+        async flush() {
+          const last = decoder.decode();
+          if (last) scanSseForUsage(last, usageState);
+
+          try {
+            await recordAiUsage({
+              organizationId: activeOrganizationId,
+              userId,
+              conversationId: null,
+              source: "requirements",
+              model: usageState.model,
+              inputTokens: usageState.inputTokens,
+              outputTokens: usageState.outputTokens,
+            });
+          } catch (error) {
+            console.error("[requirements-chat] record_usage_failed", {
+              userId,
+              projectId,
+              error: error instanceof Error ? error.message : "unknown",
+            });
+          }
+        },
+      }),
+    );
+
+    return new NextResponse(persistedStream, {
       status: 200,
       headers: {
         "Content-Type": "text/event-stream",

@@ -8,6 +8,7 @@ declare module "next-auth" {
       globalRoles: GlobalRole[];
       activeOrganizationId?: string;
       organizationRole?: OrgRole;
+      hasProjectAccess?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -18,6 +19,7 @@ declare module "next-auth/jwt" {
     globalRoles?: GlobalRole[];
     activeOrganizationId?: string;
     organizationRole?: OrgRole;
+    hasProjectAccess?: boolean;
   }
 }
 

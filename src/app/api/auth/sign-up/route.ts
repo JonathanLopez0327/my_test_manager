@@ -4,15 +4,23 @@ import { prisma } from "@/lib/prisma";
 import {
   SignUpError,
   createCredentialsSignupRequest,
+  createUserFromInvite,
   type SignUpErrorCode,
 } from "@/lib/auth/sign-up";
 import { signUpSchema } from "@/lib/schemas/sign-up";
 
-type SignUpSuccessResponse = {
-  ok: true;
-  status: "pending";
-  message: string;
-};
+type SignUpSuccessResponse =
+  | {
+      ok: true;
+      status: "pending";
+      message: string;
+    }
+  | {
+      ok: true;
+      status: "active";
+      message: string;
+      organizationSlug: string;
+    };
 
 type SignUpErrorResponse = {
   ok: false;
@@ -29,7 +37,16 @@ function json(body: SignUpApiResponse, status = 200) {
 
 export async function POST(req: Request) {
   try {
-    const parsed = signUpSchema.safeParse(await req.json());
+    const rawBody = (await req.json()) as { inviteToken?: unknown } & Record<
+      string,
+      unknown
+    >;
+    const inviteToken =
+      typeof rawBody.inviteToken === "string" && rawBody.inviteToken.trim()
+        ? rawBody.inviteToken.trim()
+        : null;
+
+    const parsed = signUpSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return json(
@@ -40,6 +57,19 @@ export async function POST(req: Request) {
           fieldErrors: parsed.error.flatten().fieldErrors,
         },
         400,
+      );
+    }
+
+    if (inviteToken) {
+      const result = await createUserFromInvite(parsed.data, inviteToken, prisma);
+      return json(
+        {
+          ok: true,
+          status: "active",
+          message: "Your account was created. You can now sign in.",
+          organizationSlug: result.organizationSlug,
+        },
+        201,
       );
     }
 

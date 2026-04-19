@@ -125,6 +125,8 @@ model User {
   usedBetaCodes           BetaCode[]           @relation("BetaCodeUsedBy")
   createdBetaCodes        BetaCode[]           @relation("BetaCodeCreatedBy")
   reviewedSignupRequests  SignupRequest[]      @relation("SignupRequestReviewer")
+  invitedOrgInvites       OrgInvite[]          @relation("OrgInviteInvitedBy")
+  consumedOrgInvites      OrgInvite[]          @relation("OrgInviteUsedBy")
 
   @@map("users")
 }
@@ -461,6 +463,7 @@ model Organization {
   betaExpiresAt   DateTime? @default(dbgenerated("now() + interval '10 days'")) @map("beta_expires_at") @db.Timestamptz(6)
   keygenLicenseId String?   @map("keygen_license_id")
   keygenUserId    String?   @map("keygen_user_id")
+  aiTokenLimitMonthly Int   @default(250000) @map("ai_token_limit_monthly")
 
   createdBy User?                @relation("OrgCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   members   OrganizationMember[]
@@ -468,6 +471,9 @@ model Organization {
   auditLogs AuditLog[]
   apiTokens ApiToken[]
   aiConversations AiConversation[]
+  invites   OrgInvite[]
+  usagePeriods AiUsagePeriod[]
+  usageEvents  AiUsageEvent[]
 
   @@index([isActive])
   @@map("organizations")
@@ -721,4 +727,80 @@ model SignupRequest {
 
   @@index([status, createdAt])
   @@map("signup_requests")
+}
+
+enum OrgInviteStatus {
+  pending
+  consumed
+  revoked
+  expired
+}
+
+model OrgInvite {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  email          String
+  role           OrgRole
+  token          String          @unique
+  invitedById    String          @map("invited_by") @db.Uuid
+  status         OrgInviteStatus @default(pending)
+  expiresAt      DateTime        @map("expires_at") @db.Timestamptz(6)
+  usedAt         DateTime?       @map("used_at") @db.Timestamptz(6)
+  usedById       String?         @map("used_by") @db.Uuid
+  revokedAt      DateTime?       @map("revoked_at") @db.Timestamptz(6)
+  revokedById    String?         @map("revoked_by") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation("OrgInviteInvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+  usedBy       User?        @relation("OrgInviteUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email, status], map: "uq_org_invites_org_email_status")
+  @@index([organizationId, status])
+  @@index([expiresAt])
+  @@map("org_invites")
+}
+
+enum AiUsageSource {
+  chat
+  requirements
+  agent
+}
+
+model AiUsagePeriod {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  periodStart    DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd      DateTime @map("period_end") @db.Timestamptz(6)
+  inputTokens    BigInt   @default(0) @map("input_tokens")
+  outputTokens   BigInt   @default(0) @map("output_tokens")
+  totalTokens    BigInt   @default(0) @map("total_tokens")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, periodStart], map: "uq_ai_usage_periods_org_start")
+  @@index([organizationId, periodEnd], map: "idx_ai_usage_periods_org_end")
+  @@map("ai_usage_periods")
+}
+
+model AiUsageEvent {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  userId         String?       @map("user_id") @db.Uuid
+  conversationId String?       @map("conversation_id") @db.Uuid
+  source         AiUsageSource
+  model          String?
+  inputTokens    Int           @default(0) @map("input_tokens")
+  outputTokens   Int           @default(0) @map("output_tokens")
+  totalTokens    Int           @default(0) @map("total_tokens")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt], map: "idx_ai_usage_events_org_created")
+  @@index([userId, createdAt], map: "idx_ai_usage_events_user_created")
+  @@map("ai_usage_events")
 }

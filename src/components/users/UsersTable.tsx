@@ -13,6 +13,7 @@ type UsersTableProps = {
   loading: boolean;
   onEdit?: (user: UserRecord) => void;
   canManage?: boolean;
+  showGlobal?: boolean;
   sortBy: UserSortBy | null;
   sortDir: SortDir | null;
   onSort: (column: UserSortBy) => void;
@@ -23,6 +24,7 @@ export function UsersTable({
   loading,
   onEdit,
   canManage = false,
+  showGlobal = false,
   sortBy,
   sortDir,
   onSort,
@@ -65,13 +67,15 @@ export function UsersTable({
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <SortableHeaderCell
-                label="Global"
-                sortKey="global"
-                activeSortBy={sortBy}
-                activeSortDir={sortDir}
-                onSort={onSort}
-              />
+              {showGlobal ? (
+                <SortableHeaderCell
+                  label="Global"
+                  sortKey="global"
+                  activeSortBy={sortBy}
+                  activeSortDir={sortDir}
+                  onSort={onSort}
+                />
+              ) : null}
               <SortableHeaderCell
                 label={uiMessages.common.status}
                 sortKey="isActive"
@@ -121,9 +125,11 @@ export function UsersTable({
                     "—"
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
-                  {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
-                </td>
+                {showGlobal ? (
+                  <td className="px-3 py-2.5 text-ink-muted">
+                    {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
+                  </td>
+                ) : null}
                 <td className="px-3 py-2.5">
                   <Badge tone={user.isActive ? "success" : "neutral"}>
                     {user.isActive ? "Active" : "Inactive"}
@@ -175,7 +181,7 @@ export function UsersTable({
                   <span>Unassigned</span>
                 )}
               </div>
-              {user.globalRoles.length ? (
+              {showGlobal && user.globalRoles.length ? (
                 <p className="mt-2 text-xs text-ink-muted">
                   Global: {user.globalRoles.join(", ")}
                 </p>

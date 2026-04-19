@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import type { OrgRole } from "@/generated/prisma/client";
 import { Badge } from "../ui/Badge";
 import { IconEdit, IconTrash } from "../icons";
@@ -41,6 +42,9 @@ export function MembersTable({
   sortDir,
   onSort,
 }: MembersTableProps) {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
@@ -116,7 +120,7 @@ export function MembersTable({
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
-                  {canManage && (
+                  {canManage && member.userId !== currentUserId && (
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => onEdit?.(member)}
@@ -133,6 +137,9 @@ export function MembersTable({
                         <IconTrash className="h-4 w-4" />
                       </button>
                     </div>
+                  )}
+                  {canManage && member.userId === currentUserId && (
+                    <span className="block text-right text-xs text-ink-muted">You</span>
                   )}
                 </td>
               </tr>
@@ -160,7 +167,7 @@ export function MembersTable({
                 {member.user.isActive ? "Active" : "Inactive"}
               </Badge>
             </div>
-            {canManage && (
+            {canManage && member.userId !== currentUserId && (
               <div className="mt-3 flex items-center justify-end gap-1">
                 <button
                   onClick={() => onEdit?.(member)}
@@ -177,6 +184,9 @@ export function MembersTable({
                   <IconTrash className="h-4 w-4" />
                 </button>
               </div>
+            )}
+            {canManage && member.userId === currentUserId && (
+              <div className="mt-3 text-right text-xs text-ink-muted">You</div>
             )}
           </div>
         ))}

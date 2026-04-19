@@ -22,6 +22,7 @@ type KeygenQuotas = {
   maxMembers: number;
   maxTestCases: number;
   maxTestRuns: number;
+  aiTokenLimitMonthly: number;
 };
 
 async function handleResponse(res: Response, context: string): Promise<unknown> {
@@ -210,6 +211,7 @@ export async function getLicenseQuotas(licenseId: string): Promise<KeygenQuotas>
     maxMembers: 5,
     maxTestCases: 200,
     maxTestRuns: 100,
+    aiTokenLimitMonthly: 250_000,
   };
 
   for (const e of entitlements) {
@@ -219,6 +221,7 @@ export async function getLicenseQuotas(licenseId: string): Promise<KeygenQuotas>
     if (e.attributes.code === "max_members") defaults.maxMembers = val;
     if (e.attributes.code === "max_test_cases") defaults.maxTestCases = val;
     if (e.attributes.code === "max_test_runs") defaults.maxTestRuns = val;
+    if (e.attributes.code === "ai_token_limit_monthly") defaults.aiTokenLimitMonthly = val;
   }
 
   return defaults;

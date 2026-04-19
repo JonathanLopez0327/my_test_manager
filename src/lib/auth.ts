@@ -174,6 +174,17 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
+        if (token.id && token.activeOrganizationId && token.hasProjectAccess === undefined) {
+          const projectMembership = await prisma.projectMember.findFirst({
+            where: {
+              userId: token.id as string,
+              project: { organizationId: token.activeOrganizationId as string },
+            },
+            select: { projectId: true },
+          });
+          token.hasProjectAccess = Boolean(projectMembership);
+        }
+
         // Handle profile name update via session update
         if (trigger === "update" && session?.name !== undefined) {
           token.name = session.name;
@@ -197,6 +208,14 @@ export const authOptions: NextAuthOptions = {
           if (membership && membership.organization.isActive) {
             token.activeOrganizationId = membership.organizationId;
             token.organizationRole = membership.role;
+            const projectMembership = await prisma.projectMember.findFirst({
+              where: {
+                userId: token.id as string,
+                project: { organizationId: membership.organizationId },
+              },
+              select: { projectId: true },
+            });
+            token.hasProjectAccess = Boolean(projectMembership);
           }
         }
       }
@@ -209,6 +228,7 @@ export const authOptions: NextAuthOptions = {
         session.user.globalRoles = (token.globalRoles ?? []) as GlobalRole[];
         session.user.activeOrganizationId = token.activeOrganizationId as string | undefined;
         session.user.organizationRole = token.organizationRole as OrgRole | undefined;
+        session.user.hasProjectAccess = Boolean(token.hasProjectAccess);
       }
       return session;
     },

@@ -15,6 +15,11 @@ import {
   deleteKeygenUser,
   getLicenseQuotas,
 } from "@/lib/keygen/client";
+import {
+  InviteError,
+  markInviteConsumed,
+  readPendingInviteForSignup,
+} from "@/lib/invites/invite-service";
 
 type ProvisionedLicense = {
   keygenUserId: string;
@@ -118,6 +123,10 @@ export type SignUpErrorCode =
   | "REQUEST_NOT_FOUND"
   | "REQUEST_NOT_PENDING"
   | "LICENSE_PROVISIONING_FAILED"
+  | "INVITE_NOT_FOUND"
+  | "INVITE_NOT_PENDING"
+  | "INVITE_EXPIRED"
+  | "INVITE_EMAIL_MISMATCH"
   | "UNKNOWN_ERROR";
 
 export class SignUpError extends Error {
@@ -599,3 +608,97 @@ export async function rejectSignupRequest(
 
 export type SignupRequestProviderType = SignupRequestProvider;
 export type SignupRequestStatusType = SignupRequestStatus;
+
+// ─────────────────────────────────────────────────────────────
+// Invite-based signup (skips super admin approval)
+// ─────────────────────────────────────────────────────────────
+
+export type InviteSignupResult = {
+  userId: string;
+  organizationId: string;
+  organizationSlug: string;
+  organizationRole: OrgRole;
+};
+
+function mapInviteErrorToSignUpError(err: InviteError): SignUpError {
+  const message = err.message;
+  const code: SignUpErrorCode =
+    err.code === "INVITE_NOT_FOUND"
+      ? "INVITE_NOT_FOUND"
+      : err.code === "INVITE_EXPIRED"
+        ? "INVITE_EXPIRED"
+        : err.code === "INVITE_EMAIL_MISMATCH"
+          ? "INVITE_EMAIL_MISMATCH"
+          : err.code === "INVITE_NOT_PENDING"
+            ? "INVITE_NOT_PENDING"
+            : "VALIDATION_ERROR";
+  return new SignUpError(code, message, err.status);
+}
+
+/**
+ * Create a user directly from an invite. No super admin approval, no license
+ * provisioning — the user simply joins the inviter's existing organization.
+ *
+ * Runs in a transaction so user creation, membership, and invite consumption
+ * either all succeed or all fail together.
+ */
+export async function createUserFromInvite(
+  input: SignUpInput,
+  inviteToken: string,
+  prisma: PrismaClient,
+): Promise<InviteSignupResult> {
+  const email = input.email.toLowerCase().trim();
+  const firstName = input.firstName.trim();
+  const lastName = input.lastName.trim();
+  const passwordHash = await hash(input.password, 10);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const invite = await readPendingInviteForSignup(inviteToken, email, tx);
+
+      const existingUser = await tx.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+      if (existingUser) {
+        throw new SignUpError(
+          "EMAIL_TAKEN",
+          "An account with that email already exists.",
+          409,
+          { email: ["An account with that email already exists."] },
+        );
+      }
+
+      const user = await tx.user.create({
+        data: {
+          email,
+          fullName: `${firstName} ${lastName}`.trim(),
+          passwordHash,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      await tx.organizationMember.create({
+        data: {
+          organizationId: invite.organizationId,
+          userId: user.id,
+          role: invite.role,
+        },
+      });
+
+      await markInviteConsumed(invite.id, user.id, tx);
+
+      return {
+        userId: user.id,
+        organizationId: invite.organizationId,
+        organizationSlug: invite.organizationSlug,
+        organizationRole: invite.role,
+      };
+    });
+  } catch (err) {
+    if (err instanceof SignUpError) throw err;
+    if (err instanceof InviteError) throw mapInviteErrorToSignUpError(err);
+    throw err;
+  }
+}

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { aiChatRequestSchema } from "@/lib/ai/schemas";
 import { getOrCreateAgentToken } from "@/lib/ai/agent-token";
 import { ensureProjectAccess } from "@/lib/ai/conversations";
+import { checkOrgQuota, extractUsageFromEvent, recordAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
@@ -120,7 +121,15 @@ function titleFromPrompt(prompt: string) {
   return prompt.trim().slice(0, 56) || "New conversation";
 }
 
-function appendSseAssistantDelta(chunkText: string, state: { pending: string; content: string }) {
+type StreamState = {
+  pending: string;
+  content: string;
+  inputTokens: number;
+  outputTokens: number;
+  model: string | null;
+};
+
+function appendSseAssistantDelta(chunkText: string, state: StreamState) {
   state.pending += chunkText;
   const lines = state.pending.split("\n");
   state.pending = lines.pop() ?? "";
@@ -131,14 +140,24 @@ function appendSseAssistantDelta(chunkText: string, state: { pending: string; co
     const data = line.slice(5).trim();
     if (!data || data === "[DONE]") continue;
 
+    let parsed: unknown;
     try {
-      const parsed = JSON.parse(data) as unknown;
-      const delta = extractAssistantDelta(parsed);
-      if (!delta) continue;
-      state.content = mergeAssistantChunk(state.content, delta);
+      parsed = JSON.parse(data) as unknown;
     } catch {
       continue;
     }
+
+    const usage = extractUsageFromEvent(parsed);
+    if (usage) {
+      // Keep the largest observed counts — providers emit partial then final totals.
+      if (usage.inputTokens > state.inputTokens) state.inputTokens = usage.inputTokens;
+      if (usage.outputTokens > state.outputTokens) state.outputTokens = usage.outputTokens;
+      if (usage.model) state.model = usage.model;
+    }
+
+    const delta = extractAssistantDelta(parsed);
+    if (!delta) continue;
+    state.content = mergeAssistantChunk(state.content, delta);
   }
 }
 
@@ -161,6 +180,19 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     return NextResponse.json(
       { message: "You do not have an active organization." },
       { status: 403 },
+    );
+  }
+
+  const quota = await checkOrgQuota(activeOrganizationId);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        message: "AI token quota exceeded for this billing period.",
+        used: quota.used.toString(),
+        limit: quota.limit,
+        periodEnd: quota.periodEnd.toISOString(),
+      },
+      { status: 402 },
     );
   }
 
@@ -322,7 +354,13 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     });
 
     const decoder = new TextDecoder();
-    const assistantState = { pending: "", content: "" };
+    const assistantState: StreamState = {
+      pending: "",
+      content: "",
+      inputTokens: 0,
+      outputTokens: 0,
+      model: null,
+    };
 
     const persistedStream = runResponse.body.pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
@@ -358,6 +396,23 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
             ]);
           } catch (error) {
             console.error("[ai-chat] persist_assistant_failed", {
+              conversationId,
+              error: error instanceof Error ? error.message : "unknown",
+            });
+          }
+
+          try {
+            await recordAiUsage({
+              organizationId: activeOrganizationId,
+              userId,
+              conversationId,
+              source: "chat",
+              model: assistantState.model,
+              inputTokens: assistantState.inputTokens,
+              outputTokens: assistantState.outputTokens,
+            });
+          } catch (error) {
+            console.error("[ai-chat] record_usage_failed", {
               conversationId,
               error: error instanceof Error ? error.message : "unknown",
             });

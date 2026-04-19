@@ -5,7 +5,12 @@ import {
     anyGlobalRoleHasPermission,
     orgRoleHasPermission,
     projectRoleHasPermission,
+    PROJECT_ROLE_PERMISSIONS,
 } from "./role-permissions.map";
+
+const PROJECT_GRANTED_PERMISSIONS: ReadonlySet<Permission> = new Set(
+    Object.values(PROJECT_ROLE_PERMISSIONS).flatMap((set) => Array.from(set)),
+);
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -93,6 +98,21 @@ export async function can(
         if (projectRole && projectRoleHasPermission(projectRole, permission)) {
             return true;
         }
+    } else if (
+        ctx.organizationId &&
+        PROJECT_GRANTED_PERMISSIONS.has(permission)
+    ) {
+        // Org-scoped check without a specific project: allow if the user has
+        // any project membership in that org. The route handler is expected
+        // to scope results to the projects the user actually belongs to.
+        const hasAnyProject = await prisma.projectMember.findFirst({
+            where: {
+                userId: ctx.userId,
+                project: { organizationId: ctx.organizationId },
+            },
+            select: { projectId: true },
+        });
+        if (hasAnyProject) return true;
     }
 
     // 4. Ownership rule (creator can update their own resources)
