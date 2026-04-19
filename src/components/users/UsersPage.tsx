@@ -18,6 +18,7 @@ import type {
 import { nextSort } from "@/lib/sorting";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type OrganizationOption = {
   id: string;
@@ -32,10 +33,12 @@ type OrganizationsResponse = {
 const DEFAULT_PAGE_SIZE = 10;
 
 export function UsersPage() {
-  const { can } = usePermissions();
+  const { can, globalRoles } = usePermissions();
+  const isSuperAdmin = globalRoles.includes("super_admin");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const t = useT();
   const [items, setItems] = useState<UserRecord[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -74,7 +77,7 @@ export function UsersPage() {
         message?: string;
       };
       if (!response.ok) {
-        throw new Error(data.message || "Could not load users.");
+        throw new Error(data.message || t.users.couldNotLoad);
       }
       setItems(data.items);
       setTotal(data.total);
@@ -82,12 +85,12 @@ export function UsersPage() {
       setError(
         fetchError instanceof Error
           ? fetchError.message
-          : "Could not load users.",
+          : t.users.couldNotLoad,
       );
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, query, sortBy, sortDir]);
+  }, [page, pageSize, query, sortBy, sortDir, t]);
 
   const fetchOrganizations = useCallback(async () => {
     if (!canCreate) return;
@@ -154,9 +157,7 @@ export function UsersPage() {
     if (!response.ok) {
       throw new Error(
         data.message ||
-        (isEditing
-          ? "Could not update the user."
-          : "Could not create the user."),
+        (isEditing ? t.users.couldNotUpdate : t.users.couldNotCreate),
       );
     }
     await fetchUsers();
@@ -191,10 +192,10 @@ export function UsersPage() {
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-ink">Users</p>
+            <p className="text-sm font-semibold text-ink">{t.users.title}</p>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Updating..." : `Total: ${total}`}
+            {loading ? t.users.updating : `${t.users.totalLabel}: ${total}`}
           </div>
         </div>
 
@@ -210,6 +211,7 @@ export function UsersPage() {
             loading={loading}
             onEdit={handleEdit}
             canManage={canCreate}
+            showGlobal={isSuperAdmin}
             sortBy={sortBy}
             sortDir={sortDir}
             onSort={handleSort}
