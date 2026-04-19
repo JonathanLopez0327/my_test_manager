@@ -1,4 +1,5 @@
 const BASE = `https://api.keygen.sh/v1/accounts/${process.env.KEYGEN_ACCOUNT_ID}`;
+const KEYGEN_TIMEOUT_MS = 5000;
 
 function headers() {
   return {
@@ -6,6 +7,14 @@ function headers() {
     "Content-Type": "application/vnd.api+json",
     Accept: "application/vnd.api+json",
   };
+}
+
+async function keygenFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { ...headers(), ...(init.headers ?? {}) },
+    signal: AbortSignal.timeout(KEYGEN_TIMEOUT_MS),
+  });
 }
 
 type KeygenQuotas = {
@@ -27,9 +36,8 @@ export async function createKeygenUser(email: string, name: string): Promise<str
   const [firstName, ...rest] = name.trim().split(" ");
   const lastName = rest.join(" ") || firstName;
 
-  const res = await fetch(`${BASE}/users`, {
+  const res = await keygenFetch(`/users`, {
     method: "POST",
-    headers: headers(),
     body: JSON.stringify({
       data: {
         type: "users",
@@ -46,9 +54,8 @@ export async function createKeygenLicense(
   keygenUserId: string,
   policyId: string,
 ): Promise<string> {
-  const res = await fetch(`${BASE}/licenses`, {
+  const res = await keygenFetch(`/licenses`, {
     method: "POST",
-    headers: headers(),
     body: JSON.stringify({
       data: {
         type: "licenses",
@@ -79,10 +86,7 @@ export type KeygenLicenseState = {
 };
 
 export async function getLicenseState(licenseId: string): Promise<KeygenLicenseState> {
-  const res = await fetch(`${BASE}/licenses/${licenseId}`, {
-    method: "GET",
-    headers: headers(),
-  });
+  const res = await keygenFetch(`/licenses/${licenseId}`, { method: "GET" });
 
   const json = (await handleResponse(res, "getLicenseState")) as {
     data: { attributes: { status?: string | null; expiry?: string | null } };
@@ -107,10 +111,92 @@ export async function getLicenseState(licenseId: string): Promise<KeygenLicenseS
   return { status, expiry };
 }
 
+export async function renewLicense(licenseId: string): Promise<KeygenLicenseState> {
+  const res = await keygenFetch(`/licenses/${licenseId}/actions/renew`, {
+    method: "POST",
+  });
+
+  const json = (await handleResponse(res, "renewLicense")) as {
+    data: { attributes: { status?: string | null; expiry?: string | null } };
+  };
+
+  const rawStatus = (json.data.attributes.status ?? "").toUpperCase();
+  const knownStatuses: readonly string[] = [
+    "ACTIVE",
+    "INACTIVE",
+    "EXPIRING",
+    "EXPIRED",
+    "SUSPENDED",
+    "BANNED",
+  ];
+  const status: KeygenLicenseStatus = knownStatuses.includes(rawStatus)
+    ? (rawStatus as KeygenLicenseStatus)
+    : "UNKNOWN";
+  const expiryStr = json.data.attributes.expiry;
+  const expiry = expiryStr ? new Date(expiryStr) : null;
+
+  return { status, expiry };
+}
+
+function parseLicenseState(json: {
+  data: { attributes: { status?: string | null; expiry?: string | null } };
+}): KeygenLicenseState {
+  const rawStatus = (json.data.attributes.status ?? "").toUpperCase();
+  const knownStatuses: readonly string[] = [
+    "ACTIVE",
+    "INACTIVE",
+    "EXPIRING",
+    "EXPIRED",
+    "SUSPENDED",
+    "BANNED",
+  ];
+  const status: KeygenLicenseStatus = knownStatuses.includes(rawStatus)
+    ? (rawStatus as KeygenLicenseStatus)
+    : "UNKNOWN";
+  const expiryStr = json.data.attributes.expiry;
+  const expiry = expiryStr ? new Date(expiryStr) : null;
+  return { status, expiry };
+}
+
+export async function suspendLicense(licenseId: string): Promise<KeygenLicenseState> {
+  const res = await keygenFetch(`/licenses/${licenseId}/actions/suspend`, {
+    method: "POST",
+  });
+  const json = (await handleResponse(res, "suspendLicense")) as {
+    data: { attributes: { status?: string | null; expiry?: string | null } };
+  };
+  return parseLicenseState(json);
+}
+
+export async function deleteKeygenUser(keygenUserId: string): Promise<void> {
+  const res = await keygenFetch(`/users/${keygenUserId}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text().catch(() => "(no body)");
+    throw new Error(`[keygen] deleteUser failed (${res.status}): ${body}`);
+  }
+}
+
+export async function deleteKeygenLicense(licenseId: string): Promise<void> {
+  const res = await keygenFetch(`/licenses/${licenseId}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text().catch(() => "(no body)");
+    throw new Error(`[keygen] deleteLicense failed (${res.status}): ${body}`);
+  }
+}
+
+export async function reinstateLicense(licenseId: string): Promise<KeygenLicenseState> {
+  const res = await keygenFetch(`/licenses/${licenseId}/actions/reinstate`, {
+    method: "POST",
+  });
+  const json = (await handleResponse(res, "reinstateLicense")) as {
+    data: { attributes: { status?: string | null; expiry?: string | null } };
+  };
+  return parseLicenseState(json);
+}
+
 export async function getLicenseQuotas(licenseId: string): Promise<KeygenQuotas> {
-  const res = await fetch(`${BASE}/licenses/${licenseId}?include=entitlements`, {
+  const res = await keygenFetch(`/licenses/${licenseId}?include=entitlements`, {
     method: "GET",
-    headers: headers(),
   });
 
   const json = (await handleResponse(res, "getLicenseQuotas")) as {

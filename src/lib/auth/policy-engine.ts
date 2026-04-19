@@ -68,8 +68,22 @@ export async function can(
         return true;
     }
 
-    // 2. Org role check — owner/admin get implicit project admin access
-    if (ctx.organizationRole && orgRoleHasPermission(ctx.organizationRole, permission)) {
+    // 2. Org role check.
+    // When a target organizationId is provided, NEVER trust the session's
+    // organizationRole (it belongs to the user's active org, not necessarily
+    // the target). Verify membership in that specific org from the DB.
+    if (ctx.organizationId) {
+        const role = await getOrganizationRole(ctx.userId, ctx.organizationId);
+        if (role && orgRoleHasPermission(role, permission)) {
+            return true;
+        }
+    } else if (
+        ctx.organizationRole &&
+        orgRoleHasPermission(ctx.organizationRole, permission)
+    ) {
+        // No target org in context — use the session's active-org role for
+        // non-scoped checks (e.g., listing/creating resources where the
+        // target is implied to be the active org).
         return true;
     }
 
@@ -131,6 +145,19 @@ async function getProjectRole(
     const membership = await prisma.projectMember.findUnique({
         where: {
             projectId_userId: { projectId, userId },
+        },
+        select: { role: true },
+    });
+    return membership?.role ?? null;
+}
+
+async function getOrganizationRole(
+    userId: string,
+    organizationId: string,
+): Promise<OrgRole | null> {
+    const membership = await prisma.organizationMember.findUnique({
+        where: {
+            organizationId_userId: { organizationId, userId },
         },
         select: { role: true },
     });

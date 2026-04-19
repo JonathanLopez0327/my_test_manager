@@ -124,6 +124,7 @@ model User {
   aiConversations         AiConversation[]
   usedBetaCodes           BetaCode[]           @relation("BetaCodeUsedBy")
   createdBetaCodes        BetaCode[]           @relation("BetaCodeCreatedBy")
+  reviewedSignupRequests  SignupRequest[]      @relation("SignupRequestReviewer")
 
   @@map("users")
 }
@@ -689,3 +690,35 @@ model BetaCode {
   @@map("beta_codes")
 }
 
+enum SignupRequestProvider {
+  credentials
+  google
+}
+
+enum SignupRequestStatus {
+  pending
+  approved
+  rejected
+}
+
+model SignupRequest {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String                @unique
+  firstName        String                @map("first_name")
+  lastName         String                @map("last_name")
+  passwordHash     String?               @map("password_hash")
+  organizationName String                @map("organization_name")
+  organizationSlug String?               @map("organization_slug")
+  provider         SignupRequestProvider
+  status           SignupRequestStatus   @default(pending)
+  rejectionReason  String?               @map("rejection_reason")
+  reviewedById     String?               @map("reviewed_by") @db.Uuid
+  reviewedAt       DateTime?             @map("reviewed_at") @db.Timestamptz(6)
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reviewedBy User? @relation("SignupRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("signup_requests")
+}

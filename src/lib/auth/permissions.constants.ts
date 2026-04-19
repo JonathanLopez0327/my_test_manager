@@ -72,6 +72,10 @@ export const PERMISSIONS = {
   ORG_DELETE: "org:delete",
   ORG_MEMBER_LIST: "org-member:list",
   ORG_MEMBER_MANAGE: "org-member:manage",
+
+  // ── Signup Requests (super-admin inbox) ─────────────────────
+  SIGNUP_REQUEST_LIST: "signup-request:list",
+  SIGNUP_REQUEST_REVIEW: "signup-request:review",
 } as const;
 
 /** Union type of all permission strings */

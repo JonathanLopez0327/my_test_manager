@@ -3,9 +3,12 @@ import { getServerSession } from "next-auth";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureLicenseStatus } from "@/lib/keygen/license-sync";
 import { hashApiToken, parseBearerToken } from "./api-token";
 import type { Permission } from "./permissions.constants";
 import { AuthorizationError, require as requirePermission } from "./policy-engine";
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -73,6 +76,26 @@ export function withAuth(
                     { message: "Unauthorized." },
                     { status: 401 },
                 );
+            }
+
+            if (
+                !SAFE_METHODS.has(req.method.toUpperCase()) &&
+                authCtx.activeOrganizationId &&
+                !authCtx.globalRoles.includes("super_admin")
+            ) {
+                const { expired } = await ensureLicenseStatus(
+                    authCtx.activeOrganizationId,
+                );
+                if (expired) {
+                    return NextResponse.json(
+                        {
+                            code: "BETA_EXPIRED",
+                            message:
+                                "Your organization's license has expired. All write actions are disabled. Contact support to renew.",
+                        },
+                        { status: 402 },
+                    );
+                }
             }
 
             // If a specific permission is required, check it

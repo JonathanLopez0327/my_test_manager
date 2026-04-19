@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
+import type { OrgRole } from "@/generated/prisma/client";
 import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { Card } from "../ui/Card";
@@ -34,10 +34,11 @@ async function safeJson(res: Response): Promise<{ message?: string } & Record<st
 }
 
 export function OrganizationsPage() {
-  const { globalRoles } = usePermissions();
-  const isSuperAdmin = (globalRoles as GlobalRole[]).includes("super_admin");
+  const { activeOrganizationId } = usePermissions();
 
-  if (isSuperAdmin) {
+  // Users without an active org (i.e. super_admin, who never joins one)
+  // get the global organizations listing instead of the active-org detail view.
+  if (!activeOrganizationId) {
     return <SuperAdminOrganizationsView />;
   }
 
@@ -74,6 +75,7 @@ function ActiveOrgView() {
   }>({ open: false, member: null, isConfirming: false });
 
   const canUpdate = can(PERMISSIONS.ORG_UPDATE);
+  const canListMembers = can(PERMISSIONS.ORG_MEMBER_LIST);
   const canManageMembers = can(PERMISSIONS.ORG_MEMBER_MANAGE);
   const memberSortBy = (searchParams.get("sortBy") as MemberSortBy | null) ?? null;
   const memberSortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
@@ -113,8 +115,9 @@ function ActiveOrgView() {
     if (!activeOrganizationId) return;
     setLoading(true);
     setError(null);
-    Promise.all([fetchOrg(), fetchMembers()]).finally(() => setLoading(false));
-  }, [activeOrganizationId, fetchOrg, fetchMembers]);
+    const tasks = canListMembers ? [fetchOrg(), fetchMembers()] : [fetchOrg()];
+    Promise.all(tasks).finally(() => setLoading(false));
+  }, [activeOrganizationId, canListMembers, fetchOrg, fetchMembers]);
 
   const handleSaveOrg = async (payload: OrganizationUpdatePayload) => {
     if (!activeOrganizationId) return;
@@ -250,35 +253,37 @@ function ActiveOrgView() {
             onEdit={() => setEditOrgOpen(true)}
           />
 
-          <Card className="p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-ink">Members</p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {members.length} member{members.length !== 1 ? "s" : ""}
-                </p>
+          {canListMembers && (
+            <Card className="p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Members</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {members.length} member{members.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                {canManageMembers && (
+                  <Button size="sm" onClick={handleAddMember}>
+                    <IconPlus className="h-4 w-4" />
+                    Add member
+                  </Button>
+                )}
               </div>
-              {canManageMembers && (
-                <Button size="sm" onClick={handleAddMember}>
-                  <IconPlus className="h-4 w-4" />
-                  Add member
-                </Button>
-              )}
-            </div>
 
-            <div className="mt-5">
-              <MembersTable
-                items={members}
-                loading={false}
-                canManage={canManageMembers}
-                onEdit={handleEditMember}
-                onRemove={handleRemoveMember}
-                sortBy={memberSortBy}
-                sortDir={memberSortDir}
-                onSort={handleMemberSort}
-              />
-            </div>
-          </Card>
+              <div className="mt-5">
+                <MembersTable
+                  items={members}
+                  loading={false}
+                  canManage={canManageMembers}
+                  onEdit={handleEditMember}
+                  onRemove={handleRemoveMember}
+                  sortBy={memberSortBy}
+                  sortDir={memberSortDir}
+                  onSort={handleMemberSort}
+                />
+              </div>
+            </Card>
+          )}
         </>
       ) : null}
 

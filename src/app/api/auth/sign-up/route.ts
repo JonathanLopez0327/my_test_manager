@@ -3,22 +3,20 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   SignUpError,
-  registerUserWithOrganization,
+  createCredentialsSignupRequest,
+  type SignUpErrorCode,
 } from "@/lib/auth/sign-up";
 import { signUpSchema } from "@/lib/schemas/sign-up";
 
 type SignUpSuccessResponse = {
   ok: true;
+  status: "pending";
   message: string;
-  organization: {
-    id: string;
-    slug: string;
-  };
 };
 
 type SignUpErrorResponse = {
   ok: false;
-  code: "VALIDATION_ERROR" | "EMAIL_TAKEN" | "UNKNOWN_ERROR";
+  code: SignUpErrorCode;
   message: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
@@ -45,16 +43,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const created = await registerUserWithOrganization(parsed.data, prisma);
+    await createCredentialsSignupRequest(parsed.data, prisma);
 
     return json(
       {
         ok: true,
-        message: "Account created successfully.",
-        organization: {
-          id: created.organizationId,
-          slug: created.organizationSlug,
-        },
+        status: "pending",
+        message:
+          "Your account request was submitted. A super admin will review it shortly.",
       },
       201,
     );
@@ -71,7 +67,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fallback for race conditions on unique constraints.
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
@@ -85,7 +80,9 @@ export async function POST(req: Request) {
             ok: false,
             code: "EMAIL_TAKEN",
             message: "An account with that email already exists.",
-            fieldErrors: { email: ["An account with that email already exists."] },
+            fieldErrors: {
+              email: ["An account with that email already exists."],
+            },
           },
           409,
         );
@@ -96,7 +93,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         code: "UNKNOWN_ERROR",
-        message: "We could not create your account. Please try again.",
+        message: "We could not submit your request. Please try again.",
       },
       500,
     );

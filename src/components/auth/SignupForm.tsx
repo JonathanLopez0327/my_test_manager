@@ -13,8 +13,14 @@ import { normalizeSlug, signUpSchema, type SignUpFormInput } from "@/lib/schemas
 
 type SignUpApiResponse = {
   ok: boolean;
+  status?: "pending";
   message: string;
-  code?: "VALIDATION_ERROR" | "EMAIL_TAKEN" | "UNKNOWN_ERROR";
+  code?:
+    | "VALIDATION_ERROR"
+    | "EMAIL_TAKEN"
+    | "REQUEST_ALREADY_EXISTS"
+    | "LICENSE_PROVISIONING_FAILED"
+    | "UNKNOWN_ERROR";
   fieldErrors?: Record<string, string[] | undefined>;
 };
 
@@ -97,20 +103,7 @@ export function SignupForm() {
       return;
     }
 
-    const signInResult = await signIn("credentials", {
-      redirect: false,
-      email: values.email,
-      password: values.password,
-      callbackUrl,
-    });
-
-    if (signInResult?.error) {
-      setGlobalError("Your account was created, but we could not sign you in automatically.");
-      router.push("/login");
-      return;
-    }
-
-    router.push(callbackUrl);
+    router.push(`/sign-up/pending?email=${encodeURIComponent(values.email)}`);
     router.refresh();
   };
 

@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { SignupForm } from "@/components/auth/SignupForm";
+import { SignupForm } from "@/components/auth/SignUpForm";
 import { authOptions } from "@/lib/auth";
 import Image from "next/image";
 

@@ -1,16 +1,103 @@
 import { prisma } from "@/lib/prisma";
-import { getLicenseQuotas } from "@/lib/keygen/client";
+import { getLicenseQuotas, getLicenseState } from "@/lib/keygen/client";
+import { invalidateLicenseStatusCache } from "@/lib/keygen/license-sync";
+import { verifyKeygenWebhook } from "@/lib/keygen/verify-webhook";
+
+export const runtime = "nodejs";
+
+type WebhookEnvelope = {
+  data?: {
+    id?: string;
+    type?: string;
+    attributes?: {
+      event?: string;
+      payload?: string;
+    };
+  };
+};
+
+type PayloadResource = {
+  data?: {
+    id?: string;
+    type?: string;
+  };
+};
+
+function extractEvent(rawBody: string): {
+  eventName: string | null;
+  resourceType: string | null;
+  resourceId: string | null;
+  webhookEventId: string | null;
+} {
+  let envelope: WebhookEnvelope;
+  try {
+    envelope = JSON.parse(rawBody) as WebhookEnvelope;
+  } catch {
+    return {
+      eventName: null,
+      resourceType: null,
+      resourceId: null,
+      webhookEventId: null,
+    };
+  }
+
+  const eventName = envelope.data?.attributes?.event ?? null;
+  const webhookEventId = envelope.data?.id ?? null;
+  const payloadStr = envelope.data?.attributes?.payload ?? null;
+
+  if (!payloadStr) {
+    return { eventName, resourceType: null, resourceId: null, webhookEventId };
+  }
+
+  let resource: PayloadResource;
+  try {
+    resource = JSON.parse(payloadStr) as PayloadResource;
+  } catch {
+    return { eventName, resourceType: null, resourceId: null, webhookEventId };
+  }
+
+  return {
+    eventName,
+    resourceType: resource.data?.type ?? null,
+    resourceId: resource.data?.id ?? null,
+    webhookEventId,
+  };
+}
 
 export async function POST(req: Request) {
-  const event = await req.json();
-  const licenseId: string | undefined = event.data?.id;
+  const publicKeyPem = process.env.KEYGEN_WEBHOOK_PUBLIC_KEY;
+  if (!publicKeyPem) {
+    console.error("[keygen] KEYGEN_WEBHOOK_PUBLIC_KEY is not set");
+    return new Response("Webhook not configured", { status: 500 });
+  }
 
-  if (!licenseId) {
+  const rawBody = await req.text();
+  const verification = verifyKeygenWebhook({
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    rawBody,
+    publicKeyPem,
+  });
+
+  if (!verification.ok) {
+    console.warn(`[keygen] webhook rejected: ${verification.reason}`);
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { eventName, resourceType, resourceId, webhookEventId } =
+    extractEvent(rawBody);
+
+  console.info(
+    `[keygen] webhook received event=${eventName} resourceType=${resourceType} resourceId=${resourceId} webhookEventId=${webhookEventId}`,
+  );
+
+  if (!eventName || resourceType !== "licenses" || !resourceId) {
     return Response.json({ ok: true });
   }
 
   const org = await prisma.organization.findFirst({
-    where: { keygenLicenseId: licenseId },
+    where: { keygenLicenseId: resourceId },
     select: { id: true },
   });
 
@@ -18,19 +105,30 @@ export async function POST(req: Request) {
     return Response.json({ ok: true });
   }
 
-  if (event.type === "license.updated") {
-    const quotas = await getLicenseQuotas(licenseId);
+  if (eventName === "license.updated") {
+    const quotas = await getLicenseQuotas(resourceId);
     await prisma.organization.update({
       where: { id: org.id },
       data: quotas,
     });
+    invalidateLicenseStatusCache(org.id);
   }
 
-  if (event.type === "license.expired" || event.type === "license.suspended") {
+  if (eventName === "license.expired" || eventName === "license.suspended") {
     await prisma.organization.update({
       where: { id: org.id },
       data: { betaExpiresAt: new Date(0) },
     });
+    invalidateLicenseStatusCache(org.id);
+  }
+
+  if (eventName === "license.reinstated" || eventName === "license.renewed") {
+    const state = await getLicenseState(resourceId);
+    await prisma.organization.update({
+      where: { id: org.id },
+      data: { betaExpiresAt: state.expiry },
+    });
+    invalidateLicenseStatusCache(org.id);
   }
 
   return Response.json({ received: true });

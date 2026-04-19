@@ -171,6 +171,7 @@ export function TestRunExecutionModal({
   const [saving, setSaving] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [modalOpenedAt, setModalOpenedAt] = useState<number | null>(null);
+  const [activeStepIndex, setActiveStepIndex] = useState<number>(0);
 
   const selectedGlobalStatus = mapGlobalResultToStatus(selectedGlobalResult);
   const isResultSelected = selectedGlobalResult !== "not_run" && selectedGlobalResult !== "in_progress";
@@ -214,6 +215,7 @@ export function TestRunExecutionModal({
     setSaveError(null);
     setFileError(null);
     setStepDraftFiles({});
+    setActiveStepIndex(0);
     setExecutionDetail(null);
     setStepExistingCounts({});
     setStepState(Array.from({ length: parsedFromItem.length }, () => ({ status: "not_run" as const, comment: "" })));
@@ -318,6 +320,36 @@ export function TestRunExecutionModal({
     };
   }, [item, onLoadExecutionDetail, open, parsedFromItem.length, runId, selectedExecutionId]);
 
+  useEffect(() => {
+    if (!open || !canManage || isReadOnlyExecution) return;
+    if (stepsForRendering.length === 0) return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i += 1) {
+        const entry = items[i];
+        if (entry.kind === "file" && entry.type.startsWith("image/")) {
+          const file = entry.getAsFile();
+          if (file) imageFiles.push(renameClipboardFile(file));
+        }
+      }
+      if (imageFiles.length === 0) return;
+
+      event.preventDefault();
+      setStepDraftFiles((prev) => ({
+        ...prev,
+        [activeStepIndex]: [...(prev[activeStepIndex] ?? []), ...imageFiles],
+      }));
+      setFileError(null);
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, canManage, isReadOnlyExecution, stepsForRendering.length, activeStepIndex]);
+
   const handlePersist = async () => {
     if (!canManage || !item || !runId || isReadOnlyExecution || !hasChanges || !isResultSelected) return;
     setSaving(true);
@@ -419,6 +451,8 @@ export function TestRunExecutionModal({
                       comment={stepState[index]?.comment ?? ""}
                       canManage={canManage && !isReadOnlyExecution}
                       saving={saving}
+                      isActive={activeStepIndex === index}
+                      onActivate={() => setActiveStepIndex(index)}
                       evidenceCount={(stepExistingCounts[index] ?? 0) + (stepDraftFiles[index]?.length ?? 0)}
                       onSetStatus={(status) => {
                         setStepState((prev) => {
@@ -461,6 +495,15 @@ export function TestRunExecutionModal({
                 </div>
               )}
             </div>
+            {stepsForRendering.length > 0 && canManage && !isReadOnlyExecution ? (
+              <p className="mt-2 px-1 text-[11px] text-ink-muted">
+                Tip: press{" "}
+                <kbd className="rounded border border-stroke bg-surface px-1 font-mono">
+                  Ctrl+V
+                </kbd>{" "}
+                to paste an image into the active step.
+              </p>
+            ) : null}
           </section>
 
           {artifactsError ? (
@@ -540,6 +583,8 @@ type StepExecutionRowProps = {
   canManage: boolean;
   saving: boolean;
   draftFiles: File[];
+  isActive: boolean;
+  onActivate: () => void;
   onSetStatus: (status: StepStatus) => void;
   onCommentChange: (comment: string) => void;
   onAttachFiles: (files: File[]) => void;
@@ -556,6 +601,8 @@ function StepExecutionRow({
   canManage,
   saving,
   draftFiles,
+  isActive,
+  onActivate,
   onSetStatus,
   onCommentChange,
   onAttachFiles,
@@ -577,7 +624,14 @@ function StepExecutionRow({
   const isFailed = status === "failed";
 
   return (
-    <article className="rounded-md border border-stroke bg-surface-elevated px-3 py-2">
+    <article
+      onFocusCapture={onActivate}
+      onMouseDown={onActivate}
+      className={cn(
+        "rounded-md border bg-surface-elevated px-3 py-2 transition-colors",
+        isActive ? "border-brand-300 ring-1 ring-brand-300/60" : "border-stroke",
+      )}
+    >
       <input
         id={inputId}
         type="file"
@@ -762,5 +816,14 @@ function collectImageFiles(list: FileList | null): { ok: true; files: File[] } |
   if (!onlyImages) return { ok: false };
   return { ok: true, files };
 
+}
+
+function renameClipboardFile(file: File): File {
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/[:T]/g, "-")
+    .slice(0, 19);
+  const ext = file.type.split("/")[1] || "png";
+  return new File([file], `clipboard-${timestamp}.${ext}`, { type: file.type });
 }
 

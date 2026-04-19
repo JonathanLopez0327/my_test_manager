@@ -7,13 +7,21 @@ import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS, type Permission } from "@/lib/auth/permissions.constants";
 import { OrganizationsPage } from "../organizations/OrganizationsPage";
 import { UsersPage } from "../users/UsersPage";
+import { SignupRequestsView } from "./SignupRequestsView";
 
-type Tab = "org" | "users";
+type Tab = "org" | "users" | "signup-requests";
 
 const TABS: { id: Tab; label: string; permission: Permission }[] = [
   { id: "org", label: "Organization", permission: PERMISSIONS.ORG_LIST },
   { id: "users", label: "Users", permission: PERMISSIONS.USER_LIST },
+  {
+    id: "signup-requests",
+    label: "Signup requests",
+    permission: PERMISSIONS.SIGNUP_REQUEST_LIST,
+  },
 ];
+
+const VALID_TABS: Tab[] = ["org", "users", "signup-requests"];
 
 export function SettingsPage() {
   const router = useRouter();
@@ -22,7 +30,9 @@ export function SettingsPage() {
   const { can } = usePermissions();
 
   const rawTab = searchParams.get("tab");
-  const activeTab: Tab = rawTab === "users" ? "users" : "org";
+  const activeTab: Tab = VALID_TABS.includes(rawTab as Tab)
+    ? (rawTab as Tab)
+    : "org";
 
   const visibleTabs = TABS.filter((t) => can(t.permission));
 
@@ -82,6 +92,8 @@ export function SettingsPage() {
       {/* Tab content */}
       {activeTab === "org" && <OrganizationsPage />}
       {activeTab === "users" && can(PERMISSIONS.USER_LIST) && <UsersPage />}
+      {activeTab === "signup-requests" &&
+        can(PERMISSIONS.SIGNUP_REQUEST_LIST) && <SignupRequestsView />}
     </div>
   );
 }
