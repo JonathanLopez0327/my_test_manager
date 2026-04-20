@@ -28,23 +28,39 @@ FROM organizations
 WHERE id = '<org-id>';
 ```
 
+### 1.a Editar el `metadata.value` de un entitlement (fan-out)
+
+Keygen dispara `entitlement.updated` cuyo `resource` es el entitlement (no una license). El webhook hace **fan-out** a todas las orgs con `keygen_license_id` no nulo — ver `src/app/api/webhooks/keygen/route.ts:98-125`.
+
 **Pasos:**
-1. En el dashboard de Keygen, abrir la license vinculada a la org de prueba.
-2. Editar el entitlement `ai_token_limit_monthly` → cambiar `metadata.value` de `250000` a `300000`.
-3. Guardar. Keygen debería disparar el webhook `license.updated`.
-4. Revisar los logs del server Next — debería aparecer:
+1. En el dashboard de Keygen, abrir el entitlement `ai_token_limit_monthly`.
+2. Cambiar `metadata.value` de `250000` a `300000` y guardar.
+3. Revisar logs del server Next — deberían aparecer, en orden:
    ```
-   [keygen] webhook received event=license.updated resourceType=licenses resourceId=...
+   [keygen] webhook received event=entitlement.updated resourceType=entitlements resourceId=...
+   [keygen] entitlement.updated refreshed N/N orgs
    ```
-5. Re-consultar la DB:
+4. Re-consultar la DB para **cada** org linkeada:
    ```sql
-   SELECT ai_token_limit_monthly FROM organizations WHERE id = '<org-id>';
+   SELECT id, ai_token_limit_monthly FROM organizations WHERE keygen_license_id IS NOT NULL;
    ```
 
-**Resultado esperado:** `300000`.
+**Resultado esperado:** todas las orgs linkeadas quedan en `300000`. Si alguna org falla su `getLicenseQuotas`, el log `[keygen] entitlement refresh failed for org=...` lo reporta y el resto sigue actualizándose.
 
-**Si sigue en `250000`:**
-- El entitlement `code` probablemente quedó en mayúsculas (Keygen a veces normaliza). Ver `src/lib/keygen/client.ts:217-225` — el match es case-sensitive.
+### 1.b Attach/detach de un entitlement a una license
+
+Keygen dispara `license.entitlements.attached` o `license.entitlements.detached` cuyo resource **sí** es la license. El webhook los trata como alias de `license.updated`.
+
+**Pasos:**
+1. En Keygen, attach o detach un entitlement a la license de la org de prueba.
+2. Revisar logs:
+   ```
+   [keygen] webhook received event=license.entitlements.attached resourceType=licenses resourceId=<licenseId>
+   ```
+3. Verificar que la org actualizó solo su fila (no hay fan-out aquí).
+
+**Si no se actualiza ninguna org (1.a) o la org del evento (1.b):**
+- El entitlement `code` probablemente quedó en mayúsculas. Ver `src/lib/keygen/client.ts:217-225` — el match es case-sensitive.
 - Fix: normalizar con `.toLowerCase()` en la comparación. Hay un test en `src/lib/keygen/client.test.ts` que documenta este caso con el título "falls back to defaults when the entitlement code is uppercase".
 
 **Cleanup:** revertir el entitlement a `250000` al terminar.

@@ -92,6 +92,38 @@ export async function POST(req: Request) {
     `[keygen] webhook received event=${eventName} resourceType=${resourceType} resourceId=${resourceId} webhookEventId=${webhookEventId}`,
   );
 
+  // Entitlement-scoped events carry the entitlement id, not a license id.
+  // Keygen does not fire a per-license event when an entitlement's metadata
+  // changes, so we fan out and re-sync every linked org.
+  if (resourceType === "entitlements" && eventName === "entitlement.updated") {
+    const linkedOrgs = await prisma.organization.findMany({
+      where: { keygenLicenseId: { not: null } },
+      select: { id: true, keygenLicenseId: true },
+    });
+
+    let refreshed = 0;
+    for (const linked of linkedOrgs) {
+      if (!linked.keygenLicenseId) continue;
+      try {
+        const quotas = await getLicenseQuotas(linked.keygenLicenseId);
+        await prisma.organization.update({
+          where: { id: linked.id },
+          data: quotas,
+        });
+        invalidateLicenseStatusCache(linked.id);
+        refreshed += 1;
+      } catch (error) {
+        console.error(
+          `[keygen] entitlement refresh failed for org=${linked.id} license=${linked.keygenLicenseId}`,
+          error,
+        );
+      }
+    }
+
+    console.info(`[keygen] entitlement.updated refreshed ${refreshed}/${linkedOrgs.length} orgs`);
+    return Response.json({ received: true, refreshed });
+  }
+
   if (!eventName || resourceType !== "licenses" || !resourceId) {
     return Response.json({ ok: true });
   }
@@ -105,7 +137,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: true });
   }
 
-  if (eventName === "license.updated") {
+  const LICENSE_RESYNC_EVENTS = new Set([
+    "license.updated",
+    "license.entitlements.attached",
+    "license.entitlements.detached",
+  ]);
+
+  if (LICENSE_RESYNC_EVENTS.has(eventName)) {
     const quotas = await getLicenseQuotas(resourceId);
     await prisma.organization.update({
       where: { id: org.id },
