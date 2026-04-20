@@ -232,6 +232,8 @@ export const en = {
     used: "Used",
     quotaExceeded: "Quota exceeded. AI features are paused until the next period begins.",
     quotaNear: "You are close to your monthly AI token limit.",
+    noLicenseTitle: "No AI license",
+    noLicenseBody: "Your organization has no monthly token limit assigned. AI features are disabled until the license is updated.",
   },
   signupRequests: {
     eyebrow: "Account approvals",

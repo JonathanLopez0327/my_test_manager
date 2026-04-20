@@ -155,7 +155,7 @@ describe("checkOrgQuota", () => {
     }
   });
 
-  it("allows everything when limit is 0 (current documented behaviour)", async () => {
+  it("blocks with no_license when limit is 0 (no AI entitlement assigned)", async () => {
     prismaMock.organization.findUnique.mockResolvedValueOnce({
       aiTokenLimitMonthly: 0,
     });
@@ -165,18 +165,18 @@ describe("checkOrgQuota", () => {
 
     const result = await checkOrgQuota(ORG_ID);
 
-    expect(result.allowed).toBe(true);
-    expect(result.limit).toBe(0);
+    expect(result.allowed).toBe(false);
+    expect(result).toMatchObject({ reason: "no_license", limit: 0 });
   });
 
-  it("treats a missing organization row as limit 0 and allows", async () => {
+  it("blocks with no_license when the organization row is missing", async () => {
     prismaMock.organization.findUnique.mockResolvedValueOnce(null);
     prismaMock.aiUsagePeriod.findUnique.mockResolvedValueOnce(makePeriod());
 
     const result = await checkOrgQuota(ORG_ID);
 
-    expect(result.allowed).toBe(true);
-    expect(result.limit).toBe(0);
+    expect(result.allowed).toBe(false);
+    expect(result).toMatchObject({ reason: "no_license", limit: 0 });
   });
 });
 

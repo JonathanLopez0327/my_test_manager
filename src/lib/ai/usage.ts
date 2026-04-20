@@ -60,7 +60,13 @@ export async function ensureCurrentPeriod(
 
 export type QuotaCheck =
   | { allowed: true; used: bigint; limit: number; periodEnd: Date }
-  | { allowed: false; used: bigint; limit: number; periodEnd: Date; reason: "quota_exceeded" };
+  | {
+      allowed: false;
+      used: bigint;
+      limit: number;
+      periodEnd: Date;
+      reason: "quota_exceeded" | "no_license";
+    };
 
 /**
  * Soft pre-check: reads the current period's total and compares against the
@@ -78,7 +84,17 @@ export async function checkOrgQuota(
   const limit = org?.aiTokenLimitMonthly ?? 0;
   const period = await ensureCurrentPeriod(organizationId);
 
-  if (limit > 0 && period.totalTokens >= BigInt(limit)) {
+  if (limit <= 0) {
+    return {
+      allowed: false,
+      used: period.totalTokens,
+      limit,
+      periodEnd: period.periodEnd,
+      reason: "no_license",
+    };
+  }
+
+  if (period.totalTokens >= BigInt(limit)) {
     return {
       allowed: false,
       used: period.totalTokens,

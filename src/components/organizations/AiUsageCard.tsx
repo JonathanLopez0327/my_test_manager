@@ -71,10 +71,20 @@ export function AiUsageCard() {
   const input = BigInt(data.inputTokens);
   const output = BigInt(data.outputTokens);
   const limit = data.limit;
-  const pct =
-    limit > 0
-      ? Math.min(100, Number((total * BigInt(100)) / BigInt(limit)))
-      : 0;
+
+  if (limit <= 0) {
+    return (
+      <Card className="p-6">
+        <p className="text-sm font-semibold text-ink">{t.aiUsage.title}</p>
+        <p className="mt-3 text-sm font-medium text-danger-500">
+          {t.aiUsage.noLicenseTitle}
+        </p>
+        <p className="mt-1 text-xs text-ink-muted">{t.aiUsage.noLicenseBody}</p>
+      </Card>
+    );
+  }
+
+  const pct = Math.min(100, Number((total * BigInt(100)) / BigInt(limit)));
 
   const barColor =
     pct >= 100

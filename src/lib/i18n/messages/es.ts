@@ -234,6 +234,8 @@ export const es: Messages = {
     used: "Usado",
     quotaExceeded: "Cuota superada. Las funciones de IA están pausadas hasta el siguiente periodo.",
     quotaNear: "Estás cerca del límite mensual de tokens de IA.",
+    noLicenseTitle: "Sin licencia de IA",
+    noLicenseBody: "Tu organización no tiene asignado un límite mensual de tokens. Las funciones de IA están deshabilitadas hasta que se actualice la licencia.",
   },
   signupRequests: {
     eyebrow: "Aprobación de cuentas",
