@@ -6,6 +6,19 @@ jest.mock("next-auth/react", () => ({
   useSession: jest.fn(),
 }));
 
+jest.mock("@/lib/assistant-hub", () => ({
+  useAssistantHub: () => ({
+    actions: {
+      setContext: jest.fn(),
+      open: jest.fn(),
+      close: jest.fn(),
+    },
+    state: { isOpen: false },
+    dispatch: jest.fn(),
+  }),
+  useScreenDataSync: jest.fn(),
+}));
+
 describe("TestRunsWorkspace", () => {
   const originalFetch = global.fetch;
 

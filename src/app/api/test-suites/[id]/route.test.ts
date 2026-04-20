@@ -91,8 +91,8 @@ describe("PUT /api/test-suites/[id]", () => {
       expect.objectContaining({
         where: { id: "suite-1" },
         data: expect.objectContaining({
-          testPlanId: "plan-1",
-          parentSuiteId: "suite-parent",
+          testPlan: { connect: { id: "plan-1" } },
+          parent: { connect: { id: "suite-parent" } },
           name: "Suite 1",
           displayOrder: 2,
         }),

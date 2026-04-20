@@ -65,7 +65,7 @@ describe("POST /api/ai/conversations", () => {
     expect(prismaMock.aiConversation.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          projectId: "11111111-1111-4111-8111-111111111111",
+          project: { connect: { id: "11111111-1111-4111-8111-111111111111" } },
           environment: "DEV",
         }),
       }),
@@ -87,7 +87,7 @@ describe("POST /api/ai/conversations", () => {
     expect(prismaMock.aiConversation.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          projectId: "11111111-1111-4111-8111-111111111111",
+          project: { connect: { id: "11111111-1111-4111-8111-111111111111" } },
           environment: "STAGING",
         }),
       }),
