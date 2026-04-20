@@ -31,21 +31,20 @@ afterEach(() => {
 
 describe("getLicenseQuotas", () => {
   it("returns defaults when the response has no entitlements", async () => {
-    mockKeygenResponse({ data: { id: "lic-1" } });
+    mockKeygenResponse({ data: [] });
 
     await expect(getLicenseQuotas("lic-1")).resolves.toEqual(DEFAULTS);
   });
 
-  it("returns defaults when included is empty", async () => {
-    mockKeygenResponse({ data: { id: "lic-1" }, included: [] });
+  it("returns defaults when data is missing", async () => {
+    mockKeygenResponse({});
 
     await expect(getLicenseQuotas("lic-1")).resolves.toEqual(DEFAULTS);
   });
 
   it("parses all five entitlements when codes are lowercase", async () => {
     mockKeygenResponse({
-      data: { id: "lic-1" },
-      included: [
+      data: [
         { type: "entitlements", attributes: { code: "max_projects", metadata: { value: 10 } } },
         { type: "entitlements", attributes: { code: "max_members", metadata: { value: 25 } } },
         { type: "entitlements", attributes: { code: "max_test_cases", metadata: { value: 5000 } } },
@@ -68,8 +67,7 @@ describe("getLicenseQuotas", () => {
     // If this test starts failing after a case-insensitive normalization fix,
     // update the expectation to use the parsed value instead of the default.
     mockKeygenResponse({
-      data: { id: "lic-1" },
-      included: [
+      data: [
         { type: "entitlements", attributes: { code: "AI_TOKEN_LIMIT_MONTHLY", metadata: { value: 999_999 } } },
       ],
     });
@@ -80,8 +78,7 @@ describe("getLicenseQuotas", () => {
 
   it("ignores entitlements whose metadata.value is missing or non-numeric", async () => {
     mockKeygenResponse({
-      data: { id: "lic-1" },
-      included: [
+      data: [
         { type: "entitlements", attributes: { code: "ai_token_limit_monthly", metadata: {} } },
         { type: "entitlements", attributes: { code: "max_projects", metadata: { value: "lots" } } },
       ],
@@ -90,10 +87,9 @@ describe("getLicenseQuotas", () => {
     await expect(getLicenseQuotas("lic-1")).resolves.toEqual(DEFAULTS);
   });
 
-  it("ignores included items that are not entitlements", async () => {
+  it("ignores items that are not entitlements", async () => {
     mockKeygenResponse({
-      data: { id: "lic-1" },
-      included: [
+      data: [
         { type: "policies", attributes: { code: "ai_token_limit_monthly", metadata: { value: 999 } } },
       ],
     });
@@ -101,9 +97,9 @@ describe("getLicenseQuotas", () => {
     await expect(getLicenseQuotas("lic-1")).resolves.toEqual(DEFAULTS);
   });
 
-  it("calls the correct Keygen endpoint with Authorization and include query param", async () => {
+  it("calls the dedicated /entitlements endpoint with Authorization", async () => {
     const fetchMock = jest.fn().mockResolvedValue(
-      new Response(JSON.stringify({ data: { id: "lic-1" } }), {
+      new Response(JSON.stringify({ data: [] }), {
         status: 200,
         headers: { "Content-Type": "application/vnd.api+json" },
       }),
@@ -115,7 +111,7 @@ describe("getLicenseQuotas", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(
-      "https://api.keygen.sh/v1/accounts/acct-test/licenses/lic-xyz?include=entitlements",
+      "https://api.keygen.sh/v1/accounts/acct-test/licenses/lic-xyz/entitlements?limit=100",
     );
     expect(init.method).toBe("GET");
     expect(init.headers).toMatchObject({

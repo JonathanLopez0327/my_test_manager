@@ -196,15 +196,18 @@ export async function reinstateLicense(licenseId: string): Promise<KeygenLicense
 }
 
 export async function getLicenseQuotas(licenseId: string): Promise<KeygenQuotas> {
-  const res = await keygenFetch(`/licenses/${licenseId}?include=entitlements`, {
+  // Keygen represents entitlements as a link-only relationship on licenses.
+  // Even with ?include=entitlements the `included` array comes back empty, so we
+  // hit the dedicated endpoint that returns policy-inherited + direct entitlements.
+  const res = await keygenFetch(`/licenses/${licenseId}/entitlements?limit=100`, {
     method: "GET",
   });
 
   const json = (await handleResponse(res, "getLicenseQuotas")) as {
-    included?: Array<{ type: string; attributes: { code: string; metadata?: Record<string, unknown> } }>;
+    data?: Array<{ type: string; attributes: { code: string; metadata?: Record<string, unknown> } }>;
   };
 
-  const entitlements = (json.included ?? []).filter((i) => i.type === "entitlements");
+  const entitlements = (json.data ?? []).filter((i) => i.type === "entitlements");
 
   const defaults: KeygenQuotas = {
     maxProjects: 3,
