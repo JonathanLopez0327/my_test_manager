@@ -54,18 +54,21 @@ export const authOptions: NextAuthOptions = {
           where: { email },
         });
 
-        if (!user || !user.isActive) {
-          return null;
-        }
+        // Wrong-email and wrong-password both return null so we don't leak
+        // account existence. Only once the password is verified do we raise
+        // the specific reason — an attacker without the password can't reach
+        // the inactive/no-org branches.
+        if (!user) return null;
 
         const isValid = await compare(password, user.passwordHash);
+        if (!isValid) return null;
 
-        if (!isValid) {
-          return null;
+        if (!user.isActive) {
+          throw new Error("account_inactive");
         }
 
         if (!(await userHasLoginAccess(user.id))) {
-          return null;
+          throw new Error("organization_inactive");
         }
 
         return {

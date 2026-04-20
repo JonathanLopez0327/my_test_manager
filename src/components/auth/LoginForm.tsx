@@ -13,6 +13,8 @@ import { Input } from "../ui/Input";
 const ERROR_NOTICES: Record<string, string> = {
   account_inactive:
     "Your account is not active. Please contact an administrator.",
+  organization_inactive:
+    "Your organization is currently inactive. Please contact your administrator.",
   google_no_email:
     "Your Google account did not share a valid email. Try another method.",
   signup_failed:
@@ -54,7 +56,9 @@ export function LoginForm() {
     setIsSubmitting(false);
 
     if (result?.error) {
-      setError("Invalid credentials. Please try again.");
+      setError(
+        ERROR_NOTICES[result.error] ?? "Invalid credentials. Please try again.",
+      );
       return;
     }
 
