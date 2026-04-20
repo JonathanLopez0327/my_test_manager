@@ -3,6 +3,7 @@ import { POST } from "./route";
 import { ensureProjectAccess } from "@/lib/ai/conversations";
 import { getOrCreateAgentToken } from "@/lib/ai/agent-token";
 import { prisma } from "@/lib/prisma";
+import { checkOrgQuota } from "@/lib/ai/usage";
 
 const authCtx = {
   userId: "user-1",
@@ -23,6 +24,12 @@ jest.mock("@/lib/ai/conversations", () => ({
 
 jest.mock("@/lib/ai/agent-token", () => ({
   getOrCreateAgentToken: jest.fn(),
+}));
+
+jest.mock("@/lib/ai/usage", () => ({
+  checkOrgQuota: jest.fn(),
+  recordAiUsage: jest.fn(),
+  extractUsageFromEvent: jest.fn().mockReturnValue(null),
 }));
 
 jest.mock("@/lib/prisma", () => ({
@@ -51,6 +58,7 @@ type PrismaMock = {
 
 const ensureProjectAccessMock = ensureProjectAccess as jest.Mock;
 const getOrCreateAgentTokenMock = getOrCreateAgentToken as jest.Mock;
+const checkOrgQuotaMock = checkOrgQuota as jest.Mock;
 const prismaMock = prisma as unknown as PrismaMock;
 const originalEnv = process.env;
 const originalFetch = global.fetch;
@@ -80,6 +88,12 @@ describe("POST /api/ai/chat", () => {
 
     ensureProjectAccessMock.mockResolvedValue(true);
     getOrCreateAgentTokenMock.mockResolvedValue("mtm-token");
+    checkOrgQuotaMock.mockResolvedValue({
+      allowed: true,
+      used: 0n,
+      limit: 250_000,
+      periodEnd: new Date("2030-01-01T00:00:00Z"),
+    });
     prismaMock.aiConversation.findFirst.mockResolvedValue({
       id: "22222222-2222-4222-8222-222222222222",
       threadId: null,
@@ -139,6 +153,35 @@ describe("POST /api/ai/chat", () => {
     expect(response.status).toBe(502);
     expect(body.message).toBe("LangGraph API key is not configured.");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 402 and does not hit LangGraph when the quota is exceeded", async () => {
+    checkOrgQuotaMock.mockResolvedValueOnce({
+      allowed: false,
+      reason: "quota_exceeded",
+      used: 300_000n,
+      limit: 250_000,
+      periodEnd: new Date("2030-01-01T00:00:00Z"),
+    });
+
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as {
+      message: string;
+      used: string;
+      limit: number;
+      periodEnd: string;
+    };
+
+    expect(response.status).toBe(402);
+    expect(body.message).toMatch(/quota/i);
+    expect(body.used).toBe("300000");
+    expect(body.limit).toBe(250_000);
+    expect(body.periodEnd).toBe("2030-01-01T00:00:00.000Z");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(prismaMock.aiConversation.findFirst).not.toHaveBeenCalled();
   });
 
   it("allows development fallback without Authorization header", async () => {
