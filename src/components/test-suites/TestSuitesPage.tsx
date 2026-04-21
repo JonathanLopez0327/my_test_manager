@@ -277,12 +277,9 @@ export function TestSuitesPage() {
           />
         }
         status={
-          <>
-            <p className="text-sm font-semibold text-ink">Test suite list</p>
-            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
-              {loading ? "Updating..." : `Total: ${total}`}
-            </div>
-          </>
+          <div className="ml-auto flex items-center gap-3 text-xs font-medium text-ink-soft">
+            {loading ? "Updating..." : `Total: ${total}`}
+          </div>
         }
         feedback={
           <>

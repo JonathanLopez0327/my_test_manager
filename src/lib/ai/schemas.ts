@@ -46,5 +46,13 @@ export type AiCreateConversationRequest = z.infer<typeof aiCreateConversationSch
 export const aiRequirementsChatRequestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
   projectId: z.string().uuid(),
-  threadId: z.string().optional(),
+  conversationId: z.string().uuid(),
+});
+
+export const aiRequirementsConversationsQuerySchema = z.object({
+  projectId: z.string().uuid(),
+});
+
+export const aiRequirementsCreateConversationSchema = z.object({
+  projectId: z.string().uuid(),
 });

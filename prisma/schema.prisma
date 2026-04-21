@@ -648,6 +648,7 @@ model AiConversation {
   userId         String               @map("user_id") @db.Uuid
   title          String
   environment    String
+  agent          String               @default("chat")
   threadId       String?              @map("thread_id")
   status         AiConversationStatus @default(active)
   archivedAt     DateTime?            @map("archived_at") @db.Timestamptz(6)
@@ -663,6 +664,7 @@ model AiConversation {
   @@index([organizationId], map: "idx_ai_conversations_org")
   @@index([projectId], map: "idx_ai_conversations_project")
   @@index([userId, projectId, status, lastMessageAt], map: "idx_ai_conversations_user_project_status_last")
+  @@index([userId, projectId, agent, status, lastMessageAt], map: "idx_ai_conversations_user_project_agent_status_last")
   @@map("ai_conversations")
 }
 

@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
+import { prisma } from "@/lib/prisma";
 import { aiRequirementsChatRequestSchema } from "@/lib/ai/schemas";
 import { getOrCreateAgentToken } from "@/lib/ai/agent-token";
+import {
+  ensureProjectAccess,
+  titleFromPrompt,
+} from "@/lib/ai/conversations";
+import {
+  extractAssistantDelta,
+  mergeAssistantChunk,
+} from "@/lib/assistant-hub/chat-helpers";
 import { checkOrgQuota, extractUsageFromEvent, recordAiUsage } from "@/lib/ai/usage";
 
-type UsageState = {
+type StreamState = {
   pending: string;
+  content: string;
   inputTokens: number;
   outputTokens: number;
   model: string | null;
 };
 
-function scanSseForUsage(chunkText: string, state: UsageState) {
+function appendSseAssistantDelta(chunkText: string, state: StreamState) {
   state.pending += chunkText;
   const lines = state.pending.split("\n");
   state.pending = lines.pop() ?? "";
@@ -31,10 +41,15 @@ function scanSseForUsage(chunkText: string, state: UsageState) {
     }
 
     const usage = extractUsageFromEvent(parsed);
-    if (!usage) continue;
-    if (usage.inputTokens > state.inputTokens) state.inputTokens = usage.inputTokens;
-    if (usage.outputTokens > state.outputTokens) state.outputTokens = usage.outputTokens;
-    if (usage.model) state.model = usage.model;
+    if (usage) {
+      if (usage.inputTokens > state.inputTokens) state.inputTokens = usage.inputTokens;
+      if (usage.outputTokens > state.outputTokens) state.outputTokens = usage.outputTokens;
+      if (usage.model) state.model = usage.model;
+    }
+
+    const delta = extractAssistantDelta(parsed);
+    if (!delta) continue;
+    state.content = mergeAssistantChunk(state.content, delta);
   }
 }
 
@@ -43,6 +58,7 @@ export const runtime = "nodejs";
 const DEFAULT_LANGGRAPH_API_URL = "http://localhost:2024";
 const DEFAULT_ASSISTANT_ID = "requirements_agent";
 const UPSTREAM_TIMEOUT_MS = 30_000;
+const TESTABILITY_AGENT = "testability";
 
 function resolveLanggraphApiUrl(): string {
   const requirementsUrl = process.env.LANGGRAPH_REQUIREMENTS_API_URL?.trim();
@@ -102,8 +118,8 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     );
   }
 
-  const { message, projectId, threadId: clientThreadId } = parsed.data;
-  const { userId, activeOrganizationId } = authCtx;
+  const { message, projectId, conversationId } = parsed.data;
+  const { userId, activeOrganizationId, organizationRole } = authCtx;
 
   if (!activeOrganizationId) {
     return NextResponse.json(
@@ -125,6 +141,63 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     );
   }
 
+  const conversation = await prisma.aiConversation.findFirst({
+    where: {
+      id: conversationId,
+      userId,
+      organizationId: activeOrganizationId,
+      projectId,
+      agent: TESTABILITY_AGENT,
+      status: "active",
+    },
+    select: {
+      id: true,
+      threadId: true,
+      title: true,
+    },
+  });
+
+  if (!conversation) {
+    return NextResponse.json(
+      { message: "You do not have access to the specified conversation." },
+      { status: 403 },
+    );
+  }
+
+  const hasAccess = await ensureProjectAccess({
+    userId,
+    organizationId: activeOrganizationId,
+    organizationRole,
+    projectId,
+  });
+
+  if (!hasAccess) {
+    return NextResponse.json(
+      { message: "You do not have access to the specified project." },
+      { status: 403 },
+    );
+  }
+
+  const now = new Date();
+  const nextTitle = titleFromPrompt(message);
+
+  await prisma.$transaction([
+    prisma.aiConversationMessage.create({
+      data: {
+        conversation: { connect: { id: conversationId } },
+        role: "user",
+        content: message,
+      },
+    }),
+    prisma.aiConversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageAt: now,
+        title: conversation.title === "New conversation" ? nextTitle : conversation.title,
+      },
+    }),
+  ]);
+
   try {
     const langgraphApiUrl = resolveLanggraphApiUrl();
     const langgraphApiKey = resolveLanggraphApiKey();
@@ -136,7 +209,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       organizationId: activeOrganizationId,
     });
 
-    let activeThreadId = clientThreadId?.trim() || null;
+    let activeThreadId = conversation.threadId;
 
     if (!activeThreadId) {
       const threadResponse = await fetchWithTimeout(`${langgraphApiUrl}/threads`, {
@@ -162,6 +235,11 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
           { status: 502 },
         );
       }
+
+      await prisma.aiConversation.update({
+        where: { id: conversationId },
+        data: { threadId: activeThreadId },
+      });
     }
 
     const runResponse = await fetchWithTimeout(
@@ -190,6 +268,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       console.warn("[requirements-chat] upstream_error", {
         userId,
         projectId,
+        conversationId,
         status: runResponse.status,
       });
       return NextResponse.json(
@@ -206,8 +285,9 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     }
 
     const decoder = new TextDecoder();
-    const usageState: UsageState = {
+    const assistantState: StreamState = {
       pending: "",
+      content: "",
       inputTokens: 0,
       outputTokens: 0,
       model: null,
@@ -217,26 +297,51 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       new TransformStream<Uint8Array, Uint8Array>({
         transform(chunk, controller) {
           controller.enqueue(chunk);
-          scanSseForUsage(decoder.decode(chunk, { stream: true }), usageState);
+          appendSseAssistantDelta(decoder.decode(chunk, { stream: true }), assistantState);
         },
         async flush() {
           const last = decoder.decode();
-          if (last) scanSseForUsage(last, usageState);
+          if (last) appendSseAssistantDelta(last, assistantState);
+
+          const assistantContent =
+            assistantState.content || "No assistant content was returned for this request.";
+
+          try {
+            await prisma.$transaction([
+              prisma.aiConversationMessage.create({
+                data: {
+                  conversation: { connect: { id: conversationId } },
+                  role: "assistant",
+                  content: assistantContent,
+                },
+              }),
+              prisma.aiConversation.update({
+                where: { id: conversationId },
+                data: { lastMessageAt: new Date() },
+              }),
+            ]);
+          } catch (error) {
+            console.error("[requirements-chat] persist_assistant_failed", {
+              conversationId,
+              error: error instanceof Error ? error.message : "unknown",
+            });
+          }
 
           try {
             await recordAiUsage({
               organizationId: activeOrganizationId,
               userId,
-              conversationId: null,
+              conversationId,
               source: "requirements",
-              model: usageState.model,
-              inputTokens: usageState.inputTokens,
-              outputTokens: usageState.outputTokens,
+              model: assistantState.model,
+              inputTokens: assistantState.inputTokens,
+              outputTokens: assistantState.outputTokens,
             });
           } catch (error) {
             console.error("[requirements-chat] record_usage_failed", {
               userId,
               projectId,
+              conversationId,
               error: error instanceof Error ? error.message : "unknown",
             });
           }
@@ -264,6 +369,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     console.error("[requirements-chat] request_failed", {
       userId,
       projectId,
+      conversationId,
       error: error instanceof Error ? error.message : "unknown",
     });
 

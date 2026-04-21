@@ -9,6 +9,10 @@ type AccessParams = {
 
 export const ACTIVE_CONVERSATION_LIMIT = 5;
 
+export function titleFromPrompt(prompt: string): string {
+  return prompt.trim().slice(0, 56) || "New conversation";
+}
+
 export async function ensureProjectAccess({
   userId,
   organizationId,
@@ -48,11 +52,14 @@ export async function ensureProjectAccess({
 export async function archiveOverflowConversations(params: {
   userId: string;
   projectId?: string | null;
+  agent?: string;
 }) {
+  const agent = params.agent ?? "chat";
   const activeRows = await prisma.aiConversation.findMany({
     where: {
       userId: params.userId,
       ...(params.projectId ? { projectId: params.projectId } : {}),
+      agent,
       status: "active",
     },
     select: { id: true },
@@ -72,11 +79,17 @@ export async function archiveOverflowConversations(params: {
   });
 }
 
-export async function listActiveConversations(params: { userId: string; projectId?: string | null }) {
+export async function listActiveConversations(params: {
+  userId: string;
+  projectId?: string | null;
+  agent?: string;
+}) {
+  const agent = params.agent ?? "chat";
   return prisma.aiConversation.findMany({
     where: {
       userId: params.userId,
       ...(params.projectId ? { projectId: params.projectId } : {}),
+      agent,
       status: "active",
     },
     include: {
@@ -97,6 +110,7 @@ export function mapConversationDto(
     title: conversation.title,
     projectId: conversation.projectId,
     environment: conversation.environment,
+    agent: conversation.agent,
     createdAt: conversation.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString(),
     lastMessageAt: conversation.lastMessageAt.toISOString(),
@@ -109,5 +123,3 @@ export function mapConversationDto(
     })),
   };
 }
-
-

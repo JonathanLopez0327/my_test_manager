@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { IconClipboard } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 import type { RequirementsChatMessage } from "./useRequirementsChat";
 
@@ -20,6 +21,7 @@ export function RequirementsChatMessages({
   streamingContent,
 }: Props) {
   const { data: session } = useSession();
+  const t = useT();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const userInitials = (session?.user?.name ?? "You")
@@ -36,13 +38,12 @@ export function RequirementsChatMessages({
   if (messages.length === 0 && !isSending) {
     return (
       <div className="flex flex-1 items-center justify-center px-4">
-        <div className="text-center">
+        <div className="max-w-sm text-center">
           <p className="text-sm font-semibold text-ink">
-            Requirements Agent
+            {t.requirementsChat.emptyTitle}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
-            Generate structured requirements, user stories, or acceptance
-            criteria for your project.
+            {t.requirementsChat.emptyDescription}
           </p>
         </div>
       </div>
@@ -97,7 +98,7 @@ export function RequirementsChatMessages({
                   variant="quiet"
                   className="h-5 rounded-full border border-stroke bg-surface-elevated px-2 text-[10px] sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
                   onClick={() => handleCopy(message.content)}
-                  aria-label="Copy message"
+                  aria-label={t.requirementsChat.copyMessage}
                 >
                   <IconClipboard className="h-3 w-3" />
                 </Button>
@@ -128,7 +129,7 @@ export function RequirementsChatMessages({
             ) : (
               <div className="inline-flex items-center gap-2 rounded-full border border-stroke bg-surface-muted px-3 py-1.5 text-[11px] font-medium text-ink-muted">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" />
-                Generating requirements...
+                {t.requirementsChat.generatingLabel}
               </div>
             )}
           </div>

@@ -370,7 +370,7 @@ export function ProjectsPage() {
                   )}
                   onClick={() => setActiveTab("requirements")}
                 >
-                  Requirements
+                  {t.requirementsChat.tabLabel}
                 </button>
                 {canManageMembers && (
                   <button

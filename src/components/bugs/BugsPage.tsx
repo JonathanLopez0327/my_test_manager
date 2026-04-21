@@ -352,13 +352,8 @@ export function BugsPage() {
           canCreate={canCreate}
         />
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-ink">Bugs List</p>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-ink-soft">
-            {loading ? "Updating..." : `Total: ${total}`}
-          </div>
+        <div className="mt-5 flex items-center justify-end text-xs text-ink-soft">
+          {loading ? "Updating..." : `Total: ${total}`}
         </div>
 
         {error ? (
