@@ -82,7 +82,7 @@ describe("POST /api/ai/chat", () => {
       ...originalEnv,
       LANGGRAPH_API_URL: "http://langgraph.local",
       LANGGRAPH_QA_ID: "assistant-id",
-      NEXT_PUBLIC_LANGGRAPH_API_KEY: "lg-key",
+      LANGGRAPH_API_KEY: "lg-key",
       NODE_ENV: "test",
     };
 
@@ -141,7 +141,7 @@ describe("POST /api/ai/chat", () => {
   });
 
   it("returns 502 in production when API key is missing", async () => {
-    delete process.env.NEXT_PUBLIC_LANGGRAPH_API_KEY;
+    delete process.env.LANGGRAPH_API_KEY;
     process.env.NODE_ENV = "production";
 
     const fetchMock = jest.fn();
@@ -185,7 +185,7 @@ describe("POST /api/ai/chat", () => {
   });
 
   it("allows development fallback without Authorization header", async () => {
-    delete process.env.NEXT_PUBLIC_LANGGRAPH_API_KEY;
+    delete process.env.LANGGRAPH_API_KEY;
     process.env.NODE_ENV = "development";
 
     const fetchMock = jest.fn().mockResolvedValueOnce(new Response("upstream error", { status: 500 }));

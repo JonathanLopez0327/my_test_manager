@@ -6,12 +6,33 @@ import { aiChatRequestSchema } from "@/lib/ai/schemas";
 import { getOrCreateAgentToken } from "@/lib/ai/agent-token";
 import { ensureProjectAccess } from "@/lib/ai/conversations";
 import { checkOrgQuota, extractUsageFromEvent, recordAiUsage } from "@/lib/ai/usage";
+import { buildLangGraphConfig } from "@/lib/ai/langgraph";
 
 export const runtime = "nodejs";
 
 const DEFAULT_LANGGRAPH_API_URL = "http://localhost:8123";
-const DEFAULT_ASSISTANT_ID = "mtm_agent";
+const DEFAULT_ASSISTANT_ID = "qa_agent";
 const UPSTREAM_TIMEOUT_MS = 30_000;
+
+type ApprovalCall = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+};
+
+function extractApprovalInterrupt(parsed: unknown): ApprovalCall[] | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const event = parsed as Record<string, unknown>;
+  const candidates = [event.__interrupt__, (event.data as Record<string, unknown> | undefined)?.__interrupt__];
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate) || candidate.length === 0) continue;
+    const first = candidate[0] as { value?: { type?: string; calls?: ApprovalCall[] } } | undefined;
+    if (first?.value?.type === "write_approval_required" && Array.isArray(first.value.calls)) {
+      return first.value.calls;
+    }
+  }
+  return null;
+}
 
 function resolveLanggraphApiUrl(): string {
   const raw = process.env.LANGGRAPH_API_URL?.trim();
@@ -25,11 +46,11 @@ function resolveLanggraphApiUrl(): string {
 }
 
 function resolveLanggraphApiKey(): string | null {
-  const raw = process.env.NEXT_PUBLIC_LANGGRAPH_API_KEY?.trim();
+  const raw = process.env.LANGGRAPH_API_KEY?.trim();
   if (raw) return raw;
 
   if (process.env.NODE_ENV === "production") {
-    throw new Error("Missing NEXT_PUBLIC_LANGGRAPH_API_KEY in production.");
+    throw new Error("Missing LANGGRAPH_API_KEY in production.");
   }
 
   return null;
@@ -127,14 +148,11 @@ type StreamState = {
   inputTokens: number;
   outputTokens: number;
   model: string | null;
+  interrupted: boolean;
 };
 
-function appendSseAssistantDelta(chunkText: string, state: StreamState) {
-  state.pending += chunkText;
-  const lines = state.pending.split("\n");
-  state.pending = lines.pop() ?? "";
-
-  for (const rawLine of lines) {
+function processFrameStats(frame: string, state: StreamState) {
+  for (const rawLine of frame.split("\n")) {
     const line = rawLine.trim();
     if (!line.startsWith("data:")) continue;
     const data = line.slice(5).trim();
@@ -156,9 +174,24 @@ function appendSseAssistantDelta(chunkText: string, state: StreamState) {
     }
 
     const delta = extractAssistantDelta(parsed);
-    if (!delta) continue;
-    state.content = mergeAssistantChunk(state.content, delta);
+    if (delta) state.content = mergeAssistantChunk(state.content, delta);
   }
+}
+
+function findApprovalInFrame(frame: string): ApprovalCall[] | null {
+  for (const rawLine of frame.split("\n")) {
+    const line = rawLine.trim();
+    if (!line.startsWith("data:")) continue;
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") continue;
+    try {
+      const calls = extractApprovalInterrupt(JSON.parse(data) as unknown);
+      if (calls) return calls;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
@@ -309,14 +342,10 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
           input: {
             messages: [{ role: "user", content: message }],
           },
-          config: {
-            configurable: {
-              project_id: projectId,
-              mtm_api_token: mtmApiToken,
-              ...(entityContext ? { entity_context: entityContext } : {}),
-            },
-          },
-          stream_mode: "messages",
+          config: buildLangGraphConfig(mtmApiToken, projectId, activeThreadId, {
+            entityContext,
+          }),
+          stream_mode: ["messages", "updates"],
         }),
       },
     );
@@ -354,51 +383,98 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
     });
 
     const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
     const assistantState: StreamState = {
       pending: "",
       content: "",
       inputTokens: 0,
       outputTokens: 0,
       model: null,
+      interrupted: false,
     };
 
     const persistedStream = runResponse.body.pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
         transform(chunk, controller) {
-          controller.enqueue(chunk);
-          const chunkText = decoder.decode(chunk, { stream: true });
-          appendSseAssistantDelta(chunkText, assistantState);
+          if (assistantState.interrupted) return;
+
+          assistantState.pending += decoder.decode(chunk, { stream: true });
+          const frames = assistantState.pending.split("\n\n");
+          assistantState.pending = frames.pop() ?? "";
+
+          for (const frame of frames) {
+            if (!frame) continue;
+
+            const approvalCalls = findApprovalInFrame(frame);
+            if (approvalCalls) {
+              const approvalPayload = JSON.stringify({
+                calls: approvalCalls,
+                thread_id: activeThreadId,
+              });
+              controller.enqueue(
+                encoder.encode(`event: approval_required\ndata: ${approvalPayload}\n\n`),
+              );
+              assistantState.interrupted = true;
+              return;
+            }
+
+            controller.enqueue(encoder.encode(`${frame}\n\n`));
+            processFrameStats(frame, assistantState);
+          }
         },
-        async flush() {
+        async flush(controller) {
           const lastText = decoder.decode();
-          if (lastText) {
-            appendSseAssistantDelta(lastText, assistantState);
+          if (lastText) assistantState.pending += lastText;
+
+          if (!assistantState.interrupted && assistantState.pending.trim()) {
+            const tail = assistantState.pending;
+            assistantState.pending = "";
+
+            const approvalCalls = findApprovalInFrame(tail);
+            if (approvalCalls) {
+              controller.enqueue(
+                encoder.encode(
+                  `event: approval_required\ndata: ${JSON.stringify({
+                    calls: approvalCalls,
+                    thread_id: activeThreadId,
+                  })}\n\n`,
+                ),
+              );
+              assistantState.interrupted = true;
+            } else {
+              controller.enqueue(encoder.encode(`${tail}\n\n`));
+              processFrameStats(tail, assistantState);
+            }
           }
 
-          const assistantContent =
-            assistantState.content || "No assistant content was returned for this request.";
+          // When interrupted we skip writing a placeholder assistant row —
+          // the resume stream (/api/ai/approve) persists the real reply.
+          if (!assistantState.interrupted) {
+            const assistantContent =
+              assistantState.content || "No assistant content was returned for this request.";
 
-          try {
-            await prisma.$transaction([
-              prisma.aiConversationMessage.create({
-                data: {
-                  conversation: { connect: { id: conversationId } },
-                  role: "assistant",
-                  content: assistantContent,
-                },
-              }),
-              prisma.aiConversation.update({
-                where: { id: conversationId },
-                data: {
-                  lastMessageAt: new Date(),
-                },
-              }),
-            ]);
-          } catch (error) {
-            console.error("[ai-chat] persist_assistant_failed", {
-              conversationId,
-              error: error instanceof Error ? error.message : "unknown",
-            });
+            try {
+              await prisma.$transaction([
+                prisma.aiConversationMessage.create({
+                  data: {
+                    conversation: { connect: { id: conversationId } },
+                    role: "assistant",
+                    content: assistantContent,
+                  },
+                }),
+                prisma.aiConversation.update({
+                  where: { id: conversationId },
+                  data: {
+                    lastMessageAt: new Date(),
+                  },
+                }),
+              ]);
+            } catch (error) {
+              console.error("[ai-chat] persist_assistant_failed", {
+                conversationId,
+                error: error instanceof Error ? error.message : "unknown",
+              });
+            }
           }
 
           try {
@@ -438,7 +514,7 @@ export const POST = withAuth(PERMISSIONS.PROJECT_LIST, async (req, authCtx) => {
       );
     }
 
-    if (error instanceof Error && error.message === "Missing NEXT_PUBLIC_LANGGRAPH_API_KEY in production.") {
+    if (error instanceof Error && error.message === "Missing LANGGRAPH_API_KEY in production.") {
       console.error("[ai-chat] missing_langgraph_api_key", {
         userId,
         projectId,

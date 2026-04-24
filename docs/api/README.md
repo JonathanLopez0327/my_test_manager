@@ -66,6 +66,28 @@ curl http://localhost:3000/api/projects \
   - `201` cuando persiste correctamente.
   - `400` si el payload es invalido (`fieldErrors`).
   - `500` si falla la persistencia.
+
+### `POST /api/demo-request`
+- Endpoint publico para solicitudes de demo desde el landing.
+- No requiere sesion.
+- Validado con `demoRequestSchema`.
+- Mock en v1: no persiste; valida el payload y responde `200`.
+- Simula error cuando el email contiene `+fail@` (útil para testing de UX).
+- Respuestas:
+  - `200` `{ ok: true, message }`.
+  - `400` `{ ok: false, message, fieldErrors }`.
+  - `500` `{ ok: false, message }`.
+
+### `POST /api/beta-request`
+- Endpoint publico. Genera (o reusa) un beta code para un email y lo envia por mail.
+- Body:
+```json
+{ "email": "jane@acme.com" }
+```
+- Reusa un beta code existente no usado ni expirado para el email; si no hay, crea uno nuevo.
+- Dispara `sendBetaCodeEmail`.
+- Respuestas: `200` `{ ok: true }`, `400` payload invalido, `500` error interno.
+
 ## Auth
 
 ### `GET|POST /api/auth/[...nextauth]`
@@ -110,9 +132,15 @@ curl http://localhost:3000/api/projects \
 
 ## AI Assistant
 
+Tres agentes LangGraph conviven bajo este namespace:
+- `qa_agent` (default): asiste sobre test runs, bugs, suites y test cases. Endpoints: `/api/ai/conversations`, `/api/ai/chat`, `/api/ai/approve`, `/api/ai/threads/[threadId]/interrupt`, `/api/ai-chat/threads/[threadId]/document`.
+- `testability` (requirements): revisa testeabilidad de requerimientos. Endpoints: `/api/ai/requirements/conversations`, `/api/ai/requirements/chat`.
+
+Todas las llamadas server-side incluyen `config.configurable` con `project_id`, `mtm_api_token` (ephemeral, no persistido por el backend LangGraph) y `thread_id`. El helper `buildLangGraphConfig` vive en `src/lib/ai/langgraph.ts`.
+
 ### `GET /api/ai/conversations?projectId=<uuid>`
-- Permiso: `PROJECT_LIST` + acceso al proyecto indicado.
-- Retorna hasta 5 conversaciones activas del usuario actual para ese proyecto.
+- Permiso: `PROJECT_LIST` + acceso al proyecto indicado (o global si se omite).
+- Retorna hasta 5 conversaciones activas del usuario actual (agente `chat`).
 - Incluye mensajes completos en cada conversacion.
 
 ### `POST /api/ai/conversations`
@@ -126,32 +154,160 @@ curl http://localhost:3000/api/projects \
 ```
 - Crea conversacion activa con titulo inicial `New conversation`.
 - Politica de retencion:
-  - maximo 5 conversaciones activas por `userId + projectId`.
+  - maximo 5 conversaciones activas por `userId + projectId + agent`.
   - al exceder, las mas antiguas pasan a `archived`.
 
 ### `POST /api/ai/chat`
-- Permiso: `PROJECT_LIST` + acceso al proyecto solicitado.
+- Permiso: `PROJECT_LIST` + acceso al proyecto resuelto.
 - Body:
 ```json
 {
   "message": "Explain latest run failures",
   "projectId": "550e8400-e29b-41d4-a716-446655440000",
-  "conversationId": "1a2b3c4d-1111-2222-3333-444455556666"
+  "conversationId": "1a2b3c4d-1111-2222-3333-444455556666",
+  "entityContext": {
+    "type": "testRun",
+    "entityId": "...",
+    "entityName": "...",
+    "projectId": "...",
+    "screenData": { "...": "..." }
+  }
 }
 ```
 - Reglas:
   - `message` requerido (1..4000).
-  - `projectId` UUID requerido.
+  - `projectId` opcional; si se omite se deriva de la conversacion.
   - `conversationId` UUID requerido y debe pertenecer al usuario/proyecto/organizacion activa.
+  - `entityContext` opcional; se reenvia a LangGraph via `config.configurable.entity_context`.
 - Respuesta:
   - `200` streaming `text/event-stream`.
-  - header `X-Thread-Id` con el thread activo.
-  - persiste mensajes `user` y `assistant` en DB.
+  - Header `X-Thread-Id` con el thread activo.
+  - `stream_mode: ["messages", "updates"]` contra LangGraph (necesario para detectar interrupts).
+  - El server forward-ea los eventos tal cual, salvo cuando detecta un `__interrupt__` tipo `write_approval_required`: en ese caso inyecta un evento custom y corta el stream para esperar decision humana:
+    ```
+    event: approval_required
+    data: {"calls":[{"id":"call_abc","name":"batch_create_test_cases","args":{...}}],"thread_id":"..."}
+    ```
+  - Si no hay interrupt, persiste el mensaje `assistant` al cerrar el stream. Si hay interrupt, el mensaje lo escribe `/api/ai/approve` al reanudar.
+- Quota: valida `checkOrgQuota` antes de abrir el stream; `402` si excedido.
 - Errores comunes:
   - `400` payload invalido.
-  - `403` sin acceso al proyecto.
-  - `502` error de LangGraph.
+  - `402` quota mensual excedida.
+  - `403` sin acceso al proyecto/conversacion.
+  - `502` error de LangGraph / API key no configurada.
   - `504` timeout con LangGraph.
+
+### `POST /api/ai/approve`
+- Permiso: `PROJECT_LIST` + ownership del `threadId`.
+- Reanuda un thread QA interrumpido tras que el usuario apruebe/rechace los writes propuestos.
+- Body:
+```json
+{
+  "conversationId": "1a2b3c4d-1111-2222-3333-444455556666",
+  "threadId": "thread_abc",
+  "decision": { "approve_all": true }
+}
+```
+- Formas validas de `decision`:
+  - `{ "approve_all": true }` — ejecutar todos los writes propuestos.
+  - `{ "approved": ["call_abc", "call_xyz"] }` — solo esos `tool_call_id` (el resto se rechaza); array vacio = rechazar todo.
+- El server llama `POST {LANGGRAPH_API_URL}/threads/{threadId}/runs/stream` con `command.resume` + el mismo `config.configurable` del initial (token `mtm_api_token` re-enviado porque el backend NO lo persiste; defensa ephemeral-injection).
+- Respuesta `200` `text/event-stream` con header `X-Thread-Id`. Persiste el mensaje `assistant` al cierre.
+- Errores: `400` payload, `402` quota, `403` thread o proyecto ajeno, `502`/`504` upstream.
+
+### `GET /api/ai/threads/[threadId]/interrupt`
+- Permiso: `PROJECT_LIST` + ownership del thread (conversacion activa del user en la org actual).
+- Consulta `GET {LANGGRAPH_API_URL}/threads/{threadId}/state` para detectar si el thread quedo pausado en un `write_approval_required`.
+- Se usa desde el frontend al reabrir una conversacion, para re-sintetizar el ApprovalCard sin tener que mandar un mensaje nuevo.
+- Respuestas:
+  - `{ "interrupted": false }` cuando no hay interrupt activo.
+  - `{ "interrupted": true, "threadId": "...", "calls": [...] }` con el payload del interrupt extraido (`top-level state.interrupts` o `state.tasks[].interrupts`).
+- Errores: `400` thread invalido, `403` sin acceso, `404` thread no encontrado, `502`/`504` upstream.
+
+### `GET /api/ai-chat/threads/[threadId]/document`
+- Permiso: `PROJECT_LIST` + ownership del thread.
+- Owners y admins de la org pueden leer cualquier thread de la org; member/billing solo los propios.
+- Busca en S3 (`test-documents` bucket) el ultimo `.pdf` generado bajo `{projectId}/{threadId}/`.
+- Respuestas:
+  - `{ "status": "missing" }` — sin objetos en el prefijo.
+  - `{ "status": "pending" }` — hay objetos pero ninguno es PDF todavia.
+  - `{ "status": "ready", "url": "<signed>", "filename": "..." }` — URL firmada (60..120s).
+- Controlado por `AI_DOCUMENT_URL_EXPIRES_IN_SECONDS` (default 120, clamp 60..120).
+
+### `GET /api/ai/requirements/conversations?projectId=<uuid>`
+- Permiso: `PROJECT_LIST` + acceso al proyecto. `projectId` requerido.
+- Retorna hasta 5 conversaciones activas del agente `testability` para el usuario + proyecto.
+
+### `POST /api/ai/requirements/conversations`
+- Permiso: `PROJECT_LIST` + acceso al proyecto.
+- Body: `{ "projectId": "<uuid>" }`.
+- Crea conversacion `testability` activa. Politica de retencion: maximo 5 por user+project+agent.
+- Respuesta `201` con `{ item: { ... } }`.
+
+### `POST /api/ai/requirements/chat`
+- Permiso: `PROJECT_LIST` + acceso al proyecto.
+- Body: `{ message, projectId, conversationId }` — todos requeridos.
+- Agente: `testability` (no tiene gate de aprobacion). Usa `buildLangGraphConfig` para re-enviar `mtm_api_token` en cada turno.
+- Respuesta: `200` SSE `text/event-stream` con header `X-Thread-Id`. Persiste mensajes user/assistant en DB.
+- Usa `LANGGRAPH_REQUIREMENTS_API_URL` si esta seteado, sino cae a `LANGGRAPH_API_URL`.
+
+## Admin (super_admin)
+
+Todas las rutas bajo `/api/admin/**` requieren rol global `super_admin`. Responden `403` si el usuario no lo tiene.
+
+### Beta codes
+
+#### `GET /api/admin/beta-codes`
+- Query: `used` (`true|false`), `email` (contiene), `page`, `pageSize` (max 100).
+- Retorna `{ items, total, page, pageSize }` con `usedBy` y `createdBy` poblados.
+
+#### `POST /api/admin/beta-codes`
+- Body:
+```json
+{ "email": "optional@acme.com", "expiresAt": "2026-12-31T23:59:59Z", "count": 10 }
+```
+- `count` clamp 1..100. Genera N codigos unicos (`skipDuplicates`). Retorna `{ created, codes }`.
+
+#### `GET /api/admin/beta-codes/{id}`
+- Retorna detalle del codigo con `usedBy` y `createdBy`.
+
+#### `PATCH /api/admin/beta-codes/{id}`
+- Body parcial: `{ expiresAt?: string | null, email?: string | null }`.
+- `expiresAt: null` limpia el campo; un ISO lo valida con `new Date()`.
+
+#### `DELETE /api/admin/beta-codes/{id}`
+- Soft delete: setea `expiresAt = now()` para revocar acceso preservando auditoria.
+
+### Signup requests
+
+#### `GET /api/admin/signup-requests`
+- Permiso: `SIGNUP_REQUEST_LIST`.
+- Query: `status` (`pending|approved|rejected|all`, default `pending`).
+- Retorna `{ items }` con `reviewedBy`.
+
+#### `POST /api/admin/signup-requests/{id}/approve`
+- Permiso: `SIGNUP_REQUEST_REVIEW`.
+- Crea el user + organization via `approveSignupRequest`. Retorna `{ ok, userId, organizationId, organizationSlug }`.
+- Errores tipados con `SignUpError` (`code`, `message`, `status`).
+
+#### `POST /api/admin/signup-requests/{id}/reject`
+- Permiso: `SIGNUP_REQUEST_REVIEW`.
+- Body: `{ reason?: string | null }` (opcional).
+- Retorna `{ ok, requestId, status }`.
+
+### Licenses (Keygen)
+
+Todas estas rutas hablan con el servicio externo Keygen. Actualizan `organization.betaExpiresAt`/quotas y limpian el cache de license status.
+
+#### `POST /api/admin/organizations/{id}/renew-license`
+- Requiere `organization.keygenLicenseId`. Llama `renewLicense(...)`, obtiene `getLicenseQuotas(...)`, actualiza DB.
+- Respuestas: `200` `{ id, betaExpiresAt, status }`, `400` si no hay licencia Keygen, `404` org, `502` Keygen error.
+
+#### `POST /api/admin/organizations/{id}/suspend-license`
+- Llama `suspendLicense(...)`. Setea `betaExpiresAt = new Date(0)` (efectivamente expirada). Mismo formato de respuesta.
+
+#### `POST /api/admin/organizations/{id}/reinstate-license`
+- Llama `reinstateLicense(...)`. Restaura `betaExpiresAt` a la fecha devuelta por Keygen.
 
 ## API Tokens
 
@@ -240,6 +396,22 @@ curl http://localhost:3000/api/projects \
 ```
 - Valida membresia y retorna datos para actualizar sesion activa.
 
+### `GET /api/organizations/current/usage`
+- Permiso: `ORG_LIST`.
+- Retorna el consumo de tokens AI del periodo de billing actual para la organizacion activa.
+- Respuesta:
+```json
+{
+  "limit": 250000,
+  "periodStart": "2026-04-01T00:00:00.000Z",
+  "periodEnd": "2026-05-01T00:00:00.000Z",
+  "inputTokens": "12345",
+  "outputTokens": "6789",
+  "totalTokens": "19134"
+}
+```
+- Los tokens son `BigInt` serializados como string.
+
 ## Miembros de organizacion
 
 ### `GET /api/organizations/{id}/members`
@@ -265,6 +437,45 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/organizations/{id}/members/{userId}`
 - Permiso: `ORG_MEMBER_MANAGE`.
 - No permite eliminar el ultimo owner.
+
+## Invites (organizacion)
+
+### `GET /api/organizations/{id}/invites`
+- Permiso: `ORG_INVITE_MANAGE` (evaluado con `can(...)` contra la org del path, no la activa).
+- Retorna `{ items }` — invites pendientes + revocados + aceptados (usa `listOrgInvites`).
+
+### `POST /api/organizations/{id}/invites`
+- Permiso: `ORG_INVITE_MANAGE`.
+- Body:
+```json
+{ "email": "new@acme.com", "role": "member" }
+```
+- `role` valido: `admin|member|billing` (owner no se puede invitar). Default: `member`.
+- Respuesta `201` con el invite creado.
+- Errores: `400` falta email, `InviteError` con `code` tipado, `500` generico.
+
+### `DELETE /api/organizations/{id}/invites/{inviteId}`
+- Permiso: `ORG_INVITE_MANAGE`.
+- Revoca el invite. Respuesta `200` `{ ok: true }`.
+
+### `GET /api/invites/{token}`
+- Publico (sin sesion).
+- Retorna metadata del invite para renderizar la landing `/invite/{token}`:
+```json
+{
+  "email": "jane@acme.com",
+  "role": "member",
+  "organization": { "id": "...", "name": "...", "slug": "..." },
+  "expiresAt": "2026-05-01T00:00:00.000Z"
+}
+```
+- No consume el invite. Errores via `InviteError` tipado.
+
+### `POST /api/invites/{token}/accept`
+- Autenticado. El email de la sesion debe coincidir con el email invitado.
+- Consume el invite y agrega al user a la org con el rol indicado.
+- Respuesta: `{ organizationId, organizationSlug, role }`.
+- Errores: `404` user no encontrado, `InviteError` tipado.
 
 ## Usuarios
 
@@ -297,6 +508,23 @@ curl http://localhost:3000/api/projects \
   "memberships": [{ "organizationId": "org_id", "role": "admin" }]
 }
 ```
+
+### `PUT /api/profile`
+- Autenticado (usa `getServerSession` directo, no `withAuth`).
+- Permite al usuario autenticado actualizar su propio `fullName` y/o `password`.
+- Body:
+```json
+{ "fullName": "Jane Doe", "password": "newpassword123" }
+```
+- `password` requiere min 8 caracteres. Si ningun campo viene seteado, responde `200 { ok: true }` sin tocar la DB.
+- Respuestas: `200 { ok: true }`, `400` password corta, `401` sin sesion, `500` error.
+
+### `PATCH /api/users/me/locale`
+- Publico por cookie (no requiere sesion activa). Con sesion ademas persiste el locale en DB.
+- Body: `{ "locale": "en-US" }` (validado contra `isLocale`).
+- Setea la cookie `LOCALE_COOKIE` con `path=/`, `maxAge=1 año`, `sameSite=lax`.
+- Respuesta: `{ locale }`.
+- Errores: `400` locale invalido.
 
 ## Proyectos
 
@@ -356,6 +584,48 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/projects/{id}`
 - Permiso: `PROJECT_DELETE`.
 
+### `GET /api/projects/{id}/dashboard`
+- Permiso: `PROJECT_LIST` + proyecto pertenece a la org activa.
+- Agrega datos del dashboard (manager dashboard) + distribucion por estado agregada de TODOS los runs manuales del proyecto:
+```json
+{
+  "...": "campos de managerDashboardData",
+  "allRunsDistribution": {
+    "data": [
+      { "name": "Passed", "value": 120, "color": "#059669", "percentage": 60 },
+      { "name": "Failed", "value": 30, "color": "#DC2626", "percentage": 15 }
+    ],
+    "total": 200,
+    "passRate": 80
+  }
+}
+```
+
+### `GET /api/projects/{id}/related-counts`
+- Permiso: `PROJECT_DELETE` (es el chequeo previo al delete).
+- Retorna `{ counts, hasRelated }` para decidir si se puede borrar el proyecto sin cascade.
+
+### `GET /api/projects/{id}/members`
+- Permiso: `PROJECT_MEMBER_MANAGE`.
+- Retorna `{ items }` con los project members + datos del usuario.
+
+### `POST /api/projects/{id}/members`
+- Permiso: `PROJECT_MEMBER_MANAGE`.
+- Body: `{ userId, role }`.
+- Roles validos: `viewer|editor|admin`.
+- El user debe ser miembro de la organizacion del proyecto.
+- Errores: `400` datos invalidos o user no es org member; `409` ya es miembro del proyecto.
+
+### `PATCH /api/projects/{id}/members/{userId}`
+- Permiso: `PROJECT_MEMBER_MANAGE`.
+- Body: `{ role }` (`viewer|editor|admin`).
+- No permite auto-modificarse (400).
+- `404` si el user no es miembro del proyecto.
+
+### `DELETE /api/projects/{id}/members/{userId}`
+- Permiso: `PROJECT_MEMBER_MANAGE`.
+- No permite auto-removerse (400).
+
 ## Test Plans
 
 ### `GET /api/test-plans`
@@ -383,6 +653,10 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/test-plans/{id}`
 - Permiso: `TEST_PLAN_DELETE`.
 
+### `GET /api/test-plans/{id}/related-counts`
+- Permiso: `TEST_PLAN_DELETE`.
+- Retorna `{ counts, hasRelated }` para validar borrado seguro.
+
 ## Test Suites
 
 ### `GET /api/test-suites`
@@ -408,6 +682,10 @@ curl http://localhost:3000/api/projects \
 
 ### `DELETE /api/test-suites/{id}`
 - Permiso: `TEST_SUITE_DELETE`.
+
+### `GET /api/test-suites/{id}/related-counts`
+- Permiso: `TEST_SUITE_DELETE`.
+- Retorna `{ counts, hasRelated }`.
 
 ## Test Cases
 
@@ -492,6 +770,17 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/test-cases/{id}`
 - Permiso: `TEST_CASE_DELETE`.
 
+### `POST /api/test-cases/{id}/duplicate`
+- Permiso: `TEST_CASE_CREATE` sobre el proyecto origen (y sobre el destino si cambia).
+- Body opcional: `{ "suiteId": "<target_suite_id>" }` para duplicar a otra suite.
+- El duplicado:
+  - Titulo: `(Copy) {original.title}`.
+  - Copia `description`, `preconditions`, `style`, `steps`, `tags`, `priority`, `isAutomated`, `automationType`.
+  - `automationRef` y `externalKey` se resetean a `null`.
+  - `status: "draft"`.
+- Respuesta `201` con el test case creado.
+- Errores: `404` test case origen o suite destino, `500` error.
+
 ## Test Runs
 
 ### `GET /api/test-runs`
@@ -530,6 +819,12 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/test-runs/{id}`
 - Permiso: `TEST_RUN_DELETE`.
 
+### `POST /api/test-runs/{id}/complete`
+- Permiso: `TEST_RUN_UPDATE`.
+- Marca el run como `completed` y setea `finishedAt = now()`.
+- Respuesta: `200 { ok, status: "completed" }`.
+- `409` con `COMPLETED_RUN_LOCK_MESSAGE` si el run ya estaba completado (immutable).
+
 ## Items y metricas de runs
 
 ### `GET /api/test-runs/{id}/items`
@@ -538,7 +833,7 @@ curl http://localhost:3000/api/projects \
 
 ### `POST /api/test-runs/{id}/items`
 - Permiso: `TEST_RUN_ITEM_UPDATE`.
-- Body:
+- Body (legacy, batch update):
 ```json
 {
   "items": [
@@ -574,6 +869,56 @@ curl http://localhost:3000/api/projects \
 ### `POST /api/test-runs/{id}/metrics`
 - Permiso: `TEST_RUN_METRICS_UPDATE`.
 - Recalcula metricas manualmente.
+
+## Executions (intentos por run item)
+
+Modelo nuevo: cada `testRunItem` tiene `testRunItemExecution[]` con `attemptNumber`, `status`, `startedAt`, `completedAt`, `durationMs`, `summary`, `stepResults` y `artifacts`. Hay fallback legacy cuando la DB todavia no tiene las tablas (`P2021|P2022`): sintetiza executions a partir de `testRunArtifact.metadata.kind === "execution_state"` y del snapshot del run item.
+
+Todas las rutas rechazan si el run esta `completed` (via `ensureRunMutable`).
+
+### `GET /api/test-runs/{id}/items/{runItemId}/executions`
+- Permiso: `TEST_RUN_ITEM_LIST`.
+- Retorna `{ currentExecutionId, items }` ordenados `attemptNumber desc`.
+- Cada item incluye `executedBy` y conteo de `stepResults` y `artifacts`.
+
+### `POST /api/test-runs/{id}/items/{runItemId}/executions`
+- Permiso: `TEST_RUN_ITEM_UPDATE`.
+- Crea una nueva execution (intent+1) para el run item. Promueve a `currentExecution`.
+- Body:
+```json
+{ "status": "in_progress", "summary": "starting run" }
+```
+- `status` parseado con `parseResultStatus` (default `not_run`).
+- Hidrata `stepResults` con snapshots de `testCase.steps` segun `style` (`step_by_step|gherkin|data_driven|api`).
+- Actualiza `testRunItem.status/executedAt/executedBy` y recalcula metricas.
+- Respuesta `201`: `{ id, attemptNumber }`.
+
+### `GET /api/test-runs/{id}/items/{runItemId}/executions/{executionId}`
+- Permiso: `TEST_RUN_ITEM_LIST`.
+- Retorna la execution con `stepResults`, `artifacts` (con `sizeBytes` convertido a number), `runItem.currentExecutionId` y `testCase` snapshot (title/externalKey/style/steps).
+- `isCurrent` indica si es la execution activa.
+
+### `PATCH /api/test-runs/{id}/items/{runItemId}/executions/{executionId}`
+- Permiso: `TEST_RUN_ITEM_UPDATE`.
+- Solo la `currentExecution` es editable (`409` si no).
+- Body:
+```json
+{
+  "status": "passed",
+  "durationMs": 4500,
+  "summary": "All green",
+  "stepResults": [
+    { "stepIndex": 0, "status": "passed", "actualResult": "OK", "comment": null }
+  ]
+}
+```
+- Actualiza execution + propaga `status/durationMs/executedAt` al run item. Recalcula metricas.
+
+### `POST /api/test-runs/{id}/items/{runItemId}/executions/{executionId}/complete`
+- Permiso: `TEST_RUN_ITEM_UPDATE`.
+- Body: `{ "status": "passed" }` — requerido, debe parsear a un status valido.
+- Solo `currentExecution` (`409` si no). Setea `completedAt = now()` (`null` si `in_progress|not_run`). Propaga al run item.
+- Respuesta `200 { ok: true }`.
 
 ## Artefactos de runs
 
@@ -697,14 +1042,24 @@ curl http://localhost:3000/api/projects \
 ### `DELETE /api/bugs/{id}/comments/{commentId}`
 - Permiso: autor del comentario o `BUG_COMMENT_DELETE`.
 
+## Webhooks
+
+### `POST /api/webhooks/keygen`
+- Endpoint publico firmado por Keygen. No usa `withAuth`.
+- Requiere `KEYGEN_WEBHOOK_PUBLIC_KEY` (PEM) en env; si no esta seteado responde `500`.
+- Verifica firma con `verifyKeygenWebhook` contra method+url+headers+body.
+- Extrae `eventName`, `resourceType`, `resourceId`, `webhookEventId` del envelope y sincroniza estado de la licencia cuando aplica (`getLicenseState`, `getLicenseQuotas`).
+- Invalida `license-status` cache de la organizacion afectada.
+
 ## Códigos de estado mas comunes
 - `200`: OK.
 - `201`: creado.
 - `400`: validacion o payload invalido.
 - `401`: no autenticado.
+- `402`: quota de AI excedida.
 - `403`: sin permisos.
 - `404`: recurso no encontrado.
-- `409`: conflicto de unicidad.
+- `409`: conflicto de unicidad o estado inmutable (run completado, execution no actual).
 - `500`: error interno.
-
-
+- `502`: error upstream (LangGraph, Keygen, etc.).
+- `504`: timeout upstream.

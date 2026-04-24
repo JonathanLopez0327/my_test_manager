@@ -43,6 +43,19 @@ export const aiConversationsQuerySchema = z.object({
 
 export type AiCreateConversationRequest = z.infer<typeof aiCreateConversationSchema>;
 
+const approvalDecisionSchema = z.union([
+  z.object({ approve_all: z.literal(true) }).strict(),
+  z.object({ approved: z.array(z.string().min(1).max(128)).max(50) }).strict(),
+]);
+
+export const aiApprovalRequestSchema = z.object({
+  conversationId: z.string().uuid(),
+  threadId: z.string().min(1).max(128),
+  decision: approvalDecisionSchema,
+});
+
+export type AiApprovalRequest = z.infer<typeof aiApprovalRequestSchema>;
+
 export const aiRequirementsChatRequestSchema = z.object({
   message: z.string().trim().min(1).max(4000),
   projectId: z.string().uuid(),

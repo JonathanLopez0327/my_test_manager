@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/Button";
 import { MarkdownContent } from "@/components/ui/MarkdownContent";
 import { cn } from "@/lib/utils";
 import type { ConversationGeneratedAttachment } from "@/lib/assistant-hub";
+import { ApprovalCard } from "./ApprovalCard";
 
 type Props = {
   generatedAttachments: ConversationGeneratedAttachment[];
 };
 
 export function AssistantHubMessages({ generatedAttachments }: Props) {
-  const { state, dispatch } = useAssistantHub();
+  const { state, actions, dispatch } = useAssistantHub();
   const { data: session } = useSession();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +63,30 @@ export function AssistantHubMessages({ generatedAttachments }: Props) {
         const isLatestAssistant =
           message.role === "assistant" &&
           !messages.slice(index + 1).some((m) => m.role === "assistant");
+
+        if (message.role === "approval_required") {
+          const calls = message.approvalCalls ?? [];
+          const status = message.approvalStatus ?? "pending";
+          const threadId = message.threadId ?? "";
+          return (
+            <div key={message.id} className="px-1">
+              <ApprovalCard
+                calls={calls}
+                status={status}
+                disabled={state.isSending || !threadId}
+                onSubmit={(decision) => {
+                  if (!threadId) return;
+                  void actions.respondApproval({
+                    messageId: message.id,
+                    threadId,
+                    decision,
+                  });
+                }}
+              />
+              <p className="mt-1 text-[10px] text-ink-soft">{formatTime(message.createdAt)}</p>
+            </div>
+          );
+        }
 
         return (
           <article
