@@ -5,8 +5,18 @@ import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 
-export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId }, routeCtx) => {
+export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId, globalRoles }, routeCtx) => {
   const { id } = await routeCtx.params;
+
+  // Editing arbitrary users (password, isActive, cross-org memberships) is a
+  // super_admin-only operation. Org owners must use org-scoped membership
+  // endpoints to manage their own organization's roster.
+  if (!globalRoles.includes("super_admin")) {
+    return NextResponse.json(
+      { message: "Forbidden." },
+      { status: 403 },
+    );
+  }
 
   try {
     const body = (await req.json()) as {

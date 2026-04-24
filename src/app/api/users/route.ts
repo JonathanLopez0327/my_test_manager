@@ -156,7 +156,13 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { globalRoles, ac
   });
 });
 
-export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
+export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { globalRoles }) => {
+  if (!globalRoles.includes("super_admin")) {
+    return NextResponse.json(
+      { message: "Forbidden." },
+      { status: 403 },
+    );
+  }
   try {
     const body = (await req.json()) as {
       email?: string;
