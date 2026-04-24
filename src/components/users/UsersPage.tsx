@@ -185,6 +185,8 @@ export function UsersPage() {
           query={query}
           onQueryChange={setQuery}
           onCreate={handleCreate}
+          onRefresh={fetchUsers}
+          isRefreshing={loading}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
           canCreate={canCreate}

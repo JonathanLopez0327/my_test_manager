@@ -266,6 +266,8 @@ export function TestPlansPage() {
             query={query}
             onQueryChange={setQuery}
             onCreate={handleCreate}
+            onRefresh={fetchTestPlans}
+            isRefreshing={loading}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             canCreate={canManage}

@@ -6,6 +6,7 @@ import type { MemberRole } from "@/generated/prisma/client";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { Sheet } from "../ui/Sheet";
 import { IconEdit, IconPlus, IconTrash } from "../icons";
 import { useCan } from "@/lib/auth/use-can";
@@ -118,12 +119,15 @@ export function ProjectMembersTab({ projectId, organizationId }: ProjectMembersT
             {members.length} member{members.length !== 1 ? "s" : ""} with access to this project.
           </p>
         </div>
-        {canManage && (
-          <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <IconPlus className="h-4 w-4" />
-            Add member
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <RefreshIconButton onRefresh={() => void fetchMembers()} loading={loading} />
+          {canManage && (
+            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+              <IconPlus className="h-4 w-4" />
+              Add member
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (

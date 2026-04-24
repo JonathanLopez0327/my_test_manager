@@ -7,6 +7,7 @@ import { usePermissions } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { IconPlus } from "../icons";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { OrganizationDetailsCard } from "./OrganizationDetailsCard";
@@ -347,6 +348,7 @@ function ActiveOrgView() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <RefreshIconButton onRefresh={fetchMembers} loading={loading} />
                   {canManageInvites && (
                     <Button size="sm" onClick={() => setInviteSheetOpen(true)}>
                       <IconPlus className="h-4 w-4" />
@@ -382,6 +384,7 @@ function ActiveOrgView() {
                     {t.organizations.pendingInvitesSubtitle}
                   </p>
                 </div>
+                <RefreshIconButton onRefresh={fetchInvites} loading={loading} />
               </div>
 
               <div className="mt-5">

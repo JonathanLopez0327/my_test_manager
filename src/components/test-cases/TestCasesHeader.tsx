@@ -2,6 +2,7 @@
 
 import { IconDownload, IconPlus } from "../icons";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { SearchInput } from "../ui/SearchInput";
 
 type TestCasesHeaderProps = {
@@ -16,6 +17,8 @@ type TestCasesHeaderProps = {
   onCreate: () => void;
   onExportExcel: () => void;
   onExportPdf: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
   canCreate?: boolean;
@@ -33,6 +36,8 @@ export function TestCasesHeader({
   onCreate,
   onExportExcel,
   onExportPdf,
+  onRefresh,
+  isRefreshing = false,
   pageSize,
   onPageSizeChange,
   canCreate = true,
@@ -70,6 +75,7 @@ export function TestCasesHeader({
         ))}
       </select>
       <div className="ml-auto flex items-center gap-2">
+        <RefreshIconButton onRefresh={onRefresh} loading={isRefreshing} />
         <Button onClick={onExportExcel} size="sm" variant="secondary" className="whitespace-nowrap">
           <IconDownload className="h-4 w-4" />
           Export Excel

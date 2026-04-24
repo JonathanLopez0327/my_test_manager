@@ -309,6 +309,28 @@ Todas estas rutas hablan con el servicio externo Keygen. Actualizan `organizatio
 #### `POST /api/admin/organizations/{id}/reinstate-license`
 - Llama `reinstateLicense(...)`. Restaura `betaExpiresAt` a la fecha devuelta por Keygen.
 
+### AI usage
+
+#### `POST /api/admin/organizations/{id}/reset-ai-usage`
+- Permiso: `super_admin`.
+- Pone en `0` los contadores (`inputTokens`, `outputTokens`, `totalTokens`) del `AiUsagePeriod` del mes actual para la organizacion indicada. Los `AiUsageEvent` individuales se conservan como audit trail.
+- Usa `ensureCurrentPeriod(...)` para garantizar que el row exista incluso si la org todavia no consumio este mes.
+- No invalida ningun cache (el quota check lee el periodo en vivo desde DB).
+- Respuesta `200`:
+```json
+{
+  "ok": true,
+  "organizationId": "org_id",
+  "periodStart": "2026-04-01T00:00:00.000Z",
+  "periodEnd": "2026-05-01T00:00:00.000Z",
+  "inputTokens": "0",
+  "outputTokens": "0",
+  "totalTokens": "0"
+}
+```
+- Tokens serializados como string (BigInt), coherente con `/api/organizations/current/usage`.
+- Errores: `403` si no es super admin, `404` org no encontrada, `500` error interno.
+
 ## API Tokens
 
 ### `GET /api/api-tokens`

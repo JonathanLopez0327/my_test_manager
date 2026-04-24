@@ -417,6 +417,8 @@ export function TestCasesPage() {
             onCreate={handleCreate}
             onExportExcel={handleExportExcel}
             onExportPdf={handleExportPdf}
+            onRefresh={fetchCases}
+            isRefreshing={loading}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             canCreate={canManage}

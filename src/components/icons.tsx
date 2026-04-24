@@ -32,6 +32,7 @@ import {
   FunnelIcon,
   CalendarDaysIcon,
   ArrowPathIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 
@@ -69,3 +70,4 @@ export const IconX = XMarkIcon;
 export const IconFilter = FunnelIcon;
 export const IconCalendar = CalendarDaysIcon;
 export const IconRefresh = ArrowPathIcon;
+export const IconReset = ArrowUturnLeftIcon;

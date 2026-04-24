@@ -22,6 +22,7 @@ export const es: Messages = {
     error: "Error",
     success: "Éxito",
     retry: "Reintentar",
+    refresh: "Actualizar",
   },
   topbar: {
     editProfile: "Editar perfil",
@@ -326,6 +327,8 @@ export const es: Messages = {
       reinstateLicenseTitle: "Reactivar licencia en Keygen",
       suspendLicense: "Suspender licencia",
       suspendLicenseTitle: "Suspender licencia en Keygen",
+      resetAiUsage: "Reiniciar uso de IA",
+      resetAiUsageTitle: "Reiniciar el consumo de tokens IA del mes actual",
       activateOrg: "Activar organización",
       deactivateOrg: "Desactivar organización",
     },
@@ -350,6 +353,11 @@ export const es: Messages = {
       description: "La licencia se reactivará en Keygen y las acciones de escritura volverán a habilitarse. La expiración se restaurará al valor actual de Keygen.",
       confirm: "Reactivar",
     },
+    resetUsageDialog: {
+      title: '¿Reiniciar el uso de IA para "{{name}}"?',
+      description: "Esto pondrá en 0 los contadores de tokens IA del mes actual para esta organización. El log de eventos individual se conserva para auditoría. ¿Continuar?",
+      confirm: "Reiniciar",
+    },
     errors: {
       couldNotLoad: "No se pudieron cargar las organizaciones.",
       couldNotUpdate: "No se pudo actualizar la organización.",
@@ -360,6 +368,8 @@ export const es: Messages = {
       couldNotSuspend: "No se pudo suspender la licencia.",
       couldNotReinstate: "No se pudo reactivar la licencia.",
       errorUpdatingLicense: "Error al actualizar la licencia.",
+      couldNotResetUsage: "No se pudo reiniciar el uso de IA.",
+      errorResettingUsage: "Error al reiniciar el uso de IA.",
     },
   },
   projects: {

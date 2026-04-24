@@ -11,8 +11,10 @@ import {
   IconEdit,
   IconPlus,
   IconRefresh,
+  IconReset,
   IconX,
 } from "../icons";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { TableShell } from "../ui/TableShell";
@@ -66,6 +68,10 @@ export function SuperAdminOrganizationsView() {
     | null
   >(null);
   const [licenseActionRunning, setLicenseActionRunning] = useState(false);
+
+  // Reset AI usage
+  const [resetUsageTarget, setResetUsageTarget] = useState<OrganizationRecord | null>(null);
+  const [resettingUsage, setResettingUsage] = useState(false);
 
   const sortBy = (searchParams.get("sortBy") as OrganizationSortBy | null) ?? null;
   const sortDir = (searchParams.get("sortDir") as SortDir | null) ?? null;
@@ -187,6 +193,30 @@ export function SuperAdminOrganizationsView() {
     }
   };
 
+  const handleConfirmResetUsage = async () => {
+    if (!resetUsageTarget) return;
+    setResettingUsage(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/organizations/${resetUsageTarget.id}/reset-ai-usage`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const data = await safeJson(res);
+        throw new Error(data.message || t.superAdminOrgs.errors.couldNotResetUsage);
+      }
+      await fetchOrgs();
+      setResetUsageTarget(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : t.superAdminOrgs.errors.errorResettingUsage,
+      );
+    } finally {
+      setResettingUsage(false);
+    }
+  };
+
   const handleSort = (column: OrganizationSortBy) => {
     const next = nextSort<OrganizationSortBy>(sortBy, sortDir, column);
     const params = new URLSearchParams(searchParams.toString());
@@ -211,6 +241,7 @@ export function SuperAdminOrganizationsView() {
             <h2 className="text-2xl font-semibold text-ink">{t.superAdminOrgs.heading}</h2>
           </div>
           <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:w-auto">
+            <RefreshIconButton onRefresh={fetchOrgs} loading={loading} />
             <Button
               onClick={() => setCreateOrgOpen(true)}
               size="sm"
@@ -326,6 +357,13 @@ export function SuperAdminOrganizationsView() {
                         label={t.superAdminOrgs.actions.renewLicense}
                         title={t.superAdminOrgs.actions.renewLicenseTitle}
                       />
+                      <RowActionButton
+                        onClick={() => setResetUsageTarget(org)}
+                        icon={<IconReset className="h-4 w-4" />}
+                        label={t.superAdminOrgs.actions.resetAiUsage}
+                        title={t.superAdminOrgs.actions.resetAiUsageTitle}
+                        tone="danger"
+                      />
                       {isLicenseSuspended(org.betaExpiresAt) ? (
                         <RowActionButton
                           onClick={() =>
@@ -404,6 +442,13 @@ export function SuperAdminOrganizationsView() {
                     icon={<IconRefresh className="h-4 w-4" />}
                     label={t.superAdminOrgs.actions.renewLicense}
                     title={t.superAdminOrgs.actions.renewLicenseTitle}
+                  />
+                  <RowActionButton
+                    onClick={() => setResetUsageTarget(org)}
+                    icon={<IconReset className="h-4 w-4" />}
+                    label={t.superAdminOrgs.actions.resetAiUsage}
+                    title={t.superAdminOrgs.actions.resetAiUsageTitle}
+                    tone="danger"
                   />
                   {isLicenseSuspended(org.betaExpiresAt) ? (
                     <RowActionButton
@@ -505,6 +550,22 @@ export function SuperAdminOrganizationsView() {
           setLicenseAction(null);
         }}
         isConfirming={licenseActionRunning}
+      />
+
+      <ConfirmationDialog
+        open={!!resetUsageTarget}
+        title={formatMessage(t.superAdminOrgs.resetUsageDialog.title, {
+          name: resetUsageTarget?.name ?? "",
+        })}
+        description={t.superAdminOrgs.resetUsageDialog.description}
+        confirmText={t.superAdminOrgs.resetUsageDialog.confirm}
+        variant="danger"
+        onConfirm={handleConfirmResetUsage}
+        onCancel={() => {
+          if (resettingUsage) return;
+          setResetUsageTarget(null);
+        }}
+        isConfirming={resettingUsage}
       />
     </div>
   );

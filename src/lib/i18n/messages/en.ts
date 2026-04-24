@@ -20,6 +20,7 @@ export const en = {
     error: "Error",
     success: "Success",
     retry: "Retry",
+    refresh: "Refresh",
   },
   topbar: {
     editProfile: "Edit profile",
@@ -324,6 +325,8 @@ export const en = {
       reinstateLicenseTitle: "Reinstate license in Keygen",
       suspendLicense: "Suspend license",
       suspendLicenseTitle: "Suspend license in Keygen",
+      resetAiUsage: "Reset AI usage",
+      resetAiUsageTitle: "Reset AI token usage for the current month",
       activateOrg: "Activate organization",
       deactivateOrg: "Deactivate organization",
     },
@@ -348,6 +351,11 @@ export const en = {
       description: "The license will be reactivated in Keygen and write actions will be re-enabled. The expiry will be restored to Keygen's current value.",
       confirm: "Reinstate",
     },
+    resetUsageDialog: {
+      title: 'Reset AI usage for "{{name}}"?',
+      description: "This will zero out the current month's AI token counters for this organization. The individual event log is kept for audit. Continue?",
+      confirm: "Reset",
+    },
     errors: {
       couldNotLoad: "Could not load organizations.",
       couldNotUpdate: "Could not update the organization.",
@@ -358,6 +366,8 @@ export const en = {
       couldNotSuspend: "Could not suspend the license.",
       couldNotReinstate: "Could not reinstate the license.",
       errorUpdatingLicense: "Error updating license.",
+      couldNotResetUsage: "Could not reset AI usage.",
+      errorResettingUsage: "Error resetting AI usage.",
     },
   },
   projects: {

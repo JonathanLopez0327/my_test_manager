@@ -271,6 +271,8 @@ export function TestSuitesPage() {
             query={query}
             onQueryChange={setQuery}
             onCreate={handleCreate}
+            onRefresh={fetchSuites}
+            isRefreshing={loading}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             canCreate={canManage}

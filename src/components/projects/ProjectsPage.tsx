@@ -11,6 +11,7 @@ import { useCan } from "@/lib/auth/use-can";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
 import { useAssistantHub, useScreenDataSync } from "@/lib/assistant-hub";
@@ -268,17 +269,20 @@ export function ProjectsPage() {
               {loading ? t.projects.updating : `${t.projects.totalLabel}: ${total}`}
             </p>
           </div>
-          {canManage ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
-              onClick={handleCreate}
-              aria-label={t.projects.createAriaLabel}
-            >
-              <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <RefreshIconButton onRefresh={() => void fetchProjects()} loading={loading} />
+            {canManage ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
+                onClick={handleCreate}
+                aria-label={t.projects.createAriaLabel}
+              >
+                <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="px-4 pb-2">

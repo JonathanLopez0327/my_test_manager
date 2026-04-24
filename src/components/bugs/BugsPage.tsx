@@ -347,6 +347,8 @@ export function BugsPage() {
           severity={severityFilter}
           onSeverityChange={setSeverityFilter}
           onCreate={handleCreate}
+          onRefresh={fetchBugs}
+          isRefreshing={loading}
           pageSize={pageSize}
           onPageSizeChange={setPageSize}
           canCreate={canCreate}
