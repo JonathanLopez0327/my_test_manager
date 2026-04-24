@@ -441,6 +441,51 @@ curl http://localhost:3000/api/projects \
 - Query opcional: `suiteId`.
 - Retorna tags unicos: `{ items: string[] }`.
 
+### `GET /api/test-cases/{id}`
+- Permiso: `TEST_CASE_LIST` (valida tambien acceso al proyecto resuelto a partir del case).
+- Valida pertenencia a la organizacion activa (`404` si no coincide para no filtrar existencia).
+- Incluye relaciones: `suite` (con `testPlan` y `project` — `id`, `key`, `name`), `createdBy`, `automationOwner`.
+- Respuesta `200`:
+```json
+{
+  "id": "case_id",
+  "suiteId": "suite_id",
+  "externalKey": null,
+  "title": "Login works",
+  "description": "...",
+  "preconditions": "...",
+  "style": "step_by_step",
+  "steps": [],
+  "tags": ["smoke"],
+  "status": "draft",
+  "isAutomated": false,
+  "automationType": null,
+  "automationRef": null,
+  "automationOwnerId": null,
+  "priority": 3,
+  "createdById": "user_id",
+  "createdAt": "2026-03-01T00:00:00.000Z",
+  "updatedAt": "2026-03-01T00:00:00.000Z",
+  "suite": {
+    "id": "suite_id",
+    "name": "Smoke",
+    "testPlan": {
+      "id": "plan_id",
+      "name": "Regression Q1",
+      "project": {
+        "id": "proj_id",
+        "key": "TMS",
+        "name": "Test Manager",
+        "organizationId": "org_id"
+      }
+    }
+  },
+  "createdBy": { "id": "user_id", "fullName": "Jane Doe", "email": "jane@acme.com" },
+  "automationOwner": null
+}
+```
+- Errores: `404` si no existe o no pertenece a la organizacion activa, `403` sin acceso al proyecto.
+
 ### `PUT /api/test-cases/{id}`
 - Permiso: `TEST_CASE_UPDATE`.
 
