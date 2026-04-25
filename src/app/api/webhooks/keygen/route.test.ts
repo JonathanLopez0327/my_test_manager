@@ -12,6 +12,9 @@ jest.mock("@/lib/prisma", () => ({
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    webhookEvent: {
+      create: jest.fn(),
+    },
   },
 }));
 
@@ -33,6 +36,9 @@ type PrismaMock = {
     findFirst: jest.Mock;
     findMany: jest.Mock;
     update: jest.Mock;
+  };
+  webhookEvent: {
+    create: jest.Mock;
   };
 };
 
@@ -90,6 +96,7 @@ beforeEach(() => {
   prismaMock.organization.findFirst.mockResolvedValue({ id: "org-1" });
   prismaMock.organization.findMany.mockResolvedValue([]);
   prismaMock.organization.update.mockResolvedValue({ id: "org-1" });
+  prismaMock.webhookEvent.create.mockResolvedValue({ id: "evt-1" });
 });
 
 afterAll(() => {
@@ -109,6 +116,31 @@ describe("POST /api/webhooks/keygen", () => {
     const response = await POST(makeRequest("license.updated", "lic-1"));
     expect(response.status).toBe(401);
     expect(prismaMock.organization.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("acks without side effects when the event id has already been processed", async () => {
+    const replayError = Object.assign(new Error("replay"), {
+      code: "P2002",
+    });
+    Object.setPrototypeOf(
+      replayError,
+      // Mimic Prisma.PrismaClientKnownRequestError instanceof check.
+      Object.getPrototypeOf(
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        new (require("@/generated/prisma/client").Prisma.PrismaClientKnownRequestError)("replay", {
+          code: "P2002",
+          clientVersion: "0.0.0",
+        }),
+      ),
+    );
+    prismaMock.webhookEvent.create.mockRejectedValueOnce(replayError);
+
+    const response = await POST(makeRequest("license.updated", "lic-1"));
+    const body = (await response.json()) as { received: boolean; deduped: boolean };
+
+    expect(response.status).toBe(200);
+    expect(body.deduped).toBe(true);
+    expect(prismaMock.organization.update).not.toHaveBeenCalled();
   });
 
   it("acks without action when the license is not linked to any organization", async () => {
