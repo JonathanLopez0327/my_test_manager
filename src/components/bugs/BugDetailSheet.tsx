@@ -8,6 +8,7 @@ import { ArtifactPreview } from "../ui/ArtifactPreview";
 import { IconAlert, IconCheck, IconTrash } from "../icons";
 import type { BugRecord, BugCommentRecord, BugStatus, BugSeverity, BugAttachmentRecord } from "./types";
 import { AssistantHubTrigger } from "@/components/assistant-hub/AssistantHubTrigger";
+import { renameClipboardFile } from "@/lib/clipboard";
 
 type BugDetailSheetProps = {
   open: boolean;
@@ -224,6 +225,29 @@ export function BugDetailSheet({
       fetchAttachments();
     }
   }, [open, bug, fetchComments, fetchAttachments]);
+
+  useEffect(() => {
+    if (!open || !canUploadAttachments || activeTab !== "attachments") return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i += 1) {
+        const entry = items[i];
+        if (entry.kind === "file" && entry.type.startsWith("image/")) {
+          const file = entry.getAsFile();
+          if (file) imageFiles.push(renameClipboardFile(file));
+        }
+      }
+      if (imageFiles.length === 0) return;
+      event.preventDefault();
+      setAttachmentFiles((prev) => [...prev, ...imageFiles]);
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, canUploadAttachments, activeTab]);
 
   const handleAddComment = async () => {
     if (!bug || !commentText.trim()) return;
@@ -683,6 +707,7 @@ export function BugDetailSheet({
               >
                 Browse files&hellip;
               </button>
+              <p className="text-xs text-ink-muted">Tip: Press Ctrl+V to paste a screenshot</p>
               {attachmentFiles.length > 0 && (
                 <ul className="grid gap-1">
                   {attachmentFiles.map((file, idx) => (

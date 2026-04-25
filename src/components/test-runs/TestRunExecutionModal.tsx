@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { parseSteps, type ParsedStep } from "@/lib/parse-steps";
+import { renameClipboardFile } from "@/lib/clipboard";
 
 export type ExecutionStatus = "passed" | "failed" | "skipped" | "blocked" | "not_run" | "in_progress";
 type StepStatus = "passed" | "failed" | "not_run";
@@ -818,12 +819,4 @@ function collectImageFiles(list: FileList | null): { ok: true; files: File[] } |
 
 }
 
-function renameClipboardFile(file: File): File {
-  const timestamp = new Date()
-    .toISOString()
-    .replace(/[:T]/g, "-")
-    .slice(0, 19);
-  const ext = file.type.split("/")[1] || "png";
-  return new File([file], `clipboard-${timestamp}.${ext}`, { type: file.type });
-}
 

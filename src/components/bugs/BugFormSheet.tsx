@@ -5,6 +5,7 @@ import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { useT } from "@/lib/i18n/LocaleProvider";
+import { renameClipboardFile } from "@/lib/clipboard";
 import type { BugPayload, BugRecord, BugSeverity, BugStatus, BugType } from "./types";
 
 type ProjectOption = {
@@ -131,6 +132,29 @@ export function BugFormSheet({
     setAttachmentFiles([]);
     setError(null);
   }, [bug, open]);
+
+  useEffect(() => {
+    if (!open || bug || !canUploadAttachments) return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i += 1) {
+        const entry = items[i];
+        if (entry.kind === "file" && entry.type.startsWith("image/")) {
+          const file = entry.getAsFile();
+          if (file) imageFiles.push(renameClipboardFile(file));
+        }
+      }
+      if (imageFiles.length === 0) return;
+      event.preventDefault();
+      setAttachmentFiles((prev) => [...prev, ...imageFiles]);
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, bug, canUploadAttachments]);
 
   const handleAddTag = () => {
     const value = currentTag.trim();
@@ -453,6 +477,7 @@ export function BugFormSheet({
             >
               {t.bugs.form.browseFiles}
             </button>
+            <p className="text-xs text-ink-muted">{t.bugs.form.pasteHint}</p>
             {attachmentFiles.length > 0 && (
               <ul className="grid gap-1">
                 {attachmentFiles.map((file, idx) => (
