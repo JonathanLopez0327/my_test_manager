@@ -71,6 +71,7 @@ Un código queda **bloqueado** si:
 | `maxMembers` | Int | `5` | Máximo de miembros en la organización |
 | `maxTestCases` | Int | `200` | Máximo de test cases (suma de todos los proyectos) |
 | `maxTestRuns` | Int | `100` | Máximo de test runs (suma de todos los proyectos) |
+| `maxArtifactBytes` | BigInt | `524288000` (500 MB) | Bytes totales de artifacts almacenados (TestRunArtifact + BugAttachment) |
 
 ---
 
@@ -161,6 +162,7 @@ Toda organización nueva tiene estos límites al crearse:
 | Miembros | 5 |
 | Test cases | 200 |
 | Test runs | 100 |
+| Almacenamiento de artifacts | 500 MB |
 
 ### Cómo funciona el chequeo
 
@@ -183,6 +185,7 @@ Los recursos y sus queries de conteo:
 | `"members"` | `organizationMember.count({ where: { organizationId } })` |
 | `"testCases"` | `testCase.count({ where: { suite: { testPlan: { project: { organizationId } } } } })` |
 | `"testRuns"` | `testRun.count({ where: { project: { organizationId } } })` |
+| `"artifactBytes"` | `SUM(testRunArtifact.sizeBytes) + SUM(bugAttachment.sizeBytes)` (scoped a la org), más los bytes del archivo entrante (`addBytes`) |
 
 Los endpoints protegidos son:
 
@@ -192,6 +195,8 @@ Los endpoints protegidos son:
 | `POST /api/organizations/[id]/members` | `"members"` |
 | `POST /api/test-cases` | `"testCases"` |
 | `POST /api/test-runs` | `"testRuns"` |
+| `POST /api/test-runs/[id]/artifacts/upload` | `"artifactBytes"` (con `addBytes: file.size`) |
+| `POST /api/bugs/[id]/attachments/upload` | `"artifactBytes"` (con `addBytes: file.size`) |
 
 ### Respuesta de cuota excedida
 
@@ -381,7 +386,8 @@ Si tienes un endpoint `PUT /api/organizations/:id` protegido por `super_admin`, 
   "maxProjects": 10,
   "maxMembers": 25,
   "maxTestCases": 1000,
-  "maxTestRuns": 500
+  "maxTestRuns": 500,
+  "maxArtifactBytes": 2147483648
 }
 ```
 
@@ -389,7 +395,7 @@ O directamente en base de datos:
 
 ```sql
 UPDATE organizations
-SET max_projects = 10, max_members = 25
+SET max_projects = 10, max_members = 25, max_artifact_bytes = 2147483648
 WHERE id = 'uuid-de-la-org';
 ```
 
@@ -410,4 +416,6 @@ WHERE id = 'uuid-de-la-org';
 | `src/app/api/organizations/[id]/members/route.ts` | Guard de cuota para miembros |
 | `src/app/api/test-cases/route.ts` | Guard de cuota para test cases |
 | `src/app/api/test-runs/route.ts` | Guard de cuota para test runs |
+| `src/app/api/test-runs/[id]/artifacts/upload/route.ts` | Guard de cuota de bytes para artifacts de runs |
+| `src/app/api/bugs/[id]/attachments/upload/route.ts` | Guard de cuota de bytes para attachments de bugs |
 | `src/components/auth/SignupForm.tsx` | Campo de código beta en el formulario UI |

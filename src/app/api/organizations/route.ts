@@ -48,13 +48,18 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     }
   }
 
-  const items = await prisma.organization.findMany({
+  const rows = await prisma.organization.findMany({
     where,
     orderBy,
     include: {
       _count: { select: { members: true, projects: true } },
     },
   });
+
+  const items = rows.map((row) => ({
+    ...row,
+    maxArtifactBytes: row.maxArtifactBytes.toString(),
+  }));
 
   return NextResponse.json({ items });
 });
@@ -122,7 +127,10 @@ export const POST = withAuth(PERMISSIONS.ORG_CREATE, async (req, { userId, globa
       return created;
     });
 
-    return NextResponse.json(org, { status: 201 });
+    return NextResponse.json(
+      { ...org, maxArtifactBytes: org.maxArtifactBytes.toString() },
+      { status: 201 },
+    );
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

@@ -8,6 +8,7 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { buildS3ObjectUrl, getS3Client, getS3Config } from "@/lib/s3";
 import { validateArtifactUploadPolicy } from "@/lib/artifact-upload-policy";
+import { checkQuota, quotaExceededResponse } from "@/lib/beta/quota";
 import {
   sanitizeContentDispositionFilename,
   validateUploadMime,
@@ -99,6 +100,15 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         { message: uploadPolicy.message },
         { status: 400 },
       );
+    }
+
+    if (activeOrganizationId) {
+      const quota = await checkQuota(prisma, activeOrganizationId, "artifactBytes", {
+        addBytes: file.size,
+      });
+      if (!quota.allowed) {
+        return quotaExceededResponse(quota);
+      }
     }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());

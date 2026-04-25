@@ -461,6 +461,7 @@ model Organization {
   maxMembers      Int       @default(5)   @map("max_members")
   maxTestCases    Int       @default(200) @map("max_test_cases")
   maxTestRuns     Int       @default(100) @map("max_test_runs")
+  maxArtifactBytes BigInt   @default(524288000) @map("max_artifact_bytes")
   betaExpiresAt   DateTime? @default(dbgenerated("now() + interval '10 days'")) @map("beta_expires_at") @db.Timestamptz(6)
   keygenLicenseId String?   @map("keygen_license_id")
   keygenUserId    String?   @map("keygen_user_id")

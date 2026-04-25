@@ -18,7 +18,7 @@ export const GET = withAuth(PERMISSIONS.ORG_LIST, async (_req, authCtx) => {
 
   const org = await prisma.organization.findUnique({
     where: { id: activeOrganizationId },
-    select: { aiTokenLimitMonthly: true },
+    select: { aiTokenLimitMonthly: true, maxArtifactBytes: true },
   });
 
   if (!org) {
@@ -27,6 +27,21 @@ export const GET = withAuth(PERMISSIONS.ORG_LIST, async (_req, authCtx) => {
 
   const period = await ensureCurrentPeriod(activeOrganizationId);
 
+  const [runAgg, bugAgg] = await prisma.$transaction([
+    prisma.testRunArtifact.aggregate({
+      _sum: { sizeBytes: true },
+      where: { run: { project: { organizationId: activeOrganizationId } } },
+    }),
+    prisma.bugAttachment.aggregate({
+      _sum: { sizeBytes: true },
+      where: { bug: { project: { organizationId: activeOrganizationId } } },
+    }),
+  ]);
+
+  const runBytes = runAgg._sum.sizeBytes ?? BigInt(0);
+  const bugBytes = bugAgg._sum.sizeBytes ?? BigInt(0);
+  const storageUsed = runBytes + bugBytes;
+
   return NextResponse.json({
     limit: org.aiTokenLimitMonthly,
     periodStart: period.periodStart.toISOString(),
@@ -34,5 +49,7 @@ export const GET = withAuth(PERMISSIONS.ORG_LIST, async (_req, authCtx) => {
     inputTokens: period.inputTokens.toString(),
     outputTokens: period.outputTokens.toString(),
     totalTokens: period.totalTokens.toString(),
+    storageLimit: org.maxArtifactBytes.toString(),
+    storageUsed: storageUsed.toString(),
   });
 });

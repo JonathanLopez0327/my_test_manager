@@ -13,6 +13,7 @@ import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { OrganizationDetailsCard } from "./OrganizationDetailsCard";
 import { OrganizationEditSheet } from "./OrganizationEditSheet";
 import { AiUsageCard } from "./AiUsageCard";
+import { StorageUsageCard } from "./StorageUsageCard";
 import { MembersTable } from "./MembersTable";
 import { MemberFormSheet } from "./MemberFormSheet";
 import { SuperAdminOrganizationsView } from "./SuperAdminOrganizationsView";
@@ -332,6 +333,8 @@ function ActiveOrgView() {
           />
 
           <AiUsageCard />
+
+          <StorageUsageCard />
 
           {canListMembers && (
             <Card className="p-6">
