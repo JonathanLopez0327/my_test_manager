@@ -6,6 +6,8 @@ import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
 import { DocsTOC } from "@/components/docs/DocsTOC";
 import { MobileDocsNav } from "@/components/docs/MobileDocsNav";
+import { resolveLocale } from "@/lib/i18n/server";
+import { getMessages } from "@/lib/i18n/messages";
 
 export const metadata: Metadata = {
   title: {
@@ -16,7 +18,9 @@ export const metadata: Metadata = {
     "Guides for Test Manager: planning, execution, AI workspace, and building agents on top of your QA workflow.",
 };
 
-export default function DocsLayout({ children }: { children: React.ReactNode }) {
+export default async function DocsLayout({ children }: { children: React.ReactNode }) {
+  const locale = await resolveLocale();
+  const t = getMessages(locale);
   return (
     <div className="relative min-h-screen bg-canvas text-ink">
       <div
@@ -38,19 +42,19 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               href="/docs"
               className="hidden text-sm font-semibold tracking-tight text-ink sm:inline-flex"
             >
-              Docs
+              {t.docs.chrome.documentation}
             </Link>
           </div>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-ink-muted lg:flex">
             <Link href="/" className="transition-colors hover:text-ink">
-              Home
+              {t.docs.chrome.home}
             </Link>
             <Link href="/#features" className="transition-colors hover:text-ink">
-              Features
+              {t.docs.chrome.features}
             </Link>
             <Link href="/#agents" className="transition-colors hover:text-ink">
-              Agents
+              {t.docs.chrome.agents}
             </Link>
           </nav>
 

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { DocsSidebar } from "./DocsSidebar";
 
 export function MobileDocsNav() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -42,7 +44,7 @@ export function MobileDocsNav() {
             strokeLinecap="round"
           />
         </svg>
-        Browse docs
+        {t.docs.chrome.browseDocs}
       </button>
 
       {open ? (
@@ -60,7 +62,7 @@ export function MobileDocsNav() {
           />
           <div className="flex w-72 max-w-[80%] flex-col border-l border-stroke bg-surface shadow-2xl">
             <div className="flex items-center justify-between border-b border-stroke px-4 py-3">
-              <p className="text-sm font-semibold text-ink">Documentation</p>
+              <p className="text-sm font-semibold text-ink">{t.docs.chrome.documentation}</p>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

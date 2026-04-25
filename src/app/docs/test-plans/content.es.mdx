@@ -1,0 +1,38 @@
+import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Gestión de pruebas"
+  title="Planes y suites"
+  lead={<>Un <strong>test plan</strong> agrupa el trabajo de QA para una entrega, sprint o ciclo. Dentro del plan, las <strong>suites</strong> contienen los casos de prueba.</>}
+/>
+
+Las suites pueden anidarse, así que puedes modelar áreas de feature como:
+
+```
+Regresión de la entrega 24.8
+├─ Checkout
+│  ├─ Web
+│  └─ Móvil
+├─ Billing
+└─ Sanidad de API
+```
+
+## Estado del plan
+
+Cada plan tiene un estado que refleja en qué punto del ciclo está:
+
+- **draft** — en construcción, aún no listo para ejecutar
+- **active** — en ejecución
+- **completed** — terminado
+- **archived** — preservado para auditoría, oculto en las vistas por defecto
+
+## Suites
+
+Las suites son sólo organizativas — no contienen datos de ejecución. Una suite puede moverse a otro plan dentro del mismo proyecto, llevándose sus casos.
+
+## Apuntar runs
+
+Al crear un test run apuntas a un plan completo (todos los casos en todas sus suites) o a una suite específica. Los casos seleccionados se snapshotean como **run items** al crear el run.
+
+<Pager currentPath="/docs/test-plans" />

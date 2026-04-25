@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { docNav } from "./nav-config";
+import { getDocNav } from "./nav-config";
 import { DocPageHeader } from "@/components/docs/DocPageHeader";
+import { resolveLocale } from "@/lib/i18n/server";
+import { getMessages } from "@/lib/i18n/messages";
 
 export const metadata: Metadata = {
   title: "Overview",
@@ -9,13 +11,17 @@ export const metadata: Metadata = {
     "Get started with Test Manager — guides for QA workflows, the AI workspace, and building agents.",
 };
 
-export default function DocsOverviewPage() {
+export default async function DocsOverviewPage() {
+  const locale = await resolveLocale();
+  const t = getMessages(locale);
+  const docNav = getDocNav(t);
+
   return (
     <>
       <DocPageHeader
-        eyebrow="Documentation"
-        title="Test Manager docs"
-        lead="Guides for running QA inside Test Manager — from planning a release to wiring an AI agent into your workflow. Pick the section that matches what you're trying to do."
+        eyebrow={t.docs.overview.eyebrow}
+        title={t.docs.overview.title}
+        lead={t.docs.overview.lead}
       />
 
       <div className="grid gap-5 sm:grid-cols-2">

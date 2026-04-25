@@ -1,8 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { flattenDocLinks } from "@/app/docs/nav-config";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 export function Pager({ currentPath }: { currentPath: string }) {
-  const links = flattenDocLinks();
+  const t = useT();
+  const links = flattenDocLinks(t);
   const idx = links.findIndex((link) => link.href === currentPath);
   if (idx === -1) return null;
 
@@ -17,7 +21,7 @@ export function Pager({ currentPath }: { currentPath: string }) {
           className="group flex flex-col rounded-2xl border border-stroke bg-surface-elevated p-4 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_14px_32px_-22px_rgba(109,89,255,0.45)]"
         >
           <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-            ← Previous
+            ← {t.docs.chrome.previous}
           </span>
           <span className="mt-1 text-sm font-semibold text-ink">{prev.label}</span>
         </Link>
@@ -30,7 +34,7 @@ export function Pager({ currentPath }: { currentPath: string }) {
           className="group flex flex-col items-end rounded-2xl border border-stroke bg-surface-elevated p-4 text-right transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_14px_32px_-22px_rgba(109,89,255,0.45)] sm:col-start-2"
         >
           <span className="text-xs font-medium uppercase tracking-wider text-ink-soft">
-            Next →
+            {t.docs.chrome.next} →
           </span>
           <span className="mt-1 text-sm font-semibold text-ink">{next.label}</span>
         </Link>

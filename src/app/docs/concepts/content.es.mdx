@@ -1,0 +1,62 @@
+import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Primeros pasos"
+  title="Conceptos clave"
+  lead="Test Manager organiza el trabajo de QA en una sola jerarquía. Cuando entiendes las cinco entidades principales, cada pantalla de la app encaja en una de ellas."
+/>
+
+## La jerarquía
+
+```
+Organización
+└─ Proyecto
+   ├─ Test plan
+   │  └─ Suite
+   │     └─ Caso de prueba
+   └─ Test run
+      └─ Run item   ← uno por caso del plan/suite seleccionado
+         └─ Intento de ejecución
+            └─ Artifact (captura, log, video)
+   └─ Bug
+      └─ Adjunto
+```
+
+## Entidades
+
+### Organización
+
+Es la frontera de cobro y licenciamiento. Las cuotas (proyectos, miembros, casos, runs, bytes de artifacts) se aplican aquí. Los miembros pueden pertenecer a varias organizaciones, pero cada sesión tiene una organización **activa**.
+
+### Proyecto
+
+Una frontera de producto, repo o equipo dentro de la organización. Los permisos (RBAC) se evalúan a nivel de proyecto. Todo artefacto de prueba pertenece, en última instancia, a un proyecto.
+
+### Test plan
+
+Un contenedor de trabajo para una entrega o iniciativa. Los planes agrupan suites y son la unidad que apuntas al crear un run.
+
+### Suite
+
+Una agrupación lógica de casos dentro de un plan. Las suites pueden anidarse. Úsalas para modelar áreas de feature, plataformas o líneas de release.
+
+### Caso de prueba
+
+La unidad reusable de definición de pruebas. Los casos viven en suites y pueden ser de uno de cuatro estilos (step-by-step, Gherkin, data-driven, API). Los casos describen **qué** verificar; los runs describen **qué pasó**.
+
+### Test run
+
+Un ciclo de ejecución de un plan o suite. Al crear un run, los casos apuntados se snapshotean como **run items**. El estado, la evidencia y las métricas viven en el run, no en el caso.
+
+### Bug
+
+Un defecto encontrado durante las pruebas. Los bugs son a nivel de proyecto y pueden enlazar al caso, run item y run que los originaron, dando trazabilidad completa.
+
+## Qué significa esto en la práctica
+
+- **La definición es reusable; la ejecución no.** Un caso se escribe una vez y se ejecuta muchas veces.
+- **La evidencia vive en el run.** No edites un caso para guardar lo que falló — déjalo en el run item.
+- **Las cuotas son organizacionales.** Un proyecto solo no puede exceder los límites de la org.
+
+<Pager currentPath="/docs/concepts" />

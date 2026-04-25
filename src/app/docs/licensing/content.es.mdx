@@ -1,0 +1,51 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Plataforma"
+  title="Licencias y cuotas"
+  lead="Cada organización corre bajo una licencia que define cuánto puede almacenar y crear. Las cuotas se aplican en escritura — el acceso de lectura sigue disponible aunque estés al tope."
+/>
+
+## Cuotas por defecto en beta
+
+| Recurso | Default | Campo |
+|---------|--------:|-------|
+| Proyectos             | 3       | `maxProjects` |
+| Miembros              | 5       | `maxMembers` |
+| Casos de prueba       | 200     | `maxTestCases` |
+| Test runs             | 100     | `maxTestRuns` |
+| Almacenamiento de artifacts | 500 MB  | `maxArtifactBytes` |
+| Tokens de IA / mes    | 250 000 | `aiTokenLimitMonthly` |
+
+## Almacenamiento de artifacts
+
+El almacenamiento es un **presupuesto en bytes** que cubre tanto `TestRunArtifact` como `BugAttachment` para la organización. Cada subida valida que `bytesActuales + tamañoEntrante ≤ maxArtifactBytes` antes de mandar a S3.
+
+El consumo actual se ve en **Settings → Organización → Uso de almacenamiento de artifacts**.
+
+<Callout tone="warning" title="Llegar al límite">
+  Las subidas devuelven HTTP 402 con código `QUOTA_EXCEEDED` al alcanzar el tope. Libera espacio borrando runs viejos o sube de plan.
+</Callout>
+
+## Puntos donde se aplican las cuotas
+
+| Endpoint | Recurso chequeado |
+|----------|-------------------|
+| `POST /api/projects` | `projects` |
+| `POST /api/organizations/:id/members` | `members` |
+| `POST /api/test-cases` | `testCases` |
+| `POST /api/test-runs` | `testRuns` |
+| `POST /api/test-runs/:id/artifacts/upload` | `artifactBytes` |
+| `POST /api/bugs/:id/attachments/upload` | `artifactBytes` |
+
+## Expiración de la beta
+
+Cada organización tiene un timestamp `betaExpiresAt`. Una vez que pasa, las operaciones de escritura devuelven HTTP 402 con código `BETA_EXPIRED`. Las renovaciones de licencia desde Keygen actualizan este campo automáticamente vía webhook.
+
+## Subir de plan
+
+Por ahora los planes beta son estáticos. Para subir un límite, contacta a tu account manager — actualizará el entitlement en Keygen y el siguiente evento de webhook sincronizará el nuevo valor en segundos.
+
+<Pager currentPath="/docs/licensing" />

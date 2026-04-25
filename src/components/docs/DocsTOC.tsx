@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 
 type Heading = {
@@ -10,6 +11,7 @@ type Heading = {
 };
 
 export function DocsTOC() {
+  const t = useT();
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -52,7 +54,7 @@ export function DocsTOC() {
   return (
     <nav aria-label="On this page" className="text-sm">
       <p className="px-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-soft">
-        On this page
+        {t.docs.chrome.onThisPage}
       </p>
       <ul className="mt-3 space-y-0.5">
         {headings.map((heading) => {

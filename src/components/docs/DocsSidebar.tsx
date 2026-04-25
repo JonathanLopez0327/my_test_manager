@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { docNav } from "@/app/docs/nav-config";
+import { getDocNav } from "@/app/docs/nav-config";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/utils";
 
 export function DocsSidebar() {
   const pathname = usePathname();
+  const t = useT();
+  const docNav = getDocNav(t);
 
   return (
     <nav aria-label="Docs navigation" className="text-sm">

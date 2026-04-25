@@ -753,6 +753,44 @@ export const en = {
     en: "English",
     es: "Spanish",
   },
+  docs: {
+    chrome: {
+      browseDocs: "Browse docs",
+      documentation: "Documentation",
+      onThisPage: "On this page",
+      previous: "Previous",
+      next: "Next",
+      home: "Home",
+      features: "Features",
+      agents: "Agents",
+    },
+    overview: {
+      eyebrow: "Documentation",
+      title: "Test Manager docs",
+      lead: "Guides for running QA inside Test Manager — from planning a release to wiring an AI agent into your workflow. Pick the section that matches what you're trying to do.",
+    },
+    sections: {
+      gettingStarted: "Getting started",
+      testManagement: "Test management",
+      aiAndAgents: "AI & agents",
+      platform: "Platform",
+    },
+    links: {
+      overview: { label: "Overview", description: "What Test Manager is and how to navigate the docs." },
+      quickstart: { label: "Quickstart", description: "Sign up, create a project, and run your first test." },
+      concepts: { label: "Core concepts", description: "Plans, suites, cases, runs, and bugs in one mental model." },
+      projects: { label: "Projects & members", description: "" },
+      testPlans: { label: "Test plans & suites", description: "" },
+      testCases: { label: "Test cases", description: "" },
+      testRuns: { label: "Test runs & evidence", description: "" },
+      bugs: { label: "Bugs & attachments", description: "" },
+      aiWorkspace: { label: "AI workspace", description: "" },
+      agents: { label: "Building an agent", description: "" },
+      agentTokens: { label: "Agent tokens & RBAC", description: "" },
+      api: { label: "API reference", description: "" },
+      licensing: { label: "Licensing & quotas", description: "" },
+    },
+  },
 } as const;
 
 type Widen<T> = T extends string

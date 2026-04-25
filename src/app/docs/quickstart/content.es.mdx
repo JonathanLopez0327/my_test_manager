@@ -1,0 +1,51 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Primeros pasos"
+  title="Inicio rápido"
+  lead="Pasa de cero a tu primera prueba ejecutada en unos diez minutos."
+/>
+
+## 1. Crea tu cuenta
+
+Regístrate en `/sign-up` con el código beta que te enviamos. Tu cuenta inicia con una organización personal en plan beta y las cuotas por defecto (3 proyectos, 5 miembros, 200 casos, 100 runs y 500 MB de almacenamiento).
+
+<Callout tone="info" title="¿Sin invitación?">
+  El acceso beta es por invitación. Solicita un código en el sitio público o a través de tu account manager.
+</Callout>
+
+## 2. Crea un proyecto
+
+Una vez dentro, ve al workspace **Projects** y crea tu primer proyecto. Elige una **clave** corta en mayúsculas (3–5 caracteres) — se usa para los IDs de los casos y aparece en los títulos de los runs.
+
+```
+Clave del proyecto: CHK
+Nombre: Checkout
+```
+
+## 3. Construye un test plan
+
+Abre el proyecto y agrega un **test plan** para el trabajo que vas a rastrear: una entrega, un sprint o un ciclo de regresión recurrente. Cada plan agrupa **suites** (agrupaciones lógicas) y cada suite contiene **casos de prueba**.
+
+## 4. Agrega un caso de prueba
+
+Dentro de una suite, crea un caso usando uno de los cuatro estilos:
+
+- **Step-by-step** — pasos manuales numerados con resultado esperado
+- **Gherkin** — escenarios Given / When / Then
+- **Data-driven** — un escenario único ejecutado sobre una tabla de parámetros
+- **API** — verificaciones de request/response
+
+## 5. Ejecútalo
+
+Desde el workspace de Test Runs, crea un run para tu plan o suite. Marca cada item como passed/failed/skipped y adjunta capturas, logs o video como evidencia. Las métricas se calculan automáticamente.
+
+## Siguiente paso
+
+- Lee [Conceptos clave](/docs/concepts) para entender cómo se relacionan planes, suites, casos y runs.
+- Prueba el [Workspace de IA](/docs/ai-workspace) para redactar casos a partir de la descripción de una feature.
+- Revisa [Crear un agente](/docs/agents) para conectar tu propia automatización.
+
+<Pager currentPath="/docs/quickstart" />

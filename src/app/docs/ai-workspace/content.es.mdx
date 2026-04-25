@@ -1,0 +1,41 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="IA y agentes"
+  title="Workspace de IA"
+  lead='El workspace de IA en /manager/ai-chat es un chat scoped al proyecto, respaldado por un agente LangGraph. Las conversaciones recuerdan el contexto del proyecto, así que puedes pedir cosas como "redacta una suite de regresión para el nuevo flujo de checkout" sin re-explicar el producto en cada turno.'
+/>
+
+## En qué se diferencia de un chatbot genérico
+
+- **Scoped al proyecto** — cada conversación vive en un proyecto; el contexto no se filtra entre proyectos.
+- **Persistente** — hasta 5 conversaciones activas por usuario y proyecto; las más viejas se archivan automáticamente.
+- **Autenticado** — cada mensaje pasa por el RBAC del proyecto. El agente sólo ve lo que tú ves.
+- **Streaming** — las respuestas llegan incrementales vía Server-Sent Events.
+
+## Uso de tokens
+
+Cada llamada a la IA cuenta contra la **cuota mensual de tokens** de tu organización (`aiTokenLimitMonthly`). Puedes ver el consumo actual en **Settings → Organización → Uso de tokens de IA**.
+
+<Callout tone="info" title="¿Cuota superada?">
+  Cuando se alcanza el límite mensual, las funciones de IA se pausan hasta el siguiente periodo. La tarjeta en Settings muestra los tokens restantes y la fecha de reinicio.
+</Callout>
+
+## Casos donde funciona bien
+
+- Redactar casos a partir de la descripción de una feature o un PR
+- Resumir qué falló en un run reciente
+- Sugerir casos límite para un flujo
+- Escribir ejemplos de request a copiar dentro de un caso
+
+## Lo que aún no hace
+
+- Ejecutar test runs directamente
+- Modificar datos productivos vía chat
+- Consultas multi-proyecto
+
+Para acceso programático — agendar, automatizar o integrar el agente en tu propio pipeline — ver [Crear un agente](/docs/agents).
+
+<Pager currentPath="/docs/ai-workspace" />
