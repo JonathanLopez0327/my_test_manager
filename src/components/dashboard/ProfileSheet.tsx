@@ -39,8 +39,10 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
   const { data: session, update } = useSession();
 
   const [fullName, setFullName] = useState(session?.user?.name ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
@@ -59,6 +61,11 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
       return;
     }
 
+    if (password && !currentPassword) {
+      setError(t.profile.currentPasswordRequired);
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/profile", {
@@ -66,7 +73,7 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: fullName.trim(),
-          ...(password ? { password } : {}),
+          ...(password ? { password, currentPassword } : {}),
         }),
       });
 
@@ -77,8 +84,10 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
       }
 
       await update({ name: fullName.trim() });
+      setCurrentPassword("");
       setPassword("");
       setConfirmPassword("");
+      setShowCurrent(false);
       setShowPassword(false);
       setShowConfirm(false);
       onClose();
@@ -107,12 +116,25 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
         />
 
         <Input
+          label={t.profile.currentPasswordLabel}
+          type={showCurrent ? "text" : "password"}
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder={t.profile.currentPasswordPlaceholder}
+          autoComplete="current-password"
+          trailingIcon={
+            <EyeToggle visible={showCurrent} onClick={() => setShowCurrent((v) => !v)} />
+          }
+        />
+
+        <Input
           label={t.profile.passwordLabel}
           type={showPassword ? "text" : "password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={t.profile.passwordPlaceholder}
           hint={t.profile.passwordHint}
+          autoComplete="new-password"
           trailingIcon={
             <EyeToggle visible={showPassword} onClick={() => setShowPassword((v) => !v)} />
           }

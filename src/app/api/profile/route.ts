@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -14,10 +14,12 @@ export async function PUT(req: Request) {
     const body = (await req.json()) as {
       fullName?: string;
       password?: string;
+      currentPassword?: string;
     };
 
     const fullName = body.fullName?.trim();
     const password = body.password?.trim();
+    const currentPassword = body.currentPassword;
 
     if (password && password.length < 8) {
       return NextResponse.json(
@@ -33,6 +35,32 @@ export async function PUT(req: Request) {
     }
 
     if (password) {
+      // Require knowledge of the current password before accepting a new one,
+      // so a hijacked session cannot silently take over the account.
+      if (!currentPassword) {
+        return NextResponse.json(
+          { message: "Current password is required to change your password." },
+          { status: 400 },
+        );
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { passwordHash: true },
+      });
+
+      if (!user) {
+        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+      }
+
+      const valid = await compare(currentPassword, user.passwordHash);
+      if (!valid) {
+        return NextResponse.json(
+          { message: "Current password is incorrect." },
+          { status: 400 },
+        );
+      }
+
       data.passwordHash = await hash(password, 10);
     }
 
