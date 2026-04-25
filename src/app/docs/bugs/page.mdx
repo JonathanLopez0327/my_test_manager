@@ -1,0 +1,25 @@
+import { Pager } from "@/components/docs/Pager";
+
+# Bugs & attachments
+
+Bugs in Test Manager are project-scoped defect records. They can stand alone, or link back to the test case, run item, and run that surfaced them — giving you traceability from "ticket" all the way back to "which test failed in which run".
+
+## Fields
+
+- **Title** & **description** — markdown supported in description
+- **Severity** — `critical`, `high`, `medium`, `low`
+- **Priority** — 1 (highest) to 5 (lowest)
+- **Status** — `open`, `in_progress`, `resolved`, `verified`, `closed`, `reopened`
+- **Type** — `bug`, `task`, `improvement`
+- **Assigned to** & **Reporter** — project members
+- **Reproduction steps** & **Expected result**
+
+## Linking from runs
+
+When a run item fails, opening "Create bug" pre-fills the bug with the run item, run, and case context. Once linked, the run item shows the bug count in its row.
+
+## Attachments
+
+Drop files (or paste a screenshot from the clipboard) onto the bug detail panel. Attachments share the same per-organization storage quota as run artifacts.
+
+<Pager currentPath="/docs/bugs" />

@@ -1,0 +1,37 @@
+import { Pager } from "@/components/docs/Pager";
+
+# Test cases
+
+A test case is the reusable definition of **what to verify**. Cases live inside suites and can take one of four styles — pick the one that matches how the test will actually be executed.
+
+## Styles
+
+### Step-by-step
+
+Numbered manual steps with expected results per step. Use for human-driven UI flows.
+
+### Gherkin
+
+Given / When / Then scenarios. Use for behavior-driven specs you may later automate.
+
+### Data-driven
+
+A single scenario run across a parameter table — useful for boundary or combinatorial checks.
+
+### API
+
+Request / response shape and assertions. Use for service-layer verification.
+
+## External keys
+
+You can attach an **external key** (e.g. `JIRA-1234`) to a case so it shows up in case lists, run items, and exported reports. Keys do not need to be unique across projects.
+
+## Tags
+
+Tags are free-form labels (e.g. `smoke`, `regression`, `mobile`). Use them to filter cases when targeting a run, or to slice metrics later.
+
+## Importing cases
+
+The CSV import accepts a small schema (title, style, externalKey, tags, steps). See the [API reference](/docs/api) for the full payload.
+
+<Pager currentPath="/docs/test-cases" />

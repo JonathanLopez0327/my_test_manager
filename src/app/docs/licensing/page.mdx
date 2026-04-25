@@ -1,0 +1,48 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+
+# Licensing & quotas
+
+Every organization runs under a license that defines how much it can store and create. Quotas are enforced at write time — read access stays available even when you&apos;re at the cap.
+
+## Default beta quotas
+
+| Resource | Default | Field |
+|----------|--------:|-------|
+| Projects             | 3       | `maxProjects` |
+| Members              | 5       | `maxMembers` |
+| Test cases           | 200     | `maxTestCases` |
+| Test runs            | 100     | `maxTestRuns` |
+| Artifact storage     | 500 MB  | `maxArtifactBytes` |
+| AI tokens / month    | 250 000 | `aiTokenLimitMonthly` |
+
+## Artifact storage
+
+Storage is a **byte budget** that covers both `TestRunArtifact` and `BugAttachment` rows for the organization. Each upload checks `existingBytes + incomingFileSize ≤ maxArtifactBytes` before writing to S3.
+
+You can see current usage in **Settings → Organization → Artifact storage usage**.
+
+<Callout tone="warning" title="Hitting the limit">
+  Uploads return HTTP 402 with code `QUOTA_EXCEEDED` once the cap is reached. Free up space by deleting old runs or upgrading the plan.
+</Callout>
+
+## Quota enforcement points
+
+| Endpoint | Resource checked |
+|----------|------------------|
+| `POST /api/projects` | `projects` |
+| `POST /api/organizations/:id/members` | `members` |
+| `POST /api/test-cases` | `testCases` |
+| `POST /api/test-runs` | `testRuns` |
+| `POST /api/test-runs/:id/artifacts/upload` | `artifactBytes` |
+| `POST /api/bugs/:id/attachments/upload` | `artifactBytes` |
+
+## Beta expiration
+
+Each organization has a `betaExpiresAt` timestamp. Once it passes, write operations return HTTP 402 with code `BETA_EXPIRED`. License renewals from Keygen webhook events update this field automatically.
+
+## Upgrading
+
+For now, beta plans are static. To raise a limit, contact your account manager — they&apos;ll update the Keygen entitlement and the next webhook event will sync the new value to your organization within seconds.
+
+<Pager currentPath="/docs/licensing" />

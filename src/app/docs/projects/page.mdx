@@ -1,0 +1,31 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+
+# Projects & members
+
+Projects are the unit of access control in Test Manager. Every plan, suite, case, run, and bug belongs to exactly one project, and permissions follow project membership.
+
+## Roles
+
+| Role     | Can do |
+|----------|--------|
+| **Owner**   | Everything in the project, including deleting it |
+| **Admin**   | Manage members, create/update/delete content |
+| **Editor**  | Create and edit test artifacts |
+| **Viewer**  | Read-only access |
+
+Organization-level roles (`owner`, `admin`) inherit project access automatically.
+
+## Adding members
+
+From a project&apos;s **Members** tab, invite a teammate by email. They receive an invite they can accept while logged in. The invite consumes one **member quota slot** at the organization level.
+
+<Callout tone="warning" title="Quota">
+  If your organization is at the member cap, the invite returns HTTP 402. See [Licensing](/docs/licensing).
+</Callout>
+
+## Switching projects
+
+The active project chip in the top bar drives every workspace (test cases, runs, bugs). Switch projects to scope all views without changing your active organization.
+
+<Pager currentPath="/docs/projects" />

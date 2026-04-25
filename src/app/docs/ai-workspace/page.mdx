@@ -1,0 +1,38 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+
+# AI workspace
+
+The AI workspace at `/manager/ai-chat` is a project-scoped chat interface backed by a LangGraph agent. Conversations remember the project context, so you can ask things like "draft a regression suite for the new checkout flow" without re-explaining the product each turn.
+
+## How it differs from a generic chatbot
+
+- **Project-scoped** — every conversation lives under one project. Context never leaks across projects.
+- **Persistent** — up to 5 active conversations per user per project; older conversations auto-archive.
+- **Authenticated** — every message is gated by your project RBAC. The agent can only see what you can see.
+- **Streamed** — responses arrive incrementally via Server-Sent Events.
+
+## Token usage
+
+Every AI call meters against your organization&apos;s **monthly token allowance** (`aiTokenLimitMonthly`). You can see current consumption in **Settings → Organization → AI token usage**.
+
+<Callout tone="info" title="Quota exceeded?">
+  When the monthly limit is hit, AI features pause until the next period rolls over. The card in Settings shows the remaining tokens and the period end date.
+</Callout>
+
+## What works well
+
+- Drafting test cases from a feature description or PR
+- Summarizing what failed in a recent run
+- Suggesting edge cases for a flow
+- Writing API request examples to copy into a case
+
+## What doesn&apos;t (yet)
+
+- Executing test runs directly
+- Modifying production data via chat
+- Cross-project queries
+
+For programmatic access — schedule, automate, or integrate the agent into your own pipeline — see [Building an agent](/docs/agents).
+
+<Pager currentPath="/docs/ai-workspace" />

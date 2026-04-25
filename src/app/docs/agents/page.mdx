@@ -1,0 +1,63 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+
+# Building an agent
+
+An **agent** is any external program that calls the Test Manager API on behalf of a user. Agents inherit that user&apos;s permissions — there is no "service account" with its own role. This keeps the audit trail honest and avoids privilege escalation.
+
+## When to build an agent
+
+Build one when you want to:
+
+- Sync test cases or runs from another tool (e.g. Jira, Xray)
+- Auto-create runs on every CI build
+- Triage failures and open bugs from a CI hook
+- Integrate Test Manager into a custom internal portal
+
+For interactive exploration, use the [AI workspace](/docs/ai-workspace) instead.
+
+## The three steps
+
+### 1. Authenticate
+
+The agent uses an **agent token** issued for a specific user + organization. See [Agent tokens](/docs/agent-tokens) for how to create one.
+
+```bash
+curl -X POST https://app.example.com/api/test-runs \
+  -H "Authorization: Bearer agt_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "...",
+    "testPlanId": "...",
+    "runType": "automated",
+    "name": "CI build #1284"
+  }'
+```
+
+### 2. Run inside the test context
+
+Every agent call is scoped to:
+
+- The **organization** the token was issued for
+- The **user** the token represents (their RBAC applies)
+- The project, run, plan, etc. referenced in the request
+
+The agent can read plans, suites, runs, and bugs the way the user can — and only those.
+
+### 3. Stream results back
+
+After running tests, the agent posts results via the same API:
+
+- `POST /api/test-runs/{id}/items/{runItemId}/executions/{executionId}/complete` — set status, duration, error
+- `POST /api/test-runs/{id}/artifacts/upload` — attach screenshots, logs, videos
+- `POST /api/bugs` — open a bug linked to a failing run item
+
+<Callout tone="success" title="Tip">
+  Use `executionId` to attach evidence to a specific attempt. Without it, evidence is attached to the run item generically.
+</Callout>
+
+## Reference implementation
+
+A minimal CI integration that creates a run, marks items, and attaches a screenshot can be wired in &lt;100 lines. See the [API reference](/docs/api) for the full surface.
+
+<Pager currentPath="/docs/agents" />

@@ -1,0 +1,33 @@
+import { Pager } from "@/components/docs/Pager";
+
+# Test plans & suites
+
+A **test plan** groups the QA work for a release, sprint, or cycle. Inside a plan, **suites** hold the actual test cases. Suites can nest, so you can model feature areas like:
+
+```
+Release 24.8 regression
+├─ Checkout
+│  ├─ Web
+│  └─ Mobile
+├─ Billing
+└─ API sanity
+```
+
+## Plan status
+
+Each plan has a status that reflects where it is in its life cycle:
+
+- **draft** — under construction, not ready to execute
+- **active** — currently being run
+- **completed** — finished
+- **archived** — preserved for audit, hidden from default views
+
+## Suites
+
+Suites are organizational only — they don&apos;t own execution data. A suite can be moved to another plan within the same project, taking its cases with it.
+
+## Targeting runs
+
+When you create a test run, you target either an entire plan (all cases in all its suites) or a single suite. The targeted cases are snapshotted as **run items** at run creation time.
+
+<Pager currentPath="/docs/test-plans" />

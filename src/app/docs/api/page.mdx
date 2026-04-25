@@ -1,0 +1,59 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+
+# API reference
+
+Test Manager exposes a single REST API at `/api/*`. The same endpoints serve the web app (via session cookies) and external agents (via [agent tokens](/docs/agent-tokens)).
+
+<Callout tone="info" title="Format">
+  All requests/responses are JSON. Errors return an envelope with `code`, `message`, and any context fields.
+</Callout>
+
+## Authentication
+
+Pass either:
+
+- A NextAuth session cookie (browser use)
+- `Authorization: Bearer agt_...` (programmatic use)
+
+Both authenticate the same way; permission checks identical.
+
+## Resources
+
+| Resource | Routes |
+|----------|--------|
+| Projects     | `GET/POST /api/projects`, `GET/PUT/DELETE /api/projects/:id` |
+| Test plans   | `GET/POST /api/test-plans`, `GET/PUT/DELETE /api/test-plans/:id` |
+| Test cases   | `GET/POST /api/test-cases`, `GET/PUT/DELETE /api/test-cases/:id` |
+| Test runs    | `GET/POST /api/test-runs`, `GET/PUT/DELETE /api/test-runs/:id` |
+| Run items    | `GET /api/test-runs/:id/items`, `PATCH /api/test-runs/:id/items/:runItemId` |
+| Executions   | `POST .../executions`, `POST .../executions/:executionId/complete` |
+| Artifacts    | `POST /api/test-runs/:id/artifacts/upload` |
+| Bugs         | `GET/POST /api/bugs`, `GET/PUT/DELETE /api/bugs/:id` |
+| Bug attachments | `POST /api/bugs/:id/attachments/upload` |
+| Organization usage | `GET /api/organizations/current/usage` |
+
+## Pagination
+
+List endpoints accept `?page=1&pageSize=20`. Responses include `total`, `page`, `pageSize`, and `items`.
+
+## Filtering and sorting
+
+Most list endpoints accept `query`, resource-specific filters (e.g. `status`, `severity`, `projectId`), and `sortBy`/`sortDir`.
+
+## Error codes
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 401  | `UNAUTHORIZED` | Missing or invalid token/session |
+| 402  | `QUOTA_EXCEEDED` / `BETA_EXPIRED` | Organization is out of quota or licence expired |
+| 403  | `FORBIDDEN` | Authenticated but no permission |
+| 404  | `NOT_FOUND` | Resource doesn&apos;t exist or isn&apos;t visible to you |
+| 409  | `CONFLICT` | Unique constraint or state conflict |
+| 422  | Validation | Body or query failed validation |
+
+## Webhooks
+
+Test Manager subscribes to Keygen license events at `/api/webhooks/keygen`. Outbound webhooks (project → external system) are on the roadmap; for now, agents pull on a schedule.
+
+<Pager currentPath="/docs/api" />

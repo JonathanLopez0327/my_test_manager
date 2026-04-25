@@ -118,3 +118,112 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ink-soft);
 }
+
+/* Docs prose */
+.docs-prose {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+.docs-prose h1 {
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+.docs-prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  scroll-margin-top: 6rem;
+}
+.docs-prose h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  scroll-margin-top: 6rem;
+}
+.docs-prose p {
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+  color: var(--ink-muted);
+}
+.docs-prose ul,
+.docs-prose ol {
+  margin-top: 0.85rem;
+  margin-bottom: 0.85rem;
+  padding-left: 1.4rem;
+  color: var(--ink-muted);
+}
+.docs-prose ul {
+  list-style: disc;
+}
+.docs-prose ol {
+  list-style: decimal;
+}
+.docs-prose li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+.docs-prose li::marker {
+  color: var(--ink-soft);
+}
+.docs-prose a {
+  color: var(--brand-700, #4f3df0);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgba(109, 89, 255, 0.35);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.2s ease;
+}
+.docs-prose a:hover {
+  text-decoration-color: rgba(109, 89, 255, 0.85);
+}
+.docs-prose code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  background: var(--surface-muted);
+  border: 1px solid var(--stroke);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.375rem;
+  color: var(--ink);
+}
+.docs-prose pre {
+  background: var(--surface-muted);
+  border: 1px solid var(--stroke);
+  border-radius: 0.875rem;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+.docs-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+.docs-prose blockquote {
+  border-left: 3px solid var(--brand-300, #b3a3ff);
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--ink-muted);
+  font-style: italic;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+.docs-prose hr {
+  border: 0;
+  border-top: 1px solid var(--stroke);
+  margin: 2.5rem 0;
+}
+.docs-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
