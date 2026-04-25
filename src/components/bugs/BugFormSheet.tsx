@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { renameClipboardFile } from "@/lib/clipboard";
 import type { BugPayload, BugRecord, BugSeverity, BugStatus, BugType } from "./types";
 
 type ProjectOption = {
@@ -71,27 +73,9 @@ const emptyForm: BugFormState = {
   tags: [],
 };
 
-const severityOptions: Array<{ value: BugSeverity; label: string }> = [
-  { value: "critical", label: "Critical" },
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
-];
-
-const statusOptions: Array<{ value: BugStatus; label: string }> = [
-  { value: "open", label: "Open" },
-  { value: "in_progress", label: "In Progress" },
-  { value: "resolved", label: "Resolved" },
-  { value: "verified", label: "Verified" },
-  { value: "closed", label: "Closed" },
-  { value: "reopened", label: "Reopened" },
-];
-
-const typeOptions: Array<{ value: BugType; label: string }> = [
-  { value: "bug", label: "Bug" },
-  { value: "enhancement", label: "Enhancement" },
-  { value: "task", label: "Task" },
-];
+const severityOrder: BugSeverity[] = ["critical", "high", "medium", "low"];
+const statusOrder: BugStatus[] = ["open", "in_progress", "resolved", "verified", "closed", "reopened"];
+const typeOrder: BugType[] = ["bug", "enhancement", "task"];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -109,6 +93,7 @@ export function BugFormSheet({
   onClose,
   onSave,
 }: BugFormSheetProps) {
+  const t = useT();
   const [form, setForm] = useState<BugFormState>(emptyForm);
   const [currentTag, setCurrentTag] = useState("");
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
@@ -116,7 +101,10 @@ export function BugFormSheet({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const title = useMemo(() => (bug ? "Edit Bug" : "New Bug"), [bug]);
+  const title = useMemo(
+    () => (bug ? t.bugs.form.titleEdit : t.bugs.form.titleNew),
+    [bug, t],
+  );
 
   useEffect(() => {
     if (bug) {
@@ -144,6 +132,29 @@ export function BugFormSheet({
     setAttachmentFiles([]);
     setError(null);
   }, [bug, open]);
+
+  useEffect(() => {
+    if (!open || bug || !canUploadAttachments) return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i += 1) {
+        const entry = items[i];
+        if (entry.kind === "file" && entry.type.startsWith("image/")) {
+          const file = entry.getAsFile();
+          if (file) imageFiles.push(renameClipboardFile(file));
+        }
+      }
+      if (imageFiles.length === 0) return;
+      event.preventDefault();
+      setAttachmentFiles((prev) => [...prev, ...imageFiles]);
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [open, bug, canUploadAttachments]);
 
   const handleAddTag = () => {
     const value = currentTag.trim();
@@ -192,7 +203,7 @@ export function BugFormSheet({
       onClose();
     } catch (submitError) {
       setError(
-        submitError instanceof Error ? submitError.message : "Could not save bug.",
+        submitError instanceof Error ? submitError.message : t.bugs.form.couldNotSave,
       );
     } finally {
       setSubmitting(false);
@@ -205,12 +216,12 @@ export function BugFormSheet({
     <Sheet
       open={open}
       title={title}
-      description="Define the details of the bug report."
+      description={t.bugs.form.description}
       onClose={onClose}
     >
       <div className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Project
+          {t.bugs.form.projectLabel}
           <select
             value={form.projectId}
             onChange={(event) =>
@@ -219,7 +230,7 @@ export function BugFormSheet({
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             disabled={!!bug}
           >
-            <option value="">Select a project</option>
+            <option value="">{t.bugs.form.selectProject}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.key} &middot; {project.name}
@@ -229,32 +240,32 @@ export function BugFormSheet({
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Title
+          {t.bugs.form.titleLabel}
           <Input
             value={form.title}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, title: event.target.value }))
             }
-            placeholder="Brief description of the bug"
+            placeholder={t.bugs.form.titlePlaceholder}
             className="mt-2"
           />
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Description
+          {t.bugs.form.descriptionLabel}
           <textarea
             value={form.description}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, description: event.target.value }))
             }
-            placeholder="Detailed description of the issue"
+            placeholder={t.bugs.form.descriptionPlaceholder}
             className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           />
         </label>
 
         <div className="grid gap-4 md:grid-cols-3">
           <label className="text-sm font-semibold text-ink">
-            Severity
+            {t.bugs.form.severityLabel}
             <select
               value={form.severity}
               onChange={(event) =>
@@ -265,16 +276,16 @@ export function BugFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              {severityOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {severityOrder.map((value) => (
+                <option key={value} value={value}>
+                  {t.bugs.severities[value]}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="text-sm font-semibold text-ink">
-            Priority
+            {t.bugs.form.priorityLabel}
             <Input
               type="number"
               min={1}
@@ -288,7 +299,7 @@ export function BugFormSheet({
           </label>
 
           <label className="text-sm font-semibold text-ink">
-            Type
+            {t.bugs.form.typeLabel}
             <select
               value={form.type}
               onChange={(event) =>
@@ -299,9 +310,9 @@ export function BugFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              {typeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {typeOrder.map((value) => (
+                <option key={value} value={value}>
+                  {t.bugs.types[value]}
                 </option>
               ))}
             </select>
@@ -310,7 +321,7 @@ export function BugFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Status
+            {t.bugs.form.statusLabel}
             <select
               value={form.status}
               onChange={(event) =>
@@ -321,16 +332,16 @@ export function BugFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              {statusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
+              {statusOrder.map((value) => (
+                <option key={value} value={value}>
+                  {t.bugs.statuses[value]}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="text-sm font-semibold text-ink">
-            Assigned To
+            {t.bugs.form.assignedLabel}
             <select
               value={form.assignedToId}
               onChange={(event) =>
@@ -338,7 +349,7 @@ export function BugFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              <option value="">Unassigned</option>
+              <option value="">{t.bugs.form.unassigned}</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.fullName || user.email}
@@ -349,7 +360,7 @@ export function BugFormSheet({
         </div>
 
         <label className="text-sm font-semibold text-ink">
-          Test Run
+          {t.bugs.form.testRunLabel}
           <select
             value={form.testRunId}
             onChange={(event) =>
@@ -357,7 +368,7 @@ export function BugFormSheet({
             }
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
           >
-            <option value="">None</option>
+            <option value="">{t.bugs.form.testRunNone}</option>
             {testRuns.map((run) => (
               <option key={run.id} value={run.id}>
                 {run.name || run.id}
@@ -367,57 +378,57 @@ export function BugFormSheet({
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Reproduction Steps
+          {t.bugs.form.reproductionLabel}
           <textarea
             value={form.reproductionSteps}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, reproductionSteps: event.target.value }))
             }
-            placeholder="Steps to reproduce the issue"
+            placeholder={t.bugs.form.reproductionPlaceholder}
             className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           />
         </label>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Expected Result
+            {t.bugs.form.expectedLabel}
             <textarea
               value={form.expectedResult}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, expectedResult: event.target.value }))
               }
-              placeholder="What should happen"
+              placeholder={t.bugs.form.expectedPlaceholder}
               className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </label>
 
           <label className="text-sm font-semibold text-ink">
-            Actual Result
+            {t.bugs.form.actualLabel}
             <textarea
               value={form.actualResult}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, actualResult: event.target.value }))
               }
-              placeholder="What actually happened"
+              placeholder={t.bugs.form.actualPlaceholder}
               className="mt-2 min-h-[60px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
           </label>
         </div>
 
         <label className="text-sm font-semibold text-ink">
-          Environment
+          {t.bugs.form.environmentLabel}
           <Input
             value={form.environment}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, environment: event.target.value }))
             }
-            placeholder="e.g. Chrome 120, Windows 11, Production"
+            placeholder={t.bugs.form.environmentPlaceholder}
             className="mt-2"
           />
         </label>
 
         <div className="grid gap-2">
-          <label className="text-sm font-semibold text-ink">Tags</label>
+          <label className="text-sm font-semibold text-ink">{t.bugs.form.tagsLabel}</label>
           <div className="flex flex-wrap gap-2">
             {form.tags.map((tag) => (
               <span
@@ -439,7 +450,7 @@ export function BugFormSheet({
             value={currentTag}
             onChange={(e) => setCurrentTag(e.target.value)}
             onBlur={handleAddTag}
-            placeholder="Type a tag and press Enter"
+            placeholder={t.bugs.form.tagsPlaceholder}
             onKeyDown={handleTagKeyDown}
             className="mt-1"
           />
@@ -447,7 +458,7 @@ export function BugFormSheet({
 
         {!bug && canUploadAttachments ? (
           <div className="grid gap-2">
-            <label className="text-sm font-semibold text-ink">Attachments</label>
+            <label className="text-sm font-semibold text-ink">{t.bugs.form.attachmentsLabel}</label>
             <input
               ref={fileInputRef}
               type="file"
@@ -464,8 +475,9 @@ export function BugFormSheet({
               onClick={() => fileInputRef.current?.click()}
               className="h-10 w-full rounded-lg border border-dashed border-stroke bg-surface-elevated dark:bg-surface-muted px-4 text-sm text-ink-muted hover:border-brand-300 hover:text-ink transition"
             >
-              Browse files&hellip;
+              {t.bugs.form.browseFiles}
             </button>
+            <p className="text-xs text-ink-muted">{t.bugs.form.pasteHint}</p>
             {attachmentFiles.length > 0 && (
               <ul className="grid gap-1">
                 {attachmentFiles.map((file, idx) => (
@@ -495,7 +507,7 @@ export function BugFormSheet({
 
         {!projects.length ? (
           <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-            You need at least one project to create bugs.
+            {t.bugs.form.noProjectsWarning}
           </p>
         ) : null}
 
@@ -507,10 +519,10 @@ export function BugFormSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-            {submitting ? "Saving..." : "Save Bug"}
+            {submitting ? t.bugs.form.saving : t.bugs.form.save}
           </Button>
         </div>
       </div>

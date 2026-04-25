@@ -5,7 +5,12 @@ import {
     anyGlobalRoleHasPermission,
     orgRoleHasPermission,
     projectRoleHasPermission,
+    PROJECT_ROLE_PERMISSIONS,
 } from "./role-permissions.map";
+
+const PROJECT_GRANTED_PERMISSIONS: ReadonlySet<Permission> = new Set(
+    Object.values(PROJECT_ROLE_PERMISSIONS).flatMap((set) => Array.from(set)),
+);
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -68,8 +73,22 @@ export async function can(
         return true;
     }
 
-    // 2. Org role check — owner/admin get implicit project admin access
-    if (ctx.organizationRole && orgRoleHasPermission(ctx.organizationRole, permission)) {
+    // 2. Org role check.
+    // When a target organizationId is provided, NEVER trust the session's
+    // organizationRole (it belongs to the user's active org, not necessarily
+    // the target). Verify membership in that specific org from the DB.
+    if (ctx.organizationId) {
+        const role = await getOrganizationRole(ctx.userId, ctx.organizationId);
+        if (role && orgRoleHasPermission(role, permission)) {
+            return true;
+        }
+    } else if (
+        ctx.organizationRole &&
+        orgRoleHasPermission(ctx.organizationRole, permission)
+    ) {
+        // No target org in context — use the session's active-org role for
+        // non-scoped checks (e.g., listing/creating resources where the
+        // target is implied to be the active org).
         return true;
     }
 
@@ -79,6 +98,21 @@ export async function can(
         if (projectRole && projectRoleHasPermission(projectRole, permission)) {
             return true;
         }
+    } else if (
+        ctx.organizationId &&
+        PROJECT_GRANTED_PERMISSIONS.has(permission)
+    ) {
+        // Org-scoped check without a specific project: allow if the user has
+        // any project membership in that org. The route handler is expected
+        // to scope results to the projects the user actually belongs to.
+        const hasAnyProject = await prisma.projectMember.findFirst({
+            where: {
+                userId: ctx.userId,
+                project: { organizationId: ctx.organizationId },
+            },
+            select: { projectId: true },
+        });
+        if (hasAnyProject) return true;
     }
 
     // 4. Ownership rule (creator can update their own resources)
@@ -131,6 +165,19 @@ async function getProjectRole(
     const membership = await prisma.projectMember.findUnique({
         where: {
             projectId_userId: { projectId, userId },
+        },
+        select: { role: true },
+    });
+    return membership?.role ?? null;
+}
+
+async function getOrganizationRole(
+    userId: string,
+    organizationId: string,
+): Promise<OrgRole | null> {
+    const membership = await prisma.organizationMember.findUnique({
+        where: {
+            organizationId_userId: { organizationId, userId },
         },
         select: { role: true },
     });

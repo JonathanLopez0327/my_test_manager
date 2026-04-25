@@ -13,9 +13,10 @@ import { AssistantHubRouteSync } from "@/components/assistant-hub/AssistantHubRo
 
 type ManagerShellProps = {
   children: ReactNode;
+  banner?: ReactNode;
 };
 
-export function ManagerShell({ children }: ManagerShellProps) {
+export function ManagerShell({ children, banner }: ManagerShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
@@ -39,6 +40,7 @@ export function ManagerShell({ children }: ManagerShellProps) {
         </div>
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <Topbar onToggleSidebar={() => setCollapsed((prev) => !prev)} />
+          {banner}
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <main className={cn("min-w-0 flex-1", variant === "full" ? "flex flex-col overflow-hidden" : "overflow-y-auto")}>
               <WorkspaceShell variant={variant} className={variant === "full" ? "flex-1" : undefined}>

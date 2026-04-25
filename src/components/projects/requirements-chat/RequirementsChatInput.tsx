@@ -1,8 +1,9 @@
 "use client";
 
-import { type FormEvent, useRef } from "react";
+import { type FormEvent, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { IconSend } from "@/components/icons";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type Props = {
   draft: string;
@@ -11,19 +12,36 @@ type Props = {
   isSending: boolean;
 };
 
-const QUICK_ACTIONS = [
-  { id: "functional", label: "Functional requirements", template: "Generate functional requirements for " },
-  { id: "user-stories", label: "User stories", template: "Create user stories for " },
-  { id: "acceptance", label: "Acceptance criteria", template: "Define acceptance criteria for " },
-];
-
 export function RequirementsChatInput({
   draft,
   onDraftChange,
   onSubmit,
   isSending,
 }: Props) {
+  const t = useT();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const quickActions = useMemo(
+    () => [
+      {
+        id: "evaluate-testability",
+        label: t.requirementsChat.quickActions.evaluateTestability,
+        template: t.requirementsChat.quickActionTemplates.evaluateTestability,
+      },
+      {
+        id: "detect-ambiguities",
+        label: t.requirementsChat.quickActions.detectAmbiguities,
+        template: t.requirementsChat.quickActionTemplates.detectAmbiguities,
+      },
+      {
+        id: "suggest-acceptance-criteria",
+        label: t.requirementsChat.quickActions.suggestAcceptanceCriteria,
+        template:
+          t.requirementsChat.quickActionTemplates.suggestAcceptanceCriteria,
+      },
+    ],
+    [t],
+  );
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -43,7 +61,7 @@ export function RequirementsChatInput({
       className="shrink-0 border-t border-stroke bg-surface-elevated px-3 py-2.5"
     >
       <div className="mb-2 flex flex-wrap gap-1">
-        {QUICK_ACTIONS.map((action) => (
+        {quickActions.map((action) => (
           <button
             key={action.id}
             type="button"
@@ -67,7 +85,7 @@ export function RequirementsChatInput({
               if (content && !isSending) onSubmit(content);
             }
           }}
-          placeholder="Describe what requirements you need..."
+          placeholder={t.requirementsChat.placeholder}
           rows={1}
           className="max-h-28 w-full resize-none bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-soft"
         />
@@ -76,7 +94,7 @@ export function RequirementsChatInput({
           size="sm"
           className="h-8 w-8 shrink-0 rounded-lg p-0 text-white"
           disabled={isSending || draft.trim().length === 0}
-          aria-label="Send message"
+          aria-label={t.requirementsChat.sendMessage}
         >
           <IconSend className="h-4 w-4 shrink-0 text-white fill-white stroke-white" />
         </Button>

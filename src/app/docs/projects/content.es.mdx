@@ -1,0 +1,34 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Gestión de pruebas"
+  title="Proyectos y miembros"
+  lead="Los proyectos son la unidad de control de acceso en Test Manager. Cada plan, suite, caso, run y bug pertenece exactamente a un proyecto, y los permisos siguen la membresía del proyecto."
+/>
+
+## Roles
+
+| Rol      | Permite |
+|----------|---------|
+| **Owner**   | Todo en el proyecto, incluyendo borrarlo |
+| **Admin**   | Gestionar miembros, crear/editar/borrar contenido |
+| **Editor**  | Crear y editar artefactos de prueba |
+| **Viewer**  | Acceso solo lectura |
+
+Los roles a nivel de organización (`owner`, `admin`) heredan acceso al proyecto automáticamente.
+
+## Agregar miembros
+
+Desde la pestaña **Miembros** del proyecto, invita a un compañero por email. Recibirá una invitación que puede aceptar al iniciar sesión. La invitación consume una **plaza de miembro** a nivel de organización.
+
+<Callout tone="warning" title="Cuota">
+  Si la organización está al tope de miembros, la invitación devuelve HTTP 402. Ver [Licencias](/docs/licensing).
+</Callout>
+
+## Cambiar de proyecto
+
+El selector de proyecto activo en la barra superior controla cada workspace (test cases, runs, bugs). Cambiar de proyecto reenfoca todas las vistas sin cambiar la organización activa.
+
+<Pager currentPath="/docs/projects" />

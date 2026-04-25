@@ -3,12 +3,14 @@ import { Badge } from "@/components/ui/Badge";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { PlatformFeedbackForm } from "@/components/landing/PlatformFeedbackForm";
 
 const navItems = [
   { href: "#features", label: "Features" },
   { href: "#workflow", label: "Workflow" },
-  // { href: "#proof", label: "Outcomes" },
+  { href: "#agents", label: "Agents" },
+  { href: "/docs", label: "Docs" },
   { href: "#feedback", label: "Feedback" },
   { href: "#demo", label: "Demo" },
 ];
@@ -32,6 +34,12 @@ const featureCards = [
       "Use project-scoped AI conversations with persistent context to accelerate test design and QA decision-making.",
     icon: PulseIcon,
   },
+  {
+    title: "AI agents in the loop",
+    description:
+      "Authenticated agents read run state, draft test cases, and triage failures with the same RBAC your team uses.",
+    icon: AgentIcon,
+  },
 ];
 
 const workflowChecks = [
@@ -47,6 +55,45 @@ const proofStats = [
   { value: "Traceability", label: "Plans, cases, runs, and bugs in one place" },
   { value: "Execution", label: "Record results, failures, and evidence across your test cycles." },
   { value: "AI Workspace", label: "Project-scoped AI for QA workflows" },
+];
+
+const agentSteps = [
+  {
+    step: "01",
+    title: "Authenticate as a workspace agent",
+    description:
+      "Each agent is provisioned a scoped token tied to your organization and project, governed by the same RBAC your team uses.",
+  },
+  {
+    step: "02",
+    title: "Run inside your test context",
+    description:
+      "Agents read plans, suites, runs, and bug data so suggestions land in your structure — not a generic chat.",
+  },
+  {
+    step: "03",
+    title: "Stream results back to the team",
+    description:
+      "Drafted cases, triaged failures, and summaries flow back into the project record with full traceability.",
+  },
+];
+
+const agentChatTurns = [
+  {
+    role: "user",
+    name: "Team",
+    text: "Summarize what failed in run #1284 and propose retries.",
+  },
+  {
+    role: "agent",
+    name: "QA Agent",
+    text: "3 failures across Checkout — 2 likely flaky (retry once), 1 regression in /pay/intent. Draft retry plan?",
+  },
+  {
+    role: "user",
+    name: "Team",
+    text: "Yes, and open a bug for the regression.",
+  },
 ];
 
 const operatingModes = [
@@ -84,14 +131,30 @@ export function LandingPage() {
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-ink-muted md:flex">
-            {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="transition-colors hover:text-ink">
-                {item.label}
-              </a>
-            ))}
+            {navItems.map((item) => {
+              const isInternal = item.href.startsWith("/");
+              const className =
+                "group relative transition-colors hover:text-ink";
+              const inner = (
+                <>
+                  {item.label}
+                  <span className="absolute -bottom-1 left-0 h-px w-0 bg-brand-500 transition-all duration-300 group-hover:w-full" />
+                </>
+              );
+              return isInternal ? (
+                <Link key={item.href} href={item.href} className={className}>
+                  {inner}
+                </Link>
+              ) : (
+                <a key={item.href} href={item.href} className={className}>
+                  {inner}
+                </a>
+              );
+            })}
           </nav>
 
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <Link
               href="/login"
               className="hidden rounded-lg border border-stroke bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-brand-50 sm:inline-flex"
@@ -125,21 +188,26 @@ export function LandingPage() {
                     Get started
                   </Button>
                 </a>
-                {/* <Link
-                  href="/manager"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-stroke bg-surface-elevated px-6 text-base font-semibold text-ink transition-colors hover:bg-brand-50"
+                <Link
+                  href="/docs"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-stroke bg-surface-elevated px-6 text-base font-semibold text-ink transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:bg-brand-50 hover:shadow-[0_8px_24px_-12px_rgba(109,89,255,0.35)]"
                 >
-                  Open dashboard
-                </Link> */}
+                  Read the docs
+                  <ArrowRightIcon />
+                </Link>
               </div>
 
-              <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-3">
+              <div className="mx-auto mt-12 grid max-w-3xl gap-4 sm:grid-cols-3">
                 {proofStats.slice(0, 3).map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl border border-stroke bg-white/70 p-4 backdrop-blur dark:bg-surface-muted/80"
+                    className="group relative overflow-hidden rounded-2xl border border-stroke bg-white/70 p-5 backdrop-blur transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_18px_40px_-24px_rgba(109,89,255,0.45)] dark:bg-surface-muted/80"
                   >
-                    <div className="text-2xl font-semibold text-brand-700">{stat.value}</div>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-400/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
+                    />
+                    <div className="text-2xl font-semibold tracking-tight text-brand-700">{stat.value}</div>
                     <div className="mt-2 text-sm leading-6 text-ink-muted">{stat.label}</div>
                   </div>
                 ))}
@@ -175,13 +243,20 @@ export function LandingPage() {
               </p>
             </div>
 
-            <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               {featureCards.map((feature) => (
-                <Card key={feature.title} className="rounded-[1.75rem] p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                <Card
+                  key={feature.title}
+                  className="group relative overflow-hidden rounded-[1.75rem] p-6 transition-all duration-300 hover:-translate-y-1 hover:border-brand-300 hover:shadow-[0_24px_60px_-32px_rgba(109,89,255,0.45)]"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-400/70 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 text-brand-700 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-3deg] dark:from-brand-500/15 dark:to-brand-500/5">
                     <feature.icon />
                   </div>
-                  <h3 className="mt-5 text-xl font-semibold text-ink">{feature.title}</h3>
+                  <h3 className="mt-5 text-lg font-semibold text-ink">{feature.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-ink-muted">{feature.description}</p>
                 </Card>
               ))}
@@ -207,9 +282,9 @@ export function LandingPage() {
                   {workflowChecks.map((item) => (
                     <div
                       key={item}
-                      className="flex items-start gap-3 rounded-2xl border border-stroke bg-surface-elevated px-4 py-4"
+                      className="group flex items-start gap-3 rounded-2xl border border-stroke bg-surface-elevated px-4 py-4 transition-colors hover:border-brand-200 hover:bg-brand-50/40"
                     >
-                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-50 to-brand-100 text-brand-700 transition-transform duration-300 group-hover:scale-110 dark:from-brand-500/15 dark:to-brand-500/5">
                         <CheckIcon />
                       </span>
                       <p className="text-sm leading-6 text-ink">{item}</p>
@@ -243,7 +318,7 @@ export function LandingPage() {
                       {operatingModes.map((mode) => (
                         <div
                           key={mode.name}
-                          className="rounded-[1.5rem] border border-stroke bg-surface px-4 py-5"
+                          className="rounded-[1.5rem] border border-stroke bg-surface px-4 py-5 transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-[0_14px_28px_-20px_rgba(109,89,255,0.4)]"
                         >
                           <p className="text-sm font-semibold text-ink">{mode.name}</p>
                           <p className="mt-2 text-xs leading-6 text-ink-muted">{mode.summary}</p>
@@ -257,6 +332,101 @@ export function LandingPage() {
                           </ul>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="agents" className="relative py-16 md:py-20 lg:py-24">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-1/3 -z-10 mx-auto h-72 max-w-5xl bg-[radial-gradient(ellipse_at_center,_rgba(109,89,255,0.18),_transparent_60%)]"
+          />
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="mx-auto max-w-2xl text-center">
+              <Badge tone="info" className="mx-auto w-fit">
+                AI agents
+              </Badge>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+                Agents that work alongside your QA team
+              </h2>
+              <p className="mt-4 text-base leading-7 text-ink-muted">
+                Bring authenticated agents into your test workflow. They live inside your project context, follow the same permissions, and leave a trace of every action — no glue code, no shadow tools.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+              <ol className="space-y-4">
+                {agentSteps.map((item) => (
+                  <li
+                    key={item.step}
+                    className="group relative rounded-[1.5rem] border border-stroke bg-surface-elevated p-5 transition-all hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-[0_18px_42px_-26px_rgba(109,89,255,0.5)]"
+                  >
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 text-sm font-semibold tracking-tight text-brand-700 dark:from-brand-500/15 dark:to-brand-500/5">
+                        {item.step}
+                      </span>
+                      <div>
+                        <p className="text-base font-semibold text-ink">{item.title}</p>
+                        <p className="mt-1.5 text-sm leading-6 text-ink-muted">{item.description}</p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+                <div className="pt-2">
+                  <Link
+                    href="/docs"
+                    className="group inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
+                  >
+                    Learn how to wire an agent
+                    <ArrowRightIcon />
+                  </Link>
+                </div>
+              </ol>
+
+              <div className="relative">
+                <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-[linear-gradient(135deg,rgba(109,89,255,0.18),rgba(90,168,255,0.16),transparent_70%)] blur-2xl" />
+                <Card className="rounded-[2rem] border-stroke-strong/70 p-5 sm:p-6">
+                  <div className="flex items-center justify-between border-b border-stroke pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-50 to-brand-100 text-brand-700 dark:from-brand-500/15 dark:to-brand-500/5">
+                        <AgentIcon />
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold text-ink">Run #1284</p>
+                        <p className="text-xs text-ink-muted">Checkout regression suite</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full border border-success-500/30 bg-success-50 px-2.5 py-0.5 text-xs font-semibold text-success-700 dark:bg-success-500/10">
+                      live
+                    </span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {agentChatTurns.map((turn, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex flex-col gap-1 ${turn.role === "agent" ? "items-start" : "items-end"}`}
+                      >
+                        <span className="text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+                          {turn.name}
+                        </span>
+                        <div
+                          className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-6 ${
+                            turn.role === "agent"
+                              ? "rounded-tl-sm border border-stroke bg-surface-elevated text-ink"
+                              : "rounded-tr-sm bg-gradient-to-br from-brand-600 to-brand-500 text-white shadow-[0_10px_24px_-12px_rgba(109,89,255,0.6)]"
+                          }`}
+                        >
+                          {turn.text}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 pt-1 text-xs text-ink-muted">
+                      <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500" />
+                      Agent is drafting retry plan…
                     </div>
                   </div>
                 </Card>
@@ -455,24 +625,45 @@ export function LandingPage() {
       </main>
 
       <footer className="border-t border-stroke/80 bg-canvas/90">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <BrandLogo variant="full" className="h-9 w-auto" />
-            <p className="mt-3 text-sm text-ink-muted">
+            <p className="mt-3 max-w-sm text-sm leading-6 text-ink-muted">
               Built for software teams that need test operations, evidence, and release clarity in
               one place.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-ink-muted">
-            {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="transition-colors hover:text-ink">
-                {item.label}
-              </a>
-            ))}
-            <Link href="/login" className="transition-colors hover:text-ink">
-              Log in
-            </Link>
+          <FooterColumn
+            title="Product"
+            links={[
+              { href: "#features", label: "Features" },
+              { href: "#workflow", label: "Workflow" },
+              { href: "#agents", label: "Agents" },
+              { href: "#demo", label: "Get started" },
+            ]}
+          />
+          <FooterColumn
+            title="Resources"
+            links={[
+              { href: "/docs", label: "Documentation" },
+              { href: "/docs#agents", label: "Agent guide" },
+              { href: "/docs#api", label: "API reference" },
+              { href: "#feedback", label: "Feedback" },
+            ]}
+          />
+          <FooterColumn
+            title="Account"
+            links={[
+              { href: "/login", label: "Log in" },
+              { href: "/sign-up", label: "Sign up" },
+            ]}
+          />
+        </div>
+        <div className="border-t border-stroke/80">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-5 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} Test Manager. All rights reserved.</p>
+            <p>QA operations platform for modern software teams.</p>
           </div>
         </div>
       </footer>
@@ -480,9 +671,44 @@ export function LandingPage() {
   );
 }
 
+function FooterColumn({
+  title,
+  links,
+}: {
+  title: string;
+  links: Array<{ href: string; label: string }>;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-soft">
+        {title}
+      </p>
+      <ul className="mt-4 space-y-2.5 text-sm text-ink-muted">
+        {links.map((link) => {
+          const isInternal = link.href.startsWith("/");
+          const className = "transition-colors hover:text-ink";
+          return (
+            <li key={link.href}>
+              {isInternal ? (
+                <Link href={link.href} className={className}>
+                  {link.label}
+                </Link>
+              ) : (
+                <a href={link.href} className={className}>
+                  {link.label}
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function StageCard({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-stroke bg-surface-elevated p-4">
+    <div className="group rounded-2xl border border-stroke bg-surface-elevated p-4 transition-colors hover:border-brand-200 hover:bg-brand-50/30">
       <p className="text-sm font-semibold text-ink">{title}</p>
       <p className="mt-2 text-xs leading-6 text-ink-muted">{text}</p>
     </div>
@@ -509,6 +735,55 @@ function CheckIcon({ className = "text-brand-700" }: { className?: string }) {
       aria-hidden="true"
     >
       <path d="M5.853 12.663a.5.5 0 0 1-.707 0L.68 8.195a.5.5 0 0 1 0-.707L2.33 5.837a.5.5 0 0 1 .707 0l2.109 2.116a.5.5 0 0 0 .708 0L13.38.421a.5.5 0 0 1 .707 0l1.651 1.65a.5.5 0 0 1 0 .708L5.853 12.663Z" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      className={`h-4 w-4 transition-transform group-hover:translate-x-0.5 ${className}`}
+      aria-hidden="true"
+    >
+      <path
+        d="M3 8h10m0 0L8.5 3.5M13 8l-4.5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AgentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+      <path
+        d="M12 3.75v2M5.5 5.5l1.4 1.4M18.5 5.5l-1.4 1.4M5 12.25h2M17 12.25h2"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <rect
+        x="6.5"
+        y="7.25"
+        width="11"
+        height="10.5"
+        rx="3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="10" cy="12.25" r="1.1" fill="currentColor" />
+      <circle cx="14" cy="12.25" r="1.1" fill="currentColor" />
+      <path
+        d="M10 15.5h4M9.25 20.25h5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

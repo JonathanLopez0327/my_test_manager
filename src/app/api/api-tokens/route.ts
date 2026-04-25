@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/auth/with-auth";
 import { generateApiToken } from "@/lib/auth/api-token";
 
+const MAX_TOKEN_TTL_DAYS = 365;
+const MAX_ACTIVE_TOKENS_PER_USER = 20;
+
 const createApiTokenSchema = z.object({
   name: z.string().trim().min(3).max(80),
   organizationId: z.string().uuid().optional(),
@@ -38,7 +41,7 @@ export const GET = withAuth(null, async (_req, { userId }) => {
   return NextResponse.json({ items });
 });
 
-export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId }) => {
+export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }) => {
   const parsed = createApiTokenSchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
@@ -86,7 +89,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
             userId,
           },
         },
-        select: { userId: true },
+        select: { userId: true, role: true },
       });
 
       if (!membership) {
@@ -95,14 +98,57 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           { status: 403 },
         );
       }
+
+      // Issuing a long-lived bearer credential should not be available to
+      // every authenticated member. Limit to roles that can already manage
+      // org-level resources (owner / admin), matching the gate used for
+      // ORG_INVITE_MANAGE.
+      const effectiveRole = membership.role ?? organizationRole;
+      if (effectiveRole !== "owner" && effectiveRole !== "admin") {
+        return NextResponse.json(
+          { message: "You do not have permission to issue API tokens." },
+          { status: 403 },
+        );
+      }
     }
   }
 
   const expiresAt = parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null;
-  if (expiresAt && expiresAt <= new Date()) {
+  const now = new Date();
+  if (expiresAt && expiresAt <= now) {
     return NextResponse.json(
       { message: "expiresAt must be a future date." },
       { status: 400 },
+    );
+  }
+
+  // Cap token lifetime so a misuse (or a leaked token) has a bounded blast
+  // radius. Callers that omit expiresAt get the cap applied automatically.
+  const maxExpiresAt = new Date(now.getTime() + MAX_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  if (expiresAt && expiresAt > maxExpiresAt) {
+    return NextResponse.json(
+      { message: `expiresAt must be within ${MAX_TOKEN_TTL_DAYS} days from now.` },
+      { status: 400 },
+    );
+  }
+  const effectiveExpiresAt = expiresAt ?? maxExpiresAt;
+
+  // Cap the number of active tokens per user to prevent unbounded
+  // accumulation that complicates incident response and rotation.
+  const activeCount = await prisma.apiToken.count({
+    where: {
+      userId,
+      isActive: true,
+      revokedAt: null,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+  });
+  if (activeCount >= MAX_ACTIVE_TOKENS_PER_USER) {
+    return NextResponse.json(
+      {
+        message: `You already have ${MAX_ACTIVE_TOKENS_PER_USER} active tokens. Revoke one before creating another.`,
+      },
+      { status: 409 },
     );
   }
 
@@ -114,7 +160,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       tokenHash: generated.tokenHash,
       user: { connect: { id: userId } },
       ...(targetOrganizationId ? { organization: { connect: { id: targetOrganizationId } } } : {}),
-      expiresAt,
+      expiresAt: effectiveExpiresAt,
     },
     select: {
       id: true,

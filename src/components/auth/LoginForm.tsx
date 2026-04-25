@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,16 +10,36 @@ import { signIn } from "next-auth/react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 
+const ERROR_NOTICES: Record<string, string> = {
+  account_inactive:
+    "Your account is not active. Please contact an administrator.",
+  organization_inactive:
+    "Your organization is currently inactive. Please contact your administrator.",
+  google_no_email:
+    "Your Google account did not share a valid email. Try another method.",
+  signup_failed:
+    "We could not process your signup. Please try again or contact support.",
+  AccessDenied: "Sign-in was blocked. If this keeps happening, contact support.",
+};
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/manager/projects";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/manager";
+  const errorParam = searchParams.get("error");
+
+  useEffect(() => {
+    if (errorParam && ERROR_NOTICES[errorParam]) {
+      setNotice(ERROR_NOTICES[errorParam]);
+    }
+  }, [errorParam]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,7 +56,9 @@ export function LoginForm() {
     setIsSubmitting(false);
 
     if (result?.error) {
-      setError("Invalid credentials. Please try again.");
+      setError(
+        ERROR_NOTICES[result.error] ?? "Invalid credentials. Please try again.",
+      );
       return;
     }
 
@@ -110,6 +132,14 @@ export function LoginForm() {
             Forgot password?
           </button>
         </div>
+        {notice ? (
+          <p
+            className="rounded-lg bg-warning-500/10 px-3 py-2 text-xs font-medium text-warning-600 dark:text-warning-500"
+            aria-live="polite"
+          >
+            {notice}
+          </p>
+        ) : null}
         {error ? (
           <p className="text-xs font-semibold text-danger-500" aria-live="polite">
             {error}

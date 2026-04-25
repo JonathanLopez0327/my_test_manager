@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
-import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
+import { checkPasswordPolicy } from "@/lib/schemas/password";
+import { hashPassword } from "@/lib/auth/password-hash";
 
-export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId }, routeCtx) => {
+export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId, globalRoles }, routeCtx) => {
   const { id } = await routeCtx.params;
+
+  // Editing arbitrary users (password, isActive, cross-org memberships) is a
+  // super_admin-only operation. Org owners must use org-scoped membership
+  // endpoints to manage their own organization's roster.
+  if (!globalRoles.includes("super_admin")) {
+    return NextResponse.json(
+      { message: "Forbidden." },
+      { status: 403 },
+    );
+  }
 
   try {
     const body = (await req.json()) as {
@@ -26,8 +37,17 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: reque
     const memberships = body.memberships ?? [];
     const password = body.password?.trim();
 
-    const passwordHash =
-      password && password.length >= 8 ? await hash(password, 10) : null;
+    if (password) {
+      const policy = checkPasswordPolicy(password);
+      if (!policy.ok) {
+        return NextResponse.json(
+          { message: policy.message, code: policy.code },
+          { status: 400 },
+        );
+      }
+    }
+
+    const passwordHash = password ? await hashPassword(password) : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.user.update({

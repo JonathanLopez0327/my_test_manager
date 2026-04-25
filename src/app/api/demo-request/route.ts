@@ -3,12 +3,28 @@ import {
   demoRequestSchema,
   type DemoRequestApiResponse,
 } from "@/lib/schemas/demo-request";
+import { clientIpFromHeaders, rateLimit } from "@/lib/api/rate-limit";
 
 function json(body: DemoRequestApiResponse, status = 200) {
   return NextResponse.json(body, { status });
 }
 
 export async function POST(req: Request) {
+  const ip = clientIpFromHeaders(req.headers);
+  const limited = rateLimit(
+    { key: "demo-request", capacity: 5, refillPerSecond: 1 / 60 },
+    ip,
+  );
+  if (!limited.allowed) {
+    return json(
+      {
+        ok: false,
+        message: "Too many requests. Please try again later.",
+      },
+      429,
+    );
+  }
+
   try {
     const parsed = demoRequestSchema.safeParse(await req.json());
 

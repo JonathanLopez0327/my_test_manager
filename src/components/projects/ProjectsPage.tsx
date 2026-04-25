@@ -5,8 +5,13 @@ import { useSession } from "next-auth/react";
 import { IconEdit, IconFolder, IconPlus } from "../icons";
 import { ProjectFormSheet } from "./ProjectFormSheet";
 import { ProjectOverviewTab } from "./ProjectOverviewTab";
+import { ProjectMembersTab } from "./ProjectMembersTab";
 import { RequirementsChat } from "./requirements-chat";
+import { useCan } from "@/lib/auth/use-can";
+import { PERMISSIONS } from "@/lib/auth/permissions.constants";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { SearchInput } from "../ui/SearchInput";
 import { ProjectsSideList } from "./ProjectsSideList";
 import { useAssistantHub, useScreenDataSync } from "@/lib/assistant-hub";
@@ -15,12 +20,13 @@ import { ConfirmationDialog } from "../ui/ConfirmationDialog";
 import { cn } from "@/lib/utils";
 import type { ProjectPayload, ProjectRecord, ProjectsResponse } from "./types";
 
-type ProjectTab = "overview" | "requirements";
+type ProjectTab = "overview" | "requirements" | "members";
 
 const LIST_PAGE_SIZE = 50;
 
 export function ProjectsPage() {
   const { data: session } = useSession();
+  const t = useT();
   const [items, setItems] = useState<ProjectRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
@@ -60,6 +66,8 @@ export function ProjectsPage() {
   );
 
   const canManage = !isReadOnlyGlobal;
+  const canManageMembers = useCan(PERMISSIONS.PROJECT_MEMBER_MANAGE);
+  const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
   const { actions: hubActions } = useAssistantHub();
 
   // Auto-sync assistant hub context when a project is selected
@@ -244,7 +252,7 @@ export function ProjectsPage() {
     const data = (await response.json()) as { message?: string };
 
     if (!response.ok) {
-      throw new Error(data.message || "Could not save project.");
+      throw new Error(data.message || t.projects.couldNotSave);
     }
 
     await fetchProjects();
@@ -256,31 +264,34 @@ export function ProjectsPage() {
       <div className="flex w-[400px] shrink-0 flex-col border-r border-stroke bg-surface/50">
         <div className="flex items-center justify-between p-4">
           <div>
-            <h2 className="text-base font-semibold text-ink">Projects</h2>
+            <h2 className="text-base font-semibold text-ink">{t.projects.title}</h2>
             <p className="text-xs text-ink-muted">
-              {loading ? "Updating..." : `Total: ${total}`}
+              {loading ? t.projects.updating : `${t.projects.totalLabel}: ${total}`}
             </p>
           </div>
-          {canManage ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
-              onClick={handleCreate}
-              aria-label="Create project"
-            >
-              <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <RefreshIconButton onRefresh={() => void fetchProjects()} loading={loading} />
+            {canManage ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
+                onClick={handleCreate}
+                aria-label={t.projects.createAriaLabel}
+              >
+                <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         <div className="px-4 pb-2">
           <SearchInput
-            placeholder="Search projects..."
+            placeholder={t.projects.searchPlaceholder}
             value={query}
             onChange={setQuery}
             containerClassName="w-full"
-            aria-label="Search projects"
+            aria-label={t.projects.searchAriaLabel}
           />
         </div>
 
@@ -293,7 +304,7 @@ export function ProjectsPage() {
                 variant="critical"
                 onClick={() => void fetchProjects()}
               >
-                Retry
+                {t.common.retry}
               </Button>
             </div>
           </div>
@@ -363,18 +374,39 @@ export function ProjectsPage() {
                   )}
                   onClick={() => setActiveTab("requirements")}
                 >
-                  Requirements
+                  {t.requirementsChat.tabLabel}
                 </button>
+                {canManageMembers && (
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+                      activeTab === "members"
+                        ? "bg-brand-50 text-brand-700"
+                        : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                    )}
+                    onClick={() => setActiveTab("members")}
+                  >
+                    Members
+                  </button>
+                )}
               </div>
 
               <div className={cn(
                 "min-h-0 flex-1",
-                activeTab === "overview"
-                  ? "overflow-y-auto p-8"
-                  : "flex flex-col overflow-hidden",
+                activeTab === "requirements"
+                  ? "flex flex-col overflow-hidden"
+                  : "overflow-y-auto p-8",
               )}>
                 {activeTab === "overview" ? (
                   <ProjectOverviewTab projectId={project.id} />
+                ) : activeTab === "members" ? (
+                  activeOrganizationId ? (
+                    <ProjectMembersTab
+                      projectId={project.id}
+                      organizationId={activeOrganizationId}
+                    />
+                  ) : null
                 ) : (
                   <RequirementsChat key={project.id} projectId={project.id} />
                 )}

@@ -1,0 +1,66 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="IA y agentes"
+  title="Crear un agente"
+  lead={<>Un <strong>agente</strong> es cualquier programa externo que llama la API de Test Manager en nombre de un usuario. Los agentes heredan los permisos de ese usuario — no hay una "cuenta de servicio" con su propio rol. Esto mantiene el audit trail honesto y evita escalación de privilegios.</>}
+/>
+
+## Cuándo construir un agente
+
+Cuando quieres:
+
+- Sincronizar casos o runs con otra herramienta (ej. Jira, Xray)
+- Crear runs automáticamente en cada build de CI
+- Triagear fallos y abrir bugs desde un hook de CI
+- Integrar Test Manager en un portal interno propio
+
+Para exploración interactiva, usa el [Workspace de IA](/docs/ai-workspace) en su lugar.
+
+## Los tres pasos
+
+### 1. Autenticarse
+
+El agente usa un **token de agente** emitido para un usuario + organización específicos. Ver [Tokens de agente](/docs/agent-tokens) para crearlos.
+
+```bash
+curl -X POST https://app.example.com/api/test-runs \
+  -H "Authorization: Bearer agt_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "...",
+    "testPlanId": "...",
+    "runType": "automated",
+    "name": "CI build #1284"
+  }'
+```
+
+### 2. Operar dentro del contexto de pruebas
+
+Cada llamada del agente está scoped a:
+
+- La **organización** para la que se emitió el token
+- El **usuario** representado (su RBAC aplica)
+- El proyecto, run, plan, etc. mencionado en el request
+
+El agente puede leer planes, suites, runs y bugs como lo haría el usuario — y nada más.
+
+### 3. Devolver resultados
+
+Después de ejecutar pruebas, el agente publica resultados a través de la misma API:
+
+- `POST /api/test-runs/{id}/items/{runItemId}/executions/{executionId}/complete` — fija status, duración, error
+- `POST /api/test-runs/{id}/artifacts/upload` — adjuntar capturas, logs, videos
+- `POST /api/bugs` — abrir un bug enlazado al run item que falló
+
+<Callout tone="success" title="Tip">
+  Usa `executionId` para adjuntar evidencia a un intento específico. Sin él, la evidencia se asocia al run item de forma genérica.
+</Callout>
+
+## Implementación de referencia
+
+Una integración mínima con CI que crea un run, marca items y adjunta una captura cabe en menos de 100 líneas. Ver la [Referencia de API](/docs/api) para la superficie completa.
+
+<Pager currentPath="/docs/agents" />

@@ -1,0 +1,46 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Test management"
+  title="Test runs & evidence"
+  lead={<>A <strong>test run</strong> is one execution cycle. When you create it, Test Manager snapshots the cases targeted by your plan/suite into <strong>run items</strong>. From that point, the run is the source of truth for what happened.</>}
+/>
+
+## Run lifecycle
+
+```
+queued → running → completed
+            ↓
+         canceled / failed
+```
+
+A run becomes **completed** automatically when all items have a final status, or manually from the run actions menu.
+
+## Run items
+
+Each run item starts as `not_run`. As you execute, mark it as one of:
+
+- **passed** — verified working
+- **failed** — broken; usually paired with a bug
+- **skipped** — intentionally not executed this cycle
+- **blocked** — couldn&apos;t execute due to environment or dependency
+
+## Executions
+
+Marking a run item kicks off an **execution attempt**. Re-running the same item creates a new attempt while keeping history. The run item shows the attempt count and lets you view history from the row menu.
+
+## Evidence
+
+Attach screenshots, logs, videos, and reports per execution attempt. Evidence is stored against the **artifact storage quota** at the organization level.
+
+<Callout tone="warning" title="Storage quota">
+  Each upload checks the organization&apos;s remaining bytes before sending to S3. See [Licensing](/docs/licensing#artifact-storage).
+</Callout>
+
+## Workspace view
+
+The **Test Runs Workspace** at `/manager/test-runs-workspace` shows the run list on the left and the selected run on the right. Use the filters (status, type, project, plan, suite) to narrow the list.
+
+<Pager currentPath="/docs/test-runs" />

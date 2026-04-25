@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { Sheet } from "../ui/Sheet";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type ProfileSheetProps = {
   open: boolean;
@@ -34,11 +35,14 @@ function EyeToggle({ visible, onClick }: { visible: boolean; onClick: () => void
 }
 
 export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
+  const t = useT();
   const { data: session, update } = useSession();
 
   const [fullName, setFullName] = useState(session?.user?.name ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
@@ -47,13 +51,18 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
   const handleSave = async () => {
     setError("");
 
-    if (password && password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (password && password.length < 12) {
+      setError(t.profile.passwordTooShort);
       return;
     }
 
     if (password && password !== confirmPassword) {
-      setError("Passwords do not match.");
+      setError(t.profile.passwordMismatch);
+      return;
+    }
+
+    if (password && !currentPassword) {
+      setError(t.profile.currentPasswordRequired);
       return;
     }
 
@@ -64,66 +73,80 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: fullName.trim(),
-          ...(password ? { password } : {}),
+          ...(password ? { password, currentPassword } : {}),
         }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.message ?? "Could not update profile.");
+        setError(data.message ?? t.profile.couldNotUpdate);
         return;
       }
 
-      // Refresh the session so the new name shows immediately
       await update({ name: fullName.trim() });
+      setCurrentPassword("");
       setPassword("");
       setConfirmPassword("");
+      setShowCurrent(false);
       setShowPassword(false);
       setShowConfirm(false);
       onClose();
     } catch {
-      setError("Could not update profile.");
+      setError(t.profile.couldNotUpdate);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Sheet open={open} title="Edit profile" onClose={onClose} width="md">
+    <Sheet open={open} title={t.profile.title} onClose={onClose} width="md">
       <div className="flex flex-col gap-5">
         <Input
-          label="Email"
+          label={t.profile.emailLabel}
           value={session?.user?.email ?? ""}
           disabled
-          hint="Email cannot be changed"
+          hint={t.profile.emailHint}
         />
 
         <Input
-          label="Name"
+          label={t.profile.nameLabel}
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          placeholder="Your full name"
+          placeholder={t.profile.namePlaceholder}
         />
 
         <Input
-          label="Password"
+          label={t.profile.currentPasswordLabel}
+          type={showCurrent ? "text" : "password"}
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          placeholder={t.profile.currentPasswordPlaceholder}
+          autoComplete="current-password"
+          trailingIcon={
+            <EyeToggle visible={showCurrent} onClick={() => setShowCurrent((v) => !v)} />
+          }
+        />
+
+        <Input
+          label={t.profile.passwordLabel}
           type={showPassword ? "text" : "password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Leave empty to keep current"
-          hint="Minimum 8 characters"
+          placeholder={t.profile.passwordPlaceholder}
+          hint={t.profile.passwordHint}
+          autoComplete="new-password"
           trailingIcon={
             <EyeToggle visible={showPassword} onClick={() => setShowPassword((v) => !v)} />
           }
         />
 
         <Input
-          label="Confirm password"
+          label={t.profile.confirmPasswordLabel}
           type={showConfirm ? "text" : "password"}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Repeat password"
-          error={confirmPassword && password !== confirmPassword ? "Passwords do not match" : undefined}
+          placeholder={t.profile.confirmPasswordPlaceholder}
+          error={confirmPassword && password !== confirmPassword ? t.profile.passwordMismatch : undefined}
           trailingIcon={
             <EyeToggle visible={showConfirm} onClick={() => setShowConfirm((v) => !v)} />
           }
@@ -135,10 +158,10 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? t.profile.saving : t.profile.save}
           </Button>
         </div>
       </div>

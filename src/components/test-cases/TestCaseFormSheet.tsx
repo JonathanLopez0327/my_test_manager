@@ -8,6 +8,7 @@ import { StepByStepEditor } from "./StepByStepEditor";
 import { GherkinEditor } from "./GherkinEditor";
 import { DataDrivenEditor } from "./DataDrivenEditor";
 import { ApiStyleEditor } from "./ApiStyleEditor";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import type {
     TestCasePayload,
     TestCaseRecord,
@@ -108,18 +109,8 @@ const emptyForm: TestCaseFormState = {
     apiExpectedResponse: { ...emptyApiResponse },
 };
 
-const statusOptions: Array<{ value: TestCaseStatus; label: string }> = [
-    { value: "draft", label: "Draft" },
-    { value: "ready", label: "Ready" },
-    { value: "deprecated", label: "Deprecated" },
-];
-
-const styleOptions: Array<{ value: TestCaseStyle; label: string }> = [
-    { value: "step_by_step", label: "Step-by-Step" },
-    { value: "gherkin", label: "BDD / Gherkin" },
-    { value: "data_driven", label: "Data-Driven" },
-    { value: "api", label: "API (Request/Response)" },
-];
+const statusOrder: TestCaseStatus[] = ["draft", "ready", "deprecated"];
+const styleOrder: TestCaseStyle[] = ["step_by_step", "gherkin", "data_driven", "api"];
 
 const VALID_STYLES: TestCaseStyle[] = ["step_by_step", "gherkin", "data_driven", "api"];
 
@@ -135,15 +126,23 @@ export function TestCaseFormSheet({
     onClose,
     onSave,
 }: TestCaseFormSheetProps) {
+    const t = useT();
     const [form, setForm] = useState<TestCaseFormState>({ ...emptyForm });
     const [currentTag, setCurrentTag] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const title = useMemo(
-        () => (testCase ? "Edit Test Case" : "New Test Case"),
-        [testCase],
+        () => (testCase ? t.testCases.form.titleEdit : t.testCases.form.titleNew),
+        [testCase, t],
     );
+
+    const styleLabels: Record<TestCaseStyle, string> = {
+        step_by_step: t.testCases.form.styleStepByStep,
+        gherkin: t.testCases.form.styleGherkin,
+        data_driven: t.testCases.form.styleDataDriven,
+        api: t.testCases.form.styleApi,
+    };
 
     useEffect(() => {
         if (testCase) {
@@ -430,7 +429,7 @@ export function TestCaseFormSheet({
             onClose();
         } catch (submitError) {
             setError(
-                submitError instanceof Error ? submitError.message : "Could not save test case.",
+                submitError instanceof Error ? submitError.message : t.testCases.form.couldNotSave,
             );
         } finally {
             setSubmitting(false);
@@ -443,12 +442,12 @@ export function TestCaseFormSheet({
         <Sheet
             open={open}
             title={title}
-            description="Define the details, status, and steps of the test case."
+            description={t.testCases.form.description}
             onClose={onClose}
         >
             <div className="grid gap-4">
                 <label className="text-sm font-semibold text-ink">
-                    Test Suite
+                    {t.testCases.form.suiteLabel}
                     <select
                         value={form.suiteId}
                         onChange={(event) =>
@@ -456,7 +455,7 @@ export function TestCaseFormSheet({
                         }
                         className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
-                        <option value="">Select a suite</option>
+                        <option value="">{t.testCases.form.selectSuite}</option>
                         {suites.map((suite) => (
                             <option key={suite.id} value={suite.id}>
                                 {suite.projectKey} · {suite.testPlanName} · {suite.name}
@@ -466,31 +465,31 @@ export function TestCaseFormSheet({
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Test Case Title
+                    {t.testCases.form.titleLabel}
                     <Input
                         value={form.title}
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, title: event.target.value }))
                         }
-                        placeholder="Validate login with 2FA"
+                        placeholder={t.testCases.form.titlePlaceholder}
                         className="mt-2"
                     />
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Description
+                    {t.testCases.form.descriptionLabel}
                     <textarea
                         value={form.description}
                         onChange={(event) =>
                             setForm((prev) => ({ ...prev, description: event.target.value }))
                         }
-                        placeholder="Context of the test case"
+                        placeholder={t.testCases.form.descriptionPlaceholder}
                         className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
                 <label className="text-sm font-semibold text-ink">
-                    Preconditions
+                    {t.testCases.form.preconditionsLabel}
                     <textarea
                         value={form.preconditions}
                         onChange={(event) =>
@@ -499,22 +498,21 @@ export function TestCaseFormSheet({
                                 preconditions: event.target.value,
                             }))
                         }
-                        placeholder="Data or states required before execution"
+                        placeholder={t.testCases.form.preconditionsPlaceholder}
                         className="mt-2 min-h-[88px] w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                     />
                 </label>
 
-                {/* Style selector */}
                 <label className="text-sm font-semibold text-ink">
-                    Test Case Style
+                    {t.testCases.form.styleLabel}
                     <select
                         value={form.style}
                         onChange={(e) => handleStyleChange(e.target.value as TestCaseStyle)}
                         className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                     >
-                        {styleOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
+                        {styleOrder.map((value) => (
+                            <option key={value} value={value}>
+                                {styleLabels[value]}
                             </option>
                         ))}
                     </select>
@@ -560,7 +558,7 @@ export function TestCaseFormSheet({
                 )}
 
                 <div className="grid gap-2">
-                    <label className="text-sm font-semibold text-ink">Tags</label>
+                    <label className="text-sm font-semibold text-ink">{t.testCases.form.tagsLabel}</label>
                     <div className="flex flex-wrap gap-2">
                         {form.tags.map((tag) => (
                             <span
@@ -582,7 +580,7 @@ export function TestCaseFormSheet({
                         value={currentTag}
                         onChange={(e) => setCurrentTag(e.target.value)}
                         onBlur={handleAddTag}
-                        placeholder="Type a tag and press Enter"
+                        placeholder={t.testCases.form.tagsPlaceholder}
                         onKeyDown={handleTagKeyDown}
                         className="mt-1"
                     />
@@ -590,7 +588,7 @@ export function TestCaseFormSheet({
 
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="text-sm font-semibold text-ink">
-                        Status
+                        {t.testCases.form.statusLabel}
                         <select
                             value={form.status}
                             onChange={(event) =>
@@ -601,16 +599,16 @@ export function TestCaseFormSheet({
                             }
                             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
                         >
-                            {statusOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
+                            {statusOrder.map((value) => (
+                                <option key={value} value={value}>
+                                    {t.testCases.statuses[value]}
                                 </option>
                             ))}
                         </select>
                     </label>
 
                     <label className="text-sm font-semibold text-ink">
-                        Priority
+                        {t.testCases.form.priorityLabel}
                         <Input
                             type="number"
                             min={1}
@@ -633,13 +631,13 @@ export function TestCaseFormSheet({
                         }
                         className="h-4 w-4 rounded border-stroke text-brand-600 focus:ring-brand-200"
                     />
-                    Automated Case
+                    {t.testCases.form.automatedLabel}
                 </label>
 
                 {form.isAutomated ? (
                     <div className="grid gap-4 md:grid-cols-2">
                         <label className="text-sm font-semibold text-ink">
-                            Automation Type
+                            {t.testCases.form.automationTypeLabel}
                             <Input
                                 value={form.automationType}
                                 onChange={(event) =>
@@ -648,12 +646,12 @@ export function TestCaseFormSheet({
                                         automationType: event.target.value,
                                     }))
                                 }
-                                placeholder="Playwright"
+                                placeholder={t.testCases.form.automationTypePlaceholder}
                                 className="mt-2"
                             />
                         </label>
                         <label className="text-sm font-semibold text-ink">
-                            Reference
+                            {t.testCases.form.automationRefLabel}
                             <Input
                                 value={form.automationRef}
                                 onChange={(event) =>
@@ -662,7 +660,7 @@ export function TestCaseFormSheet({
                                         automationRef: event.target.value,
                                     }))
                                 }
-                                placeholder="tests/auth/login.spec.ts"
+                                placeholder={t.testCases.form.automationRefPlaceholder}
                                 className="mt-2"
                             />
                         </label>
@@ -671,7 +669,7 @@ export function TestCaseFormSheet({
 
                 {!suites.length ? (
                     <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-                        You need at least one suite to create cases.
+                        {t.testCases.form.noSuitesWarning}
                     </p>
                 ) : null}
 
@@ -683,10 +681,10 @@ export function TestCaseFormSheet({
 
                 <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                     <Button variant="ghost" onClick={onClose}>
-                        Cancel
+                        {t.common.cancel}
                     </Button>
                     <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-                        {submitting ? "Saving..." : "Save Test Case"}
+                        {submitting ? t.testCases.form.saving : t.testCases.form.save}
                     </Button>
                 </div>
             </div>

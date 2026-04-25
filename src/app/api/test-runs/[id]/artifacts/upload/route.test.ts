@@ -127,7 +127,10 @@ describe("POST /api/test-runs/[id]/artifacts/upload", () => {
     const formData = new FormData();
     formData.set("type", "screenshot");
     formData.set("runItemId", "item-1");
-    formData.set("file", new File([new Uint8Array(1024)], "proof.txt", { type: "text/plain" }));
+    // Plain-text bytes — neither magic-byte sniff nor allowlist accept this
+    // for a screenshot upload.
+    const text = new TextEncoder().encode("not an image at all\n");
+    formData.set("file", new File([text], "proof.txt", { type: "text/plain" }));
 
     const response = await POST(
       new Request("http://localhost/api/test-runs/run-1/artifacts/upload", {
@@ -142,7 +145,7 @@ describe("POST /api/test-runs/[id]/artifacts/upload", () => {
     const body = (await response.json()) as { message: string };
 
     expect(response.status).toBe(400);
-    expect(body.message).toBe("Only image files are allowed for execution evidence.");
+    expect(body.message).toMatch(/not allowed for screenshot uploads|Only image files/);
     expect(prismaMock.testRunArtifact.create).not.toHaveBeenCalled();
   });
 
@@ -151,7 +154,9 @@ describe("POST /api/test-runs/[id]/artifacts/upload", () => {
     formData.set("type", "screenshot");
     formData.set("runItemId", "item-1");
     formData.set("metadata", JSON.stringify({ scope: "step", stepIndex: 2 }));
-    formData.set("file", new File([new Uint8Array(1024)], "proof.png", { type: "image/png" }));
+    const png = new Uint8Array(1024);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+    formData.set("file", new File([png], "proof.png", { type: "image/png" }));
 
     const response = await POST(
       new Request("http://localhost/api/test-runs/run-1/artifacts/upload", {

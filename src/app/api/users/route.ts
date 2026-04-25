@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { checkPasswordPolicy } from "@/lib/schemas/password";
+import { hashPassword } from "@/lib/auth/password-hash";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -156,7 +157,13 @@ export const GET = withAuth(PERMISSIONS.USER_LIST, async (req, { globalRoles, ac
   });
 });
 
-export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
+export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { globalRoles }) => {
+  if (!globalRoles.includes("super_admin")) {
+    return NextResponse.json(
+      { message: "Forbidden." },
+      { status: 403 },
+    );
+  }
   try {
     const body = (await req.json()) as {
       email?: string;
@@ -177,14 +184,15 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req) => {
       );
     }
 
-    if (password.length < 8) {
+    const policy = checkPasswordPolicy(password);
+    if (!policy.ok) {
       return NextResponse.json(
-        { message: "Password must be at least 8 characters long." },
+        { message: policy.message, code: policy.code },
         { status: 400 },
       );
     }
 
-    const passwordHash = await hash(password, 10);
+    const passwordHash = await hashPassword(password);
 
     const created = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({

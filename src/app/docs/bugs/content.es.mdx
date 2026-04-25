@@ -1,0 +1,28 @@
+import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Gestión de pruebas"
+  title="Bugs y adjuntos"
+  lead='Los bugs en Test Manager son registros de defectos a nivel de proyecto. Pueden ser independientes o enlazar al caso, run item y run que los originaron — dándote trazabilidad desde "ticket" hasta "qué prueba falló en qué run".'
+/>
+
+## Campos
+
+- **Título** y **descripción** — la descripción soporta markdown
+- **Severidad** — `critical`, `high`, `medium`, `low`
+- **Prioridad** — 1 (más alta) a 5 (más baja)
+- **Estado** — `open`, `in_progress`, `resolved`, `verified`, `closed`, `reopened`
+- **Tipo** — `bug`, `task`, `improvement`
+- **Asignado a** y **Reportador** — miembros del proyecto
+- **Pasos para reproducir** y **Resultado esperado**
+
+## Enlace desde runs
+
+Cuando un run item falla, "Crear bug" prellenará el bug con el run item, run y caso de contexto. Al enlazarlos, el run item muestra el conteo de bugs en su fila.
+
+## Adjuntos
+
+Suelta archivos (o pega una captura desde el portapapeles) en el panel de detalle del bug. Los adjuntos comparten la misma cuota de almacenamiento de organización con los artifacts de runs.
+
+<Pager currentPath="/docs/bugs" />

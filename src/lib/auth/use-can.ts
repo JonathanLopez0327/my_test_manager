@@ -26,10 +26,11 @@ export function useCan(permission: Permission): boolean {
         [session?.user?.globalRoles],
     );
     const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
+    const hasProjectAccess = Boolean(session?.user?.hasProjectAccess);
 
     return useMemo(
-        () => canSync(permission, globalRoles, organizationRole),
-        [permission, globalRoles, organizationRole],
+        () => canSync(permission, globalRoles, organizationRole, hasProjectAccess),
+        [permission, globalRoles, organizationRole, hasProjectAccess],
     );
 }
 
@@ -51,13 +52,15 @@ export function usePermissions() {
     );
     const organizationRole = session?.user?.organizationRole as OrgRole | undefined;
     const activeOrganizationId = session?.user?.activeOrganizationId as string | undefined;
+    const hasProjectAccess = Boolean(session?.user?.hasProjectAccess);
 
     const can = useMemo(
-        () => (permission: Permission) => canSync(permission, globalRoles, organizationRole),
-        [globalRoles, organizationRole],
+        () => (permission: Permission) =>
+            canSync(permission, globalRoles, organizationRole, hasProjectAccess),
+        [globalRoles, organizationRole, hasProjectAccess],
     );
 
-    return { can, globalRoles, activeOrganizationId, organizationRole };
+    return { can, globalRoles, activeOrganizationId, organizationRole, hasProjectAccess };
 }
 
 

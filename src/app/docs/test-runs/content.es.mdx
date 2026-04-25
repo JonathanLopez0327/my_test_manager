@@ -1,0 +1,46 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Gestión de pruebas"
+  title="Runs y evidencia"
+  lead={<>Un <strong>test run</strong> es un ciclo de ejecución. Al crearlo, Test Manager snapshotea los casos apuntados por tu plan/suite como <strong>run items</strong>. A partir de ese momento, el run es la fuente de verdad de lo que pasó.</>}
+/>
+
+## Ciclo de vida del run
+
+```
+queued → running → completed
+            ↓
+         canceled / failed
+```
+
+El run pasa a **completed** automáticamente cuando todos los items tienen un estado final, o manualmente desde el menú de acciones.
+
+## Run items
+
+Cada run item arranca como `not_run`. Mientras ejecutas, márcalo como uno de:
+
+- **passed** — verificado funcional
+- **failed** — roto; usualmente acompañado de un bug
+- **skipped** — intencionalmente no ejecutado este ciclo
+- **blocked** — no se pudo ejecutar por entorno o dependencia
+
+## Ejecuciones
+
+Marcar un run item dispara un **intento de ejecución**. Re-ejecutar el mismo item crea un nuevo intento conservando el historial. El run item muestra el conteo de intentos y permite ver el historial desde el menú de la fila.
+
+## Evidencia
+
+Adjunta capturas, logs, videos y reportes por intento de ejecución. La evidencia se descuenta de la **cuota de almacenamiento de artifacts** a nivel de organización.
+
+<Callout tone="warning" title="Cuota de almacenamiento">
+  Cada subida verifica los bytes restantes de la organización antes de mandar a S3. Ver [Licencias](/docs/licensing#artifact-storage).
+</Callout>
+
+## Vista de workspace
+
+El **Test Runs Workspace** en `/manager/test-runs-workspace` muestra la lista de runs a la izquierda y el run seleccionado a la derecha. Usa los filtros (status, tipo, proyecto, plan, suite) para acotar la lista.
+
+<Pager currentPath="/docs/test-runs" />

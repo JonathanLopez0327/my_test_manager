@@ -2,15 +2,18 @@
 
 import { IconEdit } from "../icons";
 import { Badge } from "../ui/Badge";
+import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import { TableShell } from "../ui/TableShell";
 import type { UserRecord, UserSortBy, SortDir } from "./types";
-import { uiMessages } from "@/lib/ui/messages";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type UsersTableProps = {
   items: UserRecord[];
   loading: boolean;
   onEdit?: (user: UserRecord) => void;
   canManage?: boolean;
+  showGlobal?: boolean;
   sortBy: UserSortBy | null;
   sortDir: SortDir | null;
   onSort: (column: UserSortBy) => void;
@@ -21,88 +24,82 @@ export function UsersTable({
   loading,
   onEdit,
   canManage = false,
+  showGlobal = false,
   sortBy,
   sortDir,
   onSort,
 }: UsersTableProps) {
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
-        <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        {uiMessages.users.loadingUsers}
-      </div>
-    );
-  }
-
-  if (!items.length) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No users to display.
-      </div>
-    );
-  }
-
+  const t = useT();
   return (
-    <>
-      <div className="hidden max-h-[600px] overflow-y-auto md:block border-b border-stroke">
+    <TableShell
+      loading={loading}
+      hasItems={items.length > 0}
+      emptyTitle={t.users.emptyTitle}
+      emptyDescription={t.users.emptyDescription}
+      desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Email"
+                label={t.users.columns.email}
                 sortKey="email"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Name"
+                label={t.users.columns.name}
                 sortKey="fullName"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Organization"
+                label={t.users.columns.organization}
                 sortKey="organization"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Role"
+                label={t.users.columns.role}
                 sortKey="role"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
+              {showGlobal ? (
+                <SortableHeaderCell
+                  label={t.users.columns.global}
+                  sortKey="global"
+                  activeSortBy={sortBy}
+                  activeSortDir={sortDir}
+                  onSort={onSort}
+                />
+              ) : null}
               <SortableHeaderCell
-                label="Global"
-                sortKey="global"
-                activeSortBy={sortBy}
-                activeSortDir={sortDir}
-                onSort={onSort}
-              />
-              <SortableHeaderCell
-                label={uiMessages.common.status}
+                label={t.common.status}
                 sortKey="isActive"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <th className="px-3 py-2 text-right">
-                {canManage ? uiMessages.common.actions : ""}
+                {canManage ? t.common.actions : ""}
               </th>
             </tr>
           </thead>
           <tbody>
             {items.map((user) => (
-              <tr key={user.id} className="border-t border-stroke">
+              <tr
+                key={user.id}
+                className="transition-colors hover:bg-brand-50/35"
+              >
                 <td className="px-3 py-2.5 font-semibold text-ink">
                   {user.email}
                 </td>
                 <td className="px-3 py-2.5 text-ink">
-                  {user.fullName ?? "Unnamed"}
+                  {user.fullName ?? t.users.unnamed}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {user.memberships.length > 0 ? (
@@ -115,7 +112,7 @@ export function UsersTable({
                       ) : null}
                     </div>
                   ) : (
-                    "Unassigned"
+                    t.users.unassigned
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
@@ -129,24 +126,25 @@ export function UsersTable({
                     "—"
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-ink-muted">
-                  {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
-                </td>
+                {showGlobal ? (
+                  <td className="px-3 py-2.5 text-ink-muted">
+                    {user.globalRoles.length ? user.globalRoles.join(", ") : "—"}
+                  </td>
+                ) : null}
                 <td className="px-3 py-2.5">
                   <Badge tone={user.isActive ? "success" : "neutral"}>
-                    {user.isActive ? "Active" : "Inactive"}
+                    {user.isActive ? t.common.active : t.common.inactive}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
                   {canManage ? (
                     <div className="flex items-center justify-end">
-                      <button
+                      <RowActionButton
                         onClick={() => onEdit?.(user)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                        aria-label="Edit user"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </button>
+                        icon={<IconEdit className="h-4 w-4" />}
+                        label={t.users.editUser}
+                        title={t.users.editUser}
+                      />
                     </div>
                   ) : null}
                 </td>
@@ -154,58 +152,58 @@ export function UsersTable({
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="grid gap-4 md:hidden">
-        {items.map((user) => (
-          <div
-            key={user.id}
-            className="rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted p-5"
-          >
-            <p className="text-sm font-semibold text-ink">{user.email}</p>
-            <p className="text-xs text-ink-soft">
-              {user.fullName ?? "Unnamed"}
-            </p>
-            <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
-              {user.memberships.length > 0 ? (
-                user.memberships.map((m) => (
-                  <div key={m.organizationId} className="flex items-center gap-2">
-                    <span>
-                      {m.organizationSlug} · {m.organizationName}
-                    </span>
-                    <span>·</span>
-                    <span className="capitalize">{m.role}</span>
-                  </div>
-                ))
-              ) : (
-                <span>Unassigned</span>
-              )}
-            </div>
-            {user.globalRoles.length ? (
-              <p className="mt-2 text-xs text-ink-muted">
-                Global: {user.globalRoles.join(", ")}
+      }
+      mobile={
+        <>
+          {items.map((user) => (
+            <div
+              key={user.id}
+              className="rounded-lg bg-surface-elevated p-5 shadow-sm dark:bg-surface-muted"
+            >
+              <p className="text-sm font-semibold text-ink">{user.email}</p>
+              <p className="text-xs text-ink-soft">
+                {user.fullName ?? t.users.unnamed}
               </p>
-            ) : null}
-            <div className="mt-3 flex items-center justify-between">
-              <Badge tone={user.isActive ? "success" : "neutral"}>
-                {user.isActive ? "Active" : "Inactive"}
-              </Badge>
-              {canManage ? (
-                <button
-                  onClick={() => onEdit?.(user)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-brand-50 hover:text-brand-700"
-                  aria-label="Edit user"
-                >
-                  <IconEdit className="h-4 w-4" />
-                </button>
+              <div className="mt-3 flex flex-col gap-2 text-xs text-ink-muted">
+                {user.memberships.length > 0 ? (
+                  user.memberships.map((m) => (
+                    <div
+                      key={m.organizationId}
+                      className="flex items-center gap-2"
+                    >
+                      <span>
+                        {m.organizationSlug} · {m.organizationName}
+                      </span>
+                      <span>·</span>
+                      <span className="capitalize">{m.role}</span>
+                    </div>
+                  ))
+                ) : (
+                  <span>{t.users.unassigned}</span>
+                )}
+              </div>
+              {showGlobal && user.globalRoles.length ? (
+                <p className="mt-2 text-xs text-ink-muted">
+                  {t.users.globalPrefix}: {user.globalRoles.join(", ")}
+                </p>
               ) : null}
+              <div className="mt-3 flex items-center justify-between">
+                <Badge tone={user.isActive ? "success" : "neutral"}>
+                  {user.isActive ? t.common.active : t.common.inactive}
+                </Badge>
+                {canManage ? (
+                  <RowActionButton
+                    onClick={() => onEdit?.(user)}
+                    icon={<IconEdit className="h-4 w-4" />}
+                    label={t.users.editUser}
+                    title={t.users.editUser}
+                  />
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </>
+          ))}
+        </>
+      }
+    />
   );
 }
-
-
-

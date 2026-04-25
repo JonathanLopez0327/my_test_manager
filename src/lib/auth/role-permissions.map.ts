@@ -21,6 +21,8 @@ const SUPER_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
     PERMISSIONS.ORG_DELETE,
     PERMISSIONS.ORG_MEMBER_LIST,
     PERMISSIONS.ORG_MEMBER_MANAGE,
+    PERMISSIONS.SIGNUP_REQUEST_LIST,
+    PERMISSIONS.SIGNUP_REQUEST_REVIEW,
 ]);
 
 /** support & auditor only get read-only permissions */
@@ -36,9 +38,14 @@ export const GLOBAL_ROLE_PERMISSIONS: Record<GlobalRole, ReadonlySet<Permission>
 // Organization-role permission maps
 // ─────────────────────────────────────────────────────────────
 
-/** owner gets all permissions except USER_CREATE (stays global) */
+/** owner gets all permissions except USER_CREATE and the super-admin-only signup inbox */
 const ORG_OWNER_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(
-    ALL_PERMISSIONS.filter((p) => p !== PERMISSIONS.USER_CREATE),
+    ALL_PERMISSIONS.filter(
+        (p) =>
+            p !== PERMISSIONS.USER_CREATE &&
+            p !== PERMISSIONS.SIGNUP_REQUEST_LIST &&
+            p !== PERMISSIONS.SIGNUP_REQUEST_REVIEW,
+    ),
 );
 
 /** admin gets project admin permissions + PROJECT_CREATE + org member management */
@@ -48,6 +55,7 @@ const ORG_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
     PERMISSIONS.PROJECT_CREATE,
     PERMISSIONS.PROJECT_UPDATE,
     PERMISSIONS.PROJECT_DELETE,
+    PERMISSIONS.PROJECT_MEMBER_MANAGE,
     PERMISSIONS.TEST_PLAN_LIST,
     PERMISSIONS.TEST_PLAN_CREATE,
     PERMISSIONS.TEST_PLAN_UPDATE,
@@ -87,6 +95,7 @@ const ORG_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
     PERMISSIONS.ORG_UPDATE,
     PERMISSIONS.ORG_MEMBER_LIST,
     PERMISSIONS.ORG_MEMBER_MANAGE,
+    PERMISSIONS.ORG_INVITE_MANAGE,
 ]);
 
 /** member gets PROJECT_LIST and ORG_LIST only (relies on project roles) */
@@ -153,6 +162,7 @@ const PROJECT_ADMIN_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
     ...PROJECT_EDITOR_PERMISSIONS,
     // Delete
     PERMISSIONS.PROJECT_DELETE,
+    PERMISSIONS.PROJECT_MEMBER_MANAGE,
     PERMISSIONS.TEST_PLAN_DELETE,
     PERMISSIONS.TEST_SUITE_DELETE,
     PERMISSIONS.TEST_CASE_DELETE,

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TestCaseStatus } from "@/generated/prisma/client";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
-import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
+import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseStyle, normalizeSteps } from "@/lib/test-cases/normalize-steps";
 
@@ -21,6 +21,74 @@ function parsePriority(value?: number | null) {
   if (!Number.isFinite(parsed)) return 3;
   return Math.min(5, Math.max(1, Math.round(parsed)));
 }
+
+export const GET = withAuth(
+  PERMISSIONS.TEST_CASE_LIST,
+  async (_req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
+    const { id } = await routeCtx.params;
+
+    const testCase = await prisma.testCase.findUnique({
+      where: { id },
+      include: {
+        suite: {
+          select: {
+            id: true,
+            name: true,
+            testPlan: {
+              select: {
+                id: true,
+                name: true,
+                project: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                    organizationId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        createdBy: { select: { id: true, fullName: true, email: true } },
+        automationOwner: { select: { id: true, fullName: true, email: true } },
+      },
+    });
+
+    if (!testCase) {
+      return NextResponse.json(
+        { message: "Test case not found." },
+        { status: 404 },
+      );
+    }
+
+    if (
+      activeOrganizationId &&
+      testCase.suite.testPlan.project.organizationId !== activeOrganizationId
+    ) {
+      return NextResponse.json(
+        { message: "Test case not found." },
+        { status: 404 },
+      );
+    }
+
+    const allowed = await can(PERMISSIONS.TEST_CASE_LIST, {
+      userId,
+      globalRoles,
+      organizationId: activeOrganizationId,
+      organizationRole,
+      projectId: testCase.suite.testPlan.project.id,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { message: "You do not have access to this test case." },
+        { status: 403 },
+      );
+    }
+
+    return NextResponse.json(testCase);
+  },
+);
 
 export const PUT = withAuth(null, async (req, { userId, globalRoles }, routeCtx) => {
   const { id } = await routeCtx.params;

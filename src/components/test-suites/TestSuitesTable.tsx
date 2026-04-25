@@ -4,6 +4,9 @@ import { IconEdit, IconTrash } from "../icons";
 import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { TableShell } from "../ui/TableShell";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages/en";
 import type { TestSuiteRecord, TestSuiteSortBy, SortDir } from "./types";
 
 type TestSuitesTableProps = {
@@ -17,8 +20,8 @@ type TestSuitesTableProps = {
   onSort: (column: TestSuiteSortBy) => void;
 };
 
-function getParentLabel(suite: TestSuiteRecord) {
-  return suite.parent?.name ?? "Root";
+function getParentLabel(t: Messages, suite: TestSuiteRecord) {
+  return suite.parent?.name ?? t.testSuites.rootParent;
 }
 
 export function TestSuitesTable({
@@ -31,46 +34,47 @@ export function TestSuitesTable({
   sortDir,
   onSort,
 }: TestSuitesTableProps) {
+  const t = useT();
   return (
     <TableShell
       loading={loading}
       hasItems={items.length > 0}
-      emptyTitle="No test suites found."
-      emptyDescription="Create a new suite or adjust your filters."
+      emptyTitle={t.testSuites.emptyTitle}
+      emptyDescription={t.testSuites.emptyDescription}
       desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Suite"
+                label={t.testSuites.columns.suite}
                 sortKey="name"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Plan"
+                label={t.testSuites.columns.plan}
                 sortKey="plan"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Parent"
+                label={t.testSuites.columns.parent}
                 sortKey="parent"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Order"
+                label={t.testSuites.columns.order}
                 sortKey="displayOrder"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <th className="px-3 py-2 text-right">
-                {canManage ? "Actions" : ""}
+                {canManage ? t.common.actions : ""}
               </th>
             </tr>
           </thead>
@@ -80,7 +84,7 @@ export function TestSuitesTable({
                 <td className="px-3 py-3">
                   <p className="font-semibold text-ink">{suite.name}</p>
                   <p className="text-xs text-ink-muted">
-                    {suite.description ?? "No description"}
+                    {suite.description ?? t.testSuites.noDescription}
                   </p>
                 </td>
                 <td className="px-3 py-3 text-ink">
@@ -90,7 +94,7 @@ export function TestSuitesTable({
                   </p>
                 </td>
                 <td className="px-3 py-3 text-ink-muted">
-                  {getParentLabel(suite)}
+                  {getParentLabel(t, suite)}
                 </td>
                 <td className="px-3 py-3 text-ink-muted">
                   {suite.displayOrder}
@@ -101,12 +105,12 @@ export function TestSuitesTable({
                       <RowActionButton
                         onClick={() => onEdit(suite)}
                         icon={<IconEdit className="h-4 w-4" />}
-                        label="Edit suite"
+                        label={t.testSuites.editSuite}
                       />
                       <RowActionButton
                         onClick={() => onDelete(suite)}
                         icon={<IconTrash className="h-4 w-4" />}
-                        label="Delete suite"
+                        label={t.testSuites.deleteSuite}
                         tone="danger"
                       />
                     </div>
@@ -132,30 +136,30 @@ export function TestSuitesTable({
                 <p className="text-lg font-semibold text-ink">{suite.name}</p>
               </div>
               <span className="text-xs font-semibold text-ink-muted">
-                Order {suite.displayOrder}
+                {formatMessage(t.testSuites.orderPrefix, { count: suite.displayOrder })}
               </span>
             </div>
             <p className="mt-2 text-sm text-ink-muted">
               {suite.testPlan.name} · {suite.testPlan.project.name}
             </p>
             <p className="mt-3 text-sm text-ink-muted">
-              {suite.description ?? "No description"}
+              {suite.description ?? t.testSuites.noDescription}
             </p>
             <p className="mt-3 text-xs text-ink-soft">
-              Parent: {getParentLabel(suite)}
+              {formatMessage(t.testSuites.parentPrefix, { name: getParentLabel(t, suite) })}
             </p>
             {canManage ? (
               <div className="mt-4 flex items-center gap-3">
                 <RowActionButton
                   onClick={() => onEdit(suite)}
                   icon={<IconEdit className="h-5 w-5" />}
-                  label="Edit suite"
+                  label={t.testSuites.editSuite}
                   size="md"
                 />
                 <RowActionButton
                   onClick={() => onDelete(suite)}
                   icon={<IconTrash className="h-5 w-5" />}
-                  label="Delete suite"
+                  label={t.testSuites.deleteSuite}
                   tone="danger"
                   size="md"
                 />

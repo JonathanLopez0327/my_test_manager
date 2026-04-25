@@ -12,6 +12,9 @@ export type {
   ConversationGeneratedAttachment,
   AssistantMessageMetadata,
   AssistantDocumentVersion,
+  ApprovalCall,
+  ApprovalDecision,
+  ApprovalStatus,
   ScreenData,
   ScreenDataItem,
 } from "./types";

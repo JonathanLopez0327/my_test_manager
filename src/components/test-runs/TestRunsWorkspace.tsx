@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IconCheck, IconChevronDown, IconChevronRight, IconFolder, IconMenu, IconPlus } from "@/components/icons";
+import { IconCheck, IconChevronDown, IconChevronRight, IconChevronUp, IconFilter, IconFolder, IconMenu, IconPlus } from "@/components/icons";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/ui/ConfirmationDialog";
@@ -207,6 +207,12 @@ export function TestRunsWorkspace() {
   const { data: session } = useSession();
 
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | TestRunRecord["status"]>("");
+  const [runTypeFilter, setRunTypeFilter] = useState<"" | "manual" | "automated">("");
+  const [projectFilter, setProjectFilter] = useState("");
+  const [planFilter, setPlanFilter] = useState("");
+  const [suiteFilter, setSuiteFilter] = useState("");
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [runs, setRuns] = useState<TestRunRecord[]>([]);
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [runsError, setRunsError] = useState<string | null>(null);
@@ -372,6 +378,44 @@ export function TestRunsWorkspace() {
     ];
   }, [metrics]);
 
+  const availablePlans = useMemo(
+    () => (projectFilter ? plans.filter((plan) => plan.projectId === projectFilter) : plans),
+    [plans, projectFilter],
+  );
+
+  const availableSuites = useMemo(() => {
+    if (planFilter) return suites.filter((suite) => suite.testPlanId === planFilter);
+    if (projectFilter) return suites.filter((suite) => suite.projectId === projectFilter);
+    return suites;
+  }, [suites, projectFilter, planFilter]);
+
+  const activeFilterCount =
+    (statusFilter ? 1 : 0) +
+    (runTypeFilter ? 1 : 0) +
+    (projectFilter ? 1 : 0) +
+    (planFilter ? 1 : 0) +
+    (suiteFilter ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0;
+
+  const handleProjectFilterChange = useCallback((value: string) => {
+    setProjectFilter(value);
+    setPlanFilter("");
+    setSuiteFilter("");
+  }, []);
+
+  const handlePlanFilterChange = useCallback((value: string) => {
+    setPlanFilter(value);
+    setSuiteFilter("");
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setStatusFilter("");
+    setRunTypeFilter("");
+    setProjectFilter("");
+    setPlanFilter("");
+    setSuiteFilter("");
+  }, []);
+
   const fetchRuns = useCallback(async () => {
     setLoadingRuns(true);
     setRunsError(null);
@@ -387,6 +431,11 @@ export function TestRunsWorkspace() {
           pageSize: String(LIST_PAGE_SIZE),
           query,
         });
+        if (statusFilter) params.set("status", statusFilter);
+        if (runTypeFilter) params.set("runType", runTypeFilter);
+        if (projectFilter) params.set("projectId", projectFilter);
+        if (planFilter) params.set("testPlanId", planFilter);
+        if (suiteFilter) params.set("suiteId", suiteFilter);
         const response = await fetch(`/api/test-runs?${params.toString()}`);
         const payload = await parseJsonSafely<TestRunsResponse & { message?: string }>(response);
         if (!response.ok) {
@@ -409,7 +458,7 @@ export function TestRunsWorkspace() {
     } finally {
       setLoadingRuns(false);
     }
-  }, [query]);
+  }, [query, statusFilter, runTypeFilter, projectFilter, planFilter, suiteFilter]);
 
   const fetchOptions = useCallback(async () => {
     setOptionsError(null);
@@ -1147,7 +1196,7 @@ export function TestRunsWorkspace() {
           ) : null}
         </div>
 
-        <div className="px-4 pb-2">
+        <div className="space-y-2 px-4 pb-2">
           <SearchInput
             placeholder="Search runs..."
             value={query}
@@ -1155,6 +1204,107 @@ export function TestRunsWorkspace() {
             containerClassName="w-full"
             aria-label="Search runs"
           />
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setFiltersExpanded((open) => !open)}
+              className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-xs font-medium text-ink-soft hover:bg-surface-muted hover:text-ink"
+              aria-expanded={filtersExpanded}
+              aria-controls="test-runs-filters"
+            >
+              <IconFilter className="h-3.5 w-3.5" />
+              <span>Filters</span>
+              {activeFilterCount > 0 ? (
+                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-100 px-1 text-[10px] font-semibold text-brand-700">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+              {filtersExpanded ? (
+                <IconChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <IconChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="text-xs font-medium text-brand-700 hover:text-brand-800"
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
+          {filtersExpanded ? (
+            <div id="test-runs-filters" className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                  className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
+                  aria-label="Filter by status"
+                >
+                  <option value="">All statuses</option>
+                  <option value="queued">Queued</option>
+                  <option value="running">Running</option>
+                  <option value="completed">Completed</option>
+                  <option value="canceled">Canceled</option>
+                  <option value="failed">Failed</option>
+                </select>
+                <select
+                  value={runTypeFilter}
+                  onChange={(event) => setRunTypeFilter(event.target.value as typeof runTypeFilter)}
+                  className="h-10 rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
+                  aria-label="Filter by run type"
+                >
+                  <option value="">All types</option>
+                  <option value="manual">Manual</option>
+                  <option value="automated">Automated</option>
+                </select>
+              </div>
+              <select
+                value={projectFilter}
+                onChange={(event) => handleProjectFilterChange(event.target.value)}
+                className="h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
+                aria-label="Filter by project"
+              >
+                <option value="">All projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.key} · {project.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={planFilter}
+                onChange={(event) => handlePlanFilterChange(event.target.value)}
+                className="h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Filter by test plan"
+                disabled={availablePlans.length === 0}
+              >
+                <option value="">All test plans</option>
+                {availablePlans.map((plan) => (
+                  <option key={plan.id} value={plan.id}>
+                    {plan.projectKey} · {plan.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={suiteFilter}
+                onChange={(event) => setSuiteFilter(event.target.value)}
+                className="h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Filter by suite"
+                disabled={availableSuites.length === 0}
+              >
+                <option value="">All suites</option>
+                {availableSuites.map((suite) => (
+                  <option key={suite.id} value={suite.id}>
+                    {suite.testPlanName} · {suite.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         {runsError ? (

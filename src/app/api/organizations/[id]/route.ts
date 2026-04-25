@@ -44,7 +44,10 @@ export const GET = withAuth(null, async (_req, { userId, globalRoles, organizati
     }
   }
 
-  return NextResponse.json(org);
+  return NextResponse.json({
+    ...org,
+    maxArtifactBytes: org.maxArtifactBytes.toString(),
+  });
 });
 
 export const PUT = withAuth(null, async (req, { userId, globalRoles, organizationRole }, routeCtx) => {
@@ -73,6 +76,7 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       maxMembers?: number;
       maxTestCases?: number;
       maxTestRuns?: number;
+      maxArtifactBytes?: number | string;
       betaExpiresAt?: string | null;
     };
 
@@ -117,6 +121,18 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
         }
       }
 
+      if (body.maxArtifactBytes !== undefined) {
+        const raw = body.maxArtifactBytes;
+        const num = typeof raw === "string" ? Number(raw) : raw;
+        if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) {
+          return NextResponse.json(
+            { message: "maxArtifactBytes must be a non-negative integer." },
+            { status: 400 },
+          );
+        }
+        data.maxArtifactBytes = BigInt(num);
+      }
+
       if (body.betaExpiresAt !== undefined) {
         if (body.betaExpiresAt === null) {
           data.betaExpiresAt = null;
@@ -135,7 +151,10 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, organizatio
       data,
     });
 
-    return NextResponse.json(org);
+    return NextResponse.json({
+      ...org,
+      maxArtifactBytes: org.maxArtifactBytes.toString(),
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&

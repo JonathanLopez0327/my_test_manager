@@ -117,7 +117,10 @@ describe("POST /api/bugs/[id]/attachments/upload", () => {
   it("creates attachment for valid file", async () => {
     const formData = new FormData();
     formData.set("type", "screenshot");
-    formData.set("file", new File([new Uint8Array(1024)], "proof.png", { type: "image/png" }));
+    // Magic-byte PNG header so the server-side sniffer accepts the upload.
+    const png = new Uint8Array(1024);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+    formData.set("file", new File([png], "proof.png", { type: "image/png" }));
 
     const response = await POST(
       new Request("http://localhost/api/bugs/bug-1/attachments/upload", {

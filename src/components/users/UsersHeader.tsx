@@ -2,13 +2,16 @@
 
 import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { SearchInput } from "../ui/SearchInput";
-import { uiMessages } from "@/lib/ui/messages";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 type UsersHeaderProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onCreate: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
   canCreate: boolean;
@@ -18,21 +21,24 @@ export function UsersHeader({
   query,
   onQueryChange,
   onCreate,
+  onRefresh,
+  isRefreshing = false,
   pageSize,
   onPageSizeChange,
   canCreate,
 }: UsersHeaderProps) {
+  const t = useT();
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-soft">
-          User management
+          {t.users.eyebrow}
         </p>
-        <h2 className="text-2xl font-semibold text-ink">User Manager</h2>
+        <h2 className="text-2xl font-semibold text-ink">{t.users.heading}</h2>
       </div>
       <div className="flex w-full flex-wrap items-center justify-start gap-3 sm:justify-end md:gap-4 lg:flex-1">
         <SearchInput
-          placeholder={uiMessages.users.searchPlaceholder}
+          placeholder={t.users.searchPlaceholder}
           value={query}
           onChange={onQueryChange}
           containerClassName="w-full min-w-[220px] flex-1 sm:max-w-sm"
@@ -44,14 +50,15 @@ export function UsersHeader({
         >
           {[5, 10, 20, 30].map((size) => (
             <option key={size} value={size}>
-              {size} per page
+              {size} {t.users.perPage}
             </option>
           ))}
         </select>
+        <RefreshIconButton onRefresh={onRefresh} loading={isRefreshing} />
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />
-            New user
+            {t.users.newUser}
           </Button>
         ) : null}
       </div>

@@ -1,0 +1,59 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="IA y agentes"
+  title="Tokens de agente y RBAC"
+  lead={<>Un <strong>token de agente</strong> es una credencial bearer de larga duración que representa a un usuario + organización específicos. Cada llamada API hecha con el token corre como si la hiciera ese usuario — mismos permisos, mismo audit trail.</>}
+/>
+
+## Crear un token
+
+Desde **Settings → API Tokens** (sólo owners o admins de la organización):
+
+1. Click en **Nuevo token**
+2. Asígnale un nombre (ej. `ci-runner-prod`)
+3. Elige el usuario al que va a representar (por defecto, tú)
+4. Copia el token mostrado **una sola vez** — luego no se puede recuperar
+
+Los tokens tienen el formato `agt_<random>` y se firman/verifican en el servidor.
+
+## Usar un token
+
+Envía el token como bearer en el header `Authorization`:
+
+```http
+Authorization: Bearer agt_01HXX...
+```
+
+Eso es todo. No hay una "API de agente" separada — las mismas rutas documentadas en la [Referencia de API](/docs/api) aceptan cookies de sesión (uso interactivo) o tokens de agente (uso programático).
+
+## Permisos
+
+Los tokens están **estrictamente limitados**:
+
+- A una sola organización (la que estaba activa al emitirse)
+- No pueden crear nuevos tokens
+- No pueden cambiar roles de usuario
+- No pueden borrar al usuario, la organización u otros tokens
+
+Más allá de esos límites del servidor, el agente tiene los mismos permisos del usuario que representa. ¿Necesitas acceso más restringido? Crea un usuario dedicado con rol `viewer`/`editor` y emite el token para ese usuario.
+
+## Rotación
+
+Cuando sospechas que un token se filtró:
+
+1. Revócalo en **Settings → API Tokens**
+2. Genera uno nuevo
+3. Actualiza los secrets de tu CI/integración
+
+<Callout tone="warning" title="Sin recuperación silenciosa">
+  Los tokens revocados devuelven HTTP 401 inmediatamente. La integración no se auto-recupera — debes rotar el secret.
+</Callout>
+
+## Audit log
+
+Cada llamada API hecha con un token aparece en el audit log de la organización con el nombre del token y el usuario que representa. Úsalo para investigar "quién hizo realmente esto".
+
+<Pager currentPath="/docs/agent-tokens" />

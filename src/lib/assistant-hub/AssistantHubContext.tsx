@@ -11,6 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  ApprovalCall,
+  ApprovalStatus,
   AssistantEntityContext,
   AssistantHubState,
   AssistantHubActions,
@@ -39,6 +41,88 @@ import {
 import type { ThreadDocumentApiResponse } from "./types";
 
 /* ------------------------------------------------------------------ */
+/*  SSE helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+type ApprovalPayload = {
+  calls: ApprovalCall[];
+  thread_id?: string | null;
+};
+
+type StreamResult = {
+  assistantRawContent: string;
+  approval: ApprovalPayload | null;
+};
+
+async function consumeAssistantStream(
+  body: ReadableStream<Uint8Array>,
+): Promise<StreamResult> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  let assistantRawContent = "";
+  let approval: ApprovalPayload | null = null;
+  let currentEvent: string | null = null;
+
+  const processFrameLine = (rawLine: string): "stop" | "continue" => {
+    const line = rawLine.trim();
+    if (!line) {
+      currentEvent = null;
+      return "continue";
+    }
+    if (line.startsWith("event:")) {
+      currentEvent = line.slice(6).trim() || null;
+      return "continue";
+    }
+    if (!line.startsWith("data:")) return "continue";
+    const data = line.slice(5).trim();
+    if (!data || data === "[DONE]") return "continue";
+
+    if (currentEvent === "approval_required") {
+      try {
+        approval = JSON.parse(data) as ApprovalPayload;
+      } catch {
+        approval = { calls: [] };
+      }
+      return "stop";
+    }
+
+    try {
+      const parsed = JSON.parse(data) as unknown;
+      const delta = extractAssistantDelta(parsed);
+      if (delta) assistantRawContent = mergeAssistantChunk(assistantRawContent, delta);
+    } catch {
+      // ignore unparseable chunk
+    }
+    return "continue";
+  };
+
+  outer: while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    pending += decoder.decode(value, { stream: true });
+    const lines = pending.split("\n");
+    pending = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (processFrameLine(line) === "stop") {
+        reader.cancel().catch(() => undefined);
+        break outer;
+      }
+    }
+  }
+
+  if (pending.trim()) {
+    for (const line of pending.split("\n")) {
+      if (processFrameLine(line) === "stop") break;
+    }
+  }
+
+  return { assistantRawContent, approval };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Reducer                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -49,6 +133,7 @@ type Action =
   | { type: "SET_CONVERSATIONS"; conversations: Conversation[] }
   | { type: "SET_MESSAGES"; conversationId: string; messages: ChatMessage[] }
   | { type: "APPEND_MESSAGE"; conversationId: string; message: ChatMessage }
+  | { type: "UPDATE_MESSAGE"; conversationId: string; messageId: string; patch: Partial<ChatMessage> }
   | { type: "SELECT_CONVERSATION"; id: string }
   | { type: "SET_DRAFT"; draft: string }
   | { type: "SET_SENDING"; isSending: boolean }
@@ -111,6 +196,19 @@ function reducer(state: AssistantHubState, action: Action): AssistantHubState {
           ],
         },
       };
+    case "UPDATE_MESSAGE": {
+      const existing = state.conversationMessages[action.conversationId];
+      if (!existing) return state;
+      return {
+        ...state,
+        conversationMessages: {
+          ...state.conversationMessages,
+          [action.conversationId]: existing.map((m) =>
+            m.id === action.messageId ? { ...m, ...action.patch } : m,
+          ),
+        },
+      };
+    }
     case "SELECT_CONVERSATION":
       return { ...state, activeConversationId: action.id };
     case "SET_DRAFT":
@@ -161,11 +259,16 @@ const HubContext = createContext<HubContextValue | null>(null);
 /*  Provider                                                           */
 /* ------------------------------------------------------------------ */
 
+type ThreadInterruptResponse =
+  | { interrupted: false }
+  | { interrupted: true; threadId: string; calls: ApprovalCall[] };
+
 export function AssistantHubProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const unmountedRef = useRef(false);
   const pollingThreadsRef = useRef<Set<string>>(new Set());
   const checkedThreadsRef = useRef<Set<string>>(new Set());
+  const checkedInterruptsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -264,6 +367,56 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (selectedThreadId) void checkThreadDocument(selectedThreadId);
   }, [selectedThreadId, checkThreadDocument]);
+
+  const interruptStateRef = useRef(state);
+  interruptStateRef.current = state;
+
+  const checkThreadInterrupt = useCallback(async (threadId: string) => {
+    if (!threadId || checkedInterruptsRef.current.has(threadId)) return;
+    checkedInterruptsRef.current.add(threadId);
+
+    try {
+      const response = await fetch(
+        `/api/ai/threads/${encodeURIComponent(threadId)}/interrupt`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) return;
+      const payload = (await response.json()) as ThreadInterruptResponse;
+      if (!payload.interrupted || unmountedRef.current) return;
+
+      const s = interruptStateRef.current;
+      const targetConversation = s.conversations.find(
+        (c) => (c.threadId ?? "").trim() === threadId,
+      );
+      if (!targetConversation) return;
+
+      const currentMessages = s.conversationMessages[targetConversation.id] ?? [];
+      const alreadyPending = currentMessages.some(
+        (m) => m.role === "approval_required" && (m.approvalStatus ?? "pending") === "pending",
+      );
+      if (alreadyPending) return;
+
+      dispatch({
+        type: "APPEND_MESSAGE",
+        conversationId: targetConversation.id,
+        message: {
+          id: `ap-${Date.now()}`,
+          role: "approval_required",
+          content: "",
+          approvalCalls: payload.calls,
+          approvalStatus: "pending",
+          threadId,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch {
+      // Silent: losing a restore is recoverable by sending a new prompt.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedThreadId) void checkThreadInterrupt(selectedThreadId);
+  }, [selectedThreadId, checkThreadInterrupt]);
 
   const pollThreadDocumentUntilReady = useCallback(async (threadId: string) => {
     if (!threadId || pollingThreadsRef.current.has(threadId)) return;
@@ -404,6 +557,35 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const appendAssistantMessage = ({
+      conversationId,
+      rawContent,
+      threadId,
+    }: {
+      conversationId: string;
+      rawContent: string;
+      threadId: string | null;
+    }) => {
+      const formatted = normalizeAssistantContent(rawContent).trim();
+      const assistantContent = formatted || "No assistant content was returned for this request.";
+      const metadata = normalizeAssistantMetadata(rawContent);
+      const documentVersions = normalizeAssistantDocumentVersions(rawContent);
+
+      dispatch({
+        type: "APPEND_MESSAGE",
+        conversationId,
+        message: {
+          id: `a-${Date.now() + 1}`,
+          role: "assistant",
+          content: assistantContent,
+          metadata,
+          documentVersions,
+          threadId,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    };
+
     const sendMessage = async (message: string): Promise<void> => {
       const s = stateRef.current;
       const content = message.trim();
@@ -473,53 +655,29 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let pending = "";
-        let assistantRawContent = "";
+        const { assistantRawContent, approval } = await consumeAssistantStream(response.body);
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          pending += decoder.decode(value, { stream: true });
-          const lines = pending.split("\n");
-          pending = lines.pop() ?? "";
-
-          for (const rawLine of lines) {
-            const line = rawLine.trim();
-            if (!line.startsWith("data:")) continue;
-            const data = line.slice(5).trim();
-            if (!data || data === "[DONE]") continue;
-
-            try {
-              const parsed = JSON.parse(data) as unknown;
-              const delta = extractAssistantDelta(parsed);
-              if (!delta) continue;
-              assistantRawContent = mergeAssistantChunk(assistantRawContent, delta);
-            } catch {
-              continue;
-            }
-          }
+        if (approval) {
+          dispatch({
+            type: "APPEND_MESSAGE",
+            conversationId: chatId,
+            message: {
+              id: `ap-${Date.now() + 1}`,
+              role: "approval_required",
+              content: "",
+              approvalCalls: approval.calls,
+              approvalStatus: "pending",
+              threadId: approval.thread_id ?? activeThreadId,
+              createdAt: new Date().toISOString(),
+            },
+          });
+          return;
         }
 
-        const formattedContent = normalizeAssistantContent(assistantRawContent).trim();
-        const assistantContent = formattedContent || "No assistant content was returned for this request.";
-        const assistantMetadata = normalizeAssistantMetadata(assistantRawContent);
-        const assistantDocumentVersions = normalizeAssistantDocumentVersions(assistantRawContent);
-
-        dispatch({
-          type: "APPEND_MESSAGE",
+        appendAssistantMessage({
           conversationId: chatId,
-          message: {
-            id: `a-${Date.now() + 1}`,
-            role: "assistant",
-            content: assistantContent,
-            metadata: assistantMetadata,
-            documentVersions: assistantDocumentVersions,
-            threadId: activeThreadId,
-            createdAt: new Date().toISOString(),
-          },
+          rawContent: assistantRawContent,
+          threadId: activeThreadId,
         });
 
         if (activeThreadId) {
@@ -547,6 +705,89 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const respondApproval: AssistantHubActions["respondApproval"] = async ({
+      messageId,
+      threadId,
+      decision,
+    }) => {
+      const chatId = stateRef.current.activeConversationId;
+      if (!chatId || stateRef.current.isSending) return;
+
+      const nextStatus: ApprovalStatus =
+        "approve_all" in decision || decision.approved.length > 0 ? "approved" : "rejected";
+
+      dispatch({
+        type: "UPDATE_MESSAGE",
+        conversationId: chatId,
+        messageId,
+        patch: { approvalStatus: nextStatus },
+      });
+
+      dispatch({ type: "SET_ERROR", error: null });
+      dispatch({ type: "SET_SENDING", isSending: true });
+
+      try {
+        const response = await fetch("/api/ai/approve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId: chatId,
+            threadId,
+            decision,
+          }),
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+          throw new Error(payload?.message || "Could not submit the approval decision.");
+        }
+        if (!response.body) throw new Error("The AI response stream is empty.");
+
+        const { assistantRawContent, approval } = await consumeAssistantStream(response.body);
+
+        if (approval) {
+          dispatch({
+            type: "APPEND_MESSAGE",
+            conversationId: chatId,
+            message: {
+              id: `ap-${Date.now() + 1}`,
+              role: "approval_required",
+              content: "",
+              approvalCalls: approval.calls,
+              approvalStatus: "pending",
+              threadId: approval.thread_id ?? threadId,
+              createdAt: new Date().toISOString(),
+            },
+          });
+          return;
+        }
+
+        appendAssistantMessage({
+          conversationId: chatId,
+          rawContent: assistantRawContent,
+          threadId,
+        });
+
+        if (threadId) {
+          void pollThreadDocumentUntilReady(threadId);
+        }
+      } catch (approvalError) {
+        const nextError =
+          approvalError instanceof Error
+            ? approvalError.message
+            : "Could not submit the approval decision.";
+        dispatch({ type: "SET_ERROR", error: nextError });
+        dispatch({
+          type: "UPDATE_MESSAGE",
+          conversationId: chatId,
+          messageId,
+          patch: { approvalStatus: "error" },
+        });
+      } finally {
+        dispatch({ type: "SET_SENDING", isSending: false });
+      }
+    };
+
     const setDraft = (draft: string) => dispatch({ type: "SET_DRAFT", draft });
     const toggleHistory = () => dispatch({ type: "TOGGLE_HISTORY" });
     const setScreenData = (screenData: ScreenData | undefined) =>
@@ -560,6 +801,7 @@ export function AssistantHubProvider({ children }: { children: ReactNode }) {
       selectConversation,
       createConversation,
       sendMessage,
+      respondApproval,
       setDraft,
       toggleHistory,
       setScreenData,

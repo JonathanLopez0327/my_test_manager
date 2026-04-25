@@ -2,12 +2,15 @@
 
 import { IconPlus } from "../icons";
 import { Button } from "../ui/Button";
+import { RefreshIconButton } from "../ui/RefreshIconButton";
 import { SearchInput } from "../ui/SearchInput";
 
 type TestSuitesHeaderProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onCreate: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
   pageSize: number;
   onPageSizeChange: (value: number) => void;
   canCreate?: boolean;
@@ -17,6 +20,8 @@ export function TestSuitesHeader({
   query,
   onQueryChange,
   onCreate,
+  onRefresh,
+  isRefreshing = false,
   pageSize,
   onPageSizeChange,
   canCreate = true,
@@ -40,6 +45,7 @@ export function TestSuitesHeader({
             </option>
           ))}
         </select>
+        <RefreshIconButton onRefresh={onRefresh} loading={isRefreshing} />
         {canCreate ? (
           <Button onClick={onCreate} size="sm" className="whitespace-nowrap">
             <IconPlus className="h-4 w-4" />

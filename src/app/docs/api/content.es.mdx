@@ -1,0 +1,62 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Plataforma"
+  title="Referencia de API"
+  lead={<>Test Manager expone una sola API REST en <code>/api/*</code>. Los mismos endpoints sirven a la app web (vía cookies de sesión) y a agentes externos (vía <a href="/docs/agent-tokens">tokens de agente</a>).</>}
+/>
+
+<Callout tone="info" title="Formato">
+  Todos los requests/responses son JSON. Los errores devuelven un envelope con <code>code</code>, <code>message</code> y campos de contexto.
+</Callout>
+
+## Autenticación
+
+Pasa una de estas dos cosas:
+
+- Una cookie de sesión de NextAuth (uso por navegador)
+- `Authorization: Bearer agt_...` (uso programático)
+
+Ambas autentican igual; los chequeos de permiso son idénticos.
+
+## Recursos
+
+| Recurso | Rutas |
+|---------|-------|
+| Proyectos       | `GET/POST /api/projects`, `GET/PUT/DELETE /api/projects/:id` |
+| Test plans      | `GET/POST /api/test-plans`, `GET/PUT/DELETE /api/test-plans/:id` |
+| Casos de prueba | `GET/POST /api/test-cases`, `GET/PUT/DELETE /api/test-cases/:id` |
+| Test runs       | `GET/POST /api/test-runs`, `GET/PUT/DELETE /api/test-runs/:id` |
+| Run items       | `GET /api/test-runs/:id/items`, `PATCH /api/test-runs/:id/items/:runItemId` |
+| Ejecuciones     | `POST .../executions`, `POST .../executions/:executionId/complete` |
+| Artifacts       | `POST /api/test-runs/:id/artifacts/upload` |
+| Bugs            | `GET/POST /api/bugs`, `GET/PUT/DELETE /api/bugs/:id` |
+| Adjuntos de bugs | `POST /api/bugs/:id/attachments/upload` |
+| Uso de organización | `GET /api/organizations/current/usage` |
+
+## Paginación
+
+Los endpoints de lista aceptan `?page=1&pageSize=20`. La respuesta incluye `total`, `page`, `pageSize` e `items`.
+
+## Filtrado y ordenado
+
+La mayoría de los endpoints de lista aceptan `query`, filtros específicos del recurso (ej. `status`, `severity`, `projectId`) y `sortBy`/`sortDir`.
+
+## Códigos de error
+
+| HTTP | Código | Significado |
+|------|--------|-------------|
+| 401  | `UNAUTHORIZED` | Falta token/sesión o son inválidos |
+| 402  | `QUOTA_EXCEEDED` / `BETA_EXPIRED` | La organización superó la cuota o expiró la licencia |
+| 403  | `FORBIDDEN` | Autenticado pero sin permiso |
+| 404  | `NOT_FOUND` | El recurso no existe o no es visible para ti |
+| 409  | `CONFLICT` | Conflicto de unicidad o de estado |
+| 422  | Validación | El body o query no pasó la validación |
+
+## Webhooks
+
+Test Manager se suscribe a eventos de licencia de Keygen en `/api/webhooks/keygen`. Los webhooks salientes (proyecto → sistema externo) están en el roadmap; por ahora los agentes sondean en intervalos.
+
+<Pager currentPath="/docs/api" />

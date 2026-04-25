@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconMenu } from "../icons";
 import { Badge } from "../ui/Badge";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages/en";
 import type {
   BugRecord,
   BugStatus,
@@ -32,15 +35,6 @@ type DesktopContextMenuState = {
   y: number;
 };
 
-const statusLabels: Record<BugStatus, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  resolved: "Resolved",
-  verified: "Verified",
-  closed: "Closed",
-  reopened: "Reopened",
-};
-
 const statusTones: Record<BugStatus, "success" | "warning" | "danger" | "neutral"> = {
   open: "neutral",
   in_progress: "warning",
@@ -50,13 +44,6 @@ const statusTones: Record<BugStatus, "success" | "warning" | "danger" | "neutral
   reopened: "danger",
 };
 
-const severityLabels: Record<BugSeverity, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-};
-
 const severityTones: Record<BugSeverity, "success" | "warning" | "danger" | "neutral"> = {
   critical: "danger",
   high: "warning",
@@ -64,19 +51,25 @@ const severityTones: Record<BugSeverity, "success" | "warning" | "danger" | "neu
   low: "success",
 };
 
-const typeLabels: Record<BugType, string> = {
-  bug: "Bug",
-  enhancement: "Enhancement",
-  task: "Task",
-};
+function statusLabel(t: Messages, status: BugStatus): string {
+  return t.bugs.statuses[status] ?? status;
+}
+
+function severityLabel(t: Messages, severity: BugSeverity): string {
+  return t.bugs.severities[severity] ?? severity;
+}
+
+function typeLabel(t: Messages, type: BugType): string {
+  return t.bugs.types[type] ?? type;
+}
 
 function getPriorityLabel(priority: number) {
   if (!Number.isFinite(priority)) return "P3";
   return `P${priority}`;
 }
 
-function getUserName(user: { fullName: string | null; email: string } | null) {
-  if (!user) return "Unassigned";
+function getUserName(t: Messages, user: { fullName: string | null; email: string } | null) {
+  if (!user) return t.bugs.unassigned;
   return user.fullName || user.email;
 }
 
@@ -92,6 +85,7 @@ export function BugsTable({
   sortDir,
   onSort,
 }: BugsTableProps) {
+  const t = useT();
   const [desktopContextMenu, setDesktopContextMenu] = useState<DesktopContextMenuState | null>(null);
   const [mobileMenuBugId, setMobileMenuBugId] = useState<string | null>(null);
   const desktopMenuRef = useRef<HTMLDivElement | null>(null);
@@ -228,7 +222,7 @@ export function BugsTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-ink-muted">
         <span className="h-10 w-10 animate-pulse rounded-full bg-brand-100" />
-        Loading bugs...
+        {t.bugs.loadingBugs}
       </div>
     );
   }
@@ -236,7 +230,7 @@ export function BugsTable({
   if (!items.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-ink-muted">
-        No bugs to show.
+        {t.bugs.noBugs}
       </div>
     );
   }
@@ -249,50 +243,50 @@ export function BugsTable({
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Bug"
+                label={t.bugs.columns.bug}
                 sortKey="bug"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Status"
+                label={t.common.status}
                 sortKey="status"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Severity"
+                label={t.bugs.columns.severity}
                 sortKey="severity"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Type"
+                label={t.bugs.columns.type}
                 sortKey="type"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Priority"
+                label={t.bugs.columns.priority}
                 sortKey="priority"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Assigned To"
+                label={t.bugs.columns.assignedTo}
                 sortKey="assignedTo"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-3 py-2.5 font-medium">Test Run</th>
+              <th className="px-3 py-2.5 font-medium">{t.bugs.columns.testRun}</th>
               <SortableHeaderCell
-                label="Comments"
+                label={t.bugs.columns.comments}
                 sortKey="comments"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
@@ -328,22 +322,22 @@ export function BugsTable({
                 </td>
                 <td className="px-3 py-2.5">
                   <Badge tone={statusTones[bug.status]}>
-                    {statusLabels[bug.status]}
+                    {statusLabel(t, bug.status)}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
                   <Badge tone={severityTones[bug.severity]}>
-                    {severityLabels[bug.severity]}
+                    {severityLabel(t, bug.severity)}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
-                  {typeLabels[bug.type]}
+                  {typeLabel(t, bug.type)}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
                   {getPriorityLabel(bug.priority)}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted">
-                  {getUserName(bug.assignedTo)}
+                  {getUserName(t, bug.assignedTo)}
                 </td>
                 <td className="px-3 py-2.5 text-ink-muted truncate max-w-[150px]">
                   {bug.testRun?.name || "\u2014"}
@@ -375,7 +369,7 @@ export function BugsTable({
                 </button>
                 <div className="flex items-center gap-2">
                   <Badge tone={statusTones[bug.status]}>
-                    {statusLabels[bug.status]}
+                    {statusLabel(t, bug.status)}
                   </Badge>
                   <button
                     type="button"
@@ -385,7 +379,7 @@ export function BugsTable({
                       closeDesktopContextMenu();
                     }}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-stroke text-ink-muted transition hover:bg-surface-muted"
-                    aria-label="Bug actions"
+                    aria-label={t.bugs.bugActions}
                     aria-haspopup="menu"
                     aria-expanded={mobileMenuOpen}
                   >
@@ -395,28 +389,28 @@ export function BugsTable({
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Badge tone={severityTones[bug.severity]}>
-                  {severityLabels[bug.severity]}
+                  {severityLabel(t, bug.severity)}
                 </Badge>
-                <span className="text-xs text-ink-muted">{typeLabels[bug.type]}</span>
+                <span className="text-xs text-ink-muted">{typeLabel(t, bug.type)}</span>
                 <span className="text-xs text-ink-muted">{getPriorityLabel(bug.priority)}</span>
               </div>
               <p className="mt-2 text-sm text-ink-muted">
-                Assigned: {getUserName(bug.assignedTo)}
+                {formatMessage(t.bugs.assignedPrefix, { name: getUserName(t, bug.assignedTo) })}
               </p>
               {bug.testRun ? (
                 <p className="mt-1 text-sm text-ink-muted">
-                  Test Run: {bug.testRun.name || bug.testRun.id}
+                  {formatMessage(t.bugs.testRunPrefix, { name: bug.testRun.name || bug.testRun.id })}
                 </p>
               ) : null}
               <p className="mt-1 text-xs text-ink-soft">
-                {bug._count?.comments ?? 0} comments
+                {formatMessage(t.bugs.commentsCount, { count: bug._count?.comments ?? 0 })}
               </p>
 
               {mobileMenuOpen ? (
                 <div
                   ref={mobileMenuRef}
                   role="menu"
-                  aria-label="Bug actions"
+                  aria-label={t.bugs.bugActions}
                   className="absolute right-4 top-14 z-40 min-w-[180px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
                   onKeyDown={handleMobileMenuKeyDown}
                 >
@@ -429,7 +423,7 @@ export function BugsTable({
                       closeMobileMenu();
                     }}
                   >
-                    <span>View bug</span>
+                    <span>{t.bugs.viewBug}</span>
                   </button>
                   {canEdit ? (
                     <button
@@ -441,7 +435,7 @@ export function BugsTable({
                         closeMobileMenu();
                       }}
                     >
-                      <span>Edit bug</span>
+                      <span>{t.bugs.editBug}</span>
                     </button>
                   ) : null}
                   {canDelete ? (
@@ -454,7 +448,7 @@ export function BugsTable({
                         closeMobileMenu();
                       }}
                     >
-                      <span>Delete bug</span>
+                      <span>{t.bugs.deleteBug}</span>
                     </button>
                   ) : null}
                 </div>
@@ -468,7 +462,7 @@ export function BugsTable({
         <div
           ref={desktopMenuRef}
           role="menu"
-          aria-label="Bug actions"
+          aria-label={t.bugs.bugActions}
           className="fixed z-50 min-w-[200px] rounded-lg border border-stroke bg-surface-elevated p-1.5 shadow-lg"
           style={{ top: desktopMenuPosition.top, left: desktopMenuPosition.left }}
           onKeyDown={handleDesktopMenuKeyDown}
@@ -482,7 +476,7 @@ export function BugsTable({
               closeDesktopContextMenu();
             }}
           >
-            <span>View bug</span>
+            <span>{t.bugs.viewBug}</span>
           </button>
           {canEdit ? (
             <button
@@ -494,7 +488,7 @@ export function BugsTable({
                 closeDesktopContextMenu();
               }}
             >
-              <span>Edit bug</span>
+              <span>{t.bugs.editBug}</span>
             </button>
           ) : null}
           {canDelete ? (
@@ -507,7 +501,7 @@ export function BugsTable({
                 closeDesktopContextMenu();
               }}
             >
-              <span>Delete bug</span>
+              <span>{t.bugs.deleteBug}</span>
             </button>
           ) : null}
         </div>

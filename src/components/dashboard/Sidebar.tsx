@@ -8,6 +8,7 @@ import {
   IconChevronDown,
   IconFolder,
   IconLayers,
+  IconSettings,
 } from "../icons";
 import { Badge } from "../ui/Badge";
 import { BrandLogo } from "../ui/BrandLogo";
@@ -20,7 +21,7 @@ type NavItem = {
   label: string;
   icon: ComponentType<{ className?: string }>;
   href: string;
-  permission: Permission;
+  permission?: Permission;
   badge?: string | number;
 };
 
@@ -75,6 +76,13 @@ const navSections: NavSection[] = [
         icon: IconBug,
         href: "/manager/bugs",
         permission: PERMISSIONS.BUG_LIST,
+      },
+      {
+        type: "item",
+        id: "settings",
+        label: "Settings",
+        icon: IconSettings,
+        href: "/manager/settings",
       },
     ],
   },
@@ -161,7 +169,7 @@ function SidebarContent({
       .map((section) => {
         const visibleNodes = section.nodes.reduce<NavNode[]>((acc, node) => {
           if (node.type === "item") {
-            if (can(node.permission)) acc.push(node);
+            if (!node.permission || can(node.permission)) acc.push(node);
             return acc;
           }
 

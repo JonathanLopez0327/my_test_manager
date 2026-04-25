@@ -2,6 +2,7 @@
 
 import { IconChevronDown, IconDownload, IconPlus } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
+import { RefreshIconButton } from "@/components/ui/RefreshIconButton";
 import { SearchInput } from "@/components/ui/SearchInput";
 import type { TestCaseStatus } from "@/components/test-cases/types";
 
@@ -18,6 +19,8 @@ type TestManagementCasesHeaderProps = {
   onCreate: () => void;
   onExportExcel: () => void;
   onExportPdf: () => void;
+  onRefresh: () => void;
+  isRefreshing?: boolean;
   canCreate?: boolean;
 };
 
@@ -34,6 +37,8 @@ export function TestManagementCasesHeader({
   onCreate,
   onExportExcel,
   onExportPdf,
+  onRefresh,
+  isRefreshing = false,
   canCreate = true,
 }: TestManagementCasesHeaderProps) {
   const handleExportChange = (value: string) => {
@@ -86,6 +91,7 @@ export function TestManagementCasesHeader({
         ))}
       </select>
       <div className="ml-auto flex items-center gap-2">
+        <RefreshIconButton onRefresh={onRefresh} loading={isRefreshing} />
         <div className="relative flex h-10 w-[56px] items-center justify-between rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-2 transition-all duration-200 ease-[var(--ease-emphasis)] focus-within:border-brand-300 hover:border-brand-300">
           <IconDownload className="h-4 w-4 text-ink-muted" />
           <IconChevronDown className="h-3.5 w-3.5 text-ink-muted" />

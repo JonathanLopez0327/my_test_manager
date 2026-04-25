@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import {
   organizationUpdateSchema,
   type OrganizationUpdateFormInput,
@@ -28,6 +29,7 @@ export function OrganizationEditSheet({
   onSave,
   showQuotas = false,
 }: OrganizationEditSheetProps) {
+  const t = useT();
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const {
@@ -79,7 +81,7 @@ export function OrganizationEditSheet({
       setGlobalError(
         err instanceof Error
           ? err.message
-          : "Could not update the organization.",
+          : t.organizations.editForm.couldNotUpdate,
       );
     }
   };
@@ -87,16 +89,16 @@ export function OrganizationEditSheet({
   return (
     <Sheet
       open={open}
-      title="Edit organization"
-      description="Update organization details."
+      title={t.organizations.editForm.title}
+      description={t.organizations.editForm.description}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Slug
+          {t.organizations.editForm.slugLabel}
           <Input
             {...register("slug")}
-            placeholder="mi-empresa"
+            placeholder={t.organizations.editForm.slugPlaceholder}
             maxLength={50}
             className="mt-2"
             onChange={(e) => {
@@ -108,10 +110,10 @@ export function OrganizationEditSheet({
           )}
         </label>
         <label className="text-sm font-semibold text-ink">
-          Name
+          {t.organizations.editForm.nameLabel}
           <Input
             {...register("name")}
-            placeholder="Mi Empresa"
+            placeholder={t.organizations.editForm.namePlaceholder}
             className="mt-2"
           />
           {errors.name && (
@@ -124,15 +126,17 @@ export function OrganizationEditSheet({
             {...register("isActive")}
             className="h-5 w-5 rounded border-stroke text-brand-600 focus:ring-brand-500"
           />
-          Organization activa
+          {t.organizations.editForm.activeLabel}
         </label>
 
         {showQuotas && (
           <div className="grid gap-3 rounded-lg border border-stroke p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Quotas</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              {t.organizations.editForm.quotasTitle}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-semibold text-ink">
-                Max Projects
+                {t.organizations.editForm.maxProjectsLabel}
                 <Input
                   type="number"
                   min={0}
@@ -144,7 +148,7 @@ export function OrganizationEditSheet({
                 )}
               </label>
               <label className="text-sm font-semibold text-ink">
-                Max Members
+                {t.organizations.editForm.maxMembersLabel}
                 <Input
                   type="number"
                   min={0}
@@ -156,7 +160,7 @@ export function OrganizationEditSheet({
                 )}
               </label>
               <label className="text-sm font-semibold text-ink">
-                Max Test Cases
+                {t.organizations.editForm.maxTestCasesLabel}
                 <Input
                   type="number"
                   min={0}
@@ -168,7 +172,7 @@ export function OrganizationEditSheet({
                 )}
               </label>
               <label className="text-sm font-semibold text-ink">
-                Max Test Runs
+                {t.organizations.editForm.maxTestRunsLabel}
                 <Input
                   type="number"
                   min={0}
@@ -181,13 +185,13 @@ export function OrganizationEditSheet({
               </label>
             </div>
             <label className="col-span-2 text-sm font-semibold text-ink">
-              Beta Expires
+              {t.organizations.editForm.betaExpiresLabel}
               <Input
                 type="date"
                 {...register("betaExpiresAt")}
                 className="mt-2"
               />
-              <p className="mt-1 text-xs text-ink-muted">Leave empty for no expiration.</p>
+              <p className="mt-1 text-xs text-ink-muted">{t.organizations.editForm.betaExpiresHint}</p>
             </label>
           </div>
         )}
@@ -200,15 +204,15 @@ export function OrganizationEditSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose} type="button">
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save changes"}
+            {isSubmitting
+              ? t.organizations.editForm.saving
+              : t.organizations.editForm.saveChanges}
           </Button>
         </div>
       </form>
     </Sheet>
   );
 }
-
-

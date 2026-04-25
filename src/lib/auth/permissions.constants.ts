@@ -11,6 +11,7 @@ export const PERMISSIONS = {
   PROJECT_CREATE: "project:create",
   PROJECT_UPDATE: "project:update",
   PROJECT_DELETE: "project:delete",
+  PROJECT_MEMBER_MANAGE: "project-member:manage",
 
   // ── Test Plans ────────────────────────────────────────────
   TEST_PLAN_LIST: "test-plan:list",
@@ -72,6 +73,11 @@ export const PERMISSIONS = {
   ORG_DELETE: "org:delete",
   ORG_MEMBER_LIST: "org-member:list",
   ORG_MEMBER_MANAGE: "org-member:manage",
+  ORG_INVITE_MANAGE: "org-invite:manage",
+
+  // ── Signup Requests (super-admin inbox) ─────────────────────
+  SIGNUP_REQUEST_LIST: "signup-request:list",
+  SIGNUP_REQUEST_REVIEW: "signup-request:review",
 } as const;
 
 /** Union type of all permission strings */

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { IconChevronDown, IconEdit, IconFolder, IconPlus, IconTrash } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
+import { RefreshIconButton } from "@/components/ui/RefreshIconButton";
 import { Pagination } from "@/components/ui/Pagination";
 import { TestCasesTable } from "@/components/test-cases/TestCasesTable";
 import { TestCaseDetailSheet } from "@/components/test-cases/TestCaseDetailSheet";
@@ -1270,17 +1271,20 @@ export function TestManagementWorkspace() {
               {loadingHierarchy ? "Loading hierarchy..." : `${plans.length} plans · ${suites.length} suites`}
             </p>
           </div>
-          {canManage ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
-              onClick={handleCreatePlan}
-              aria-label="Create test plan"
-            >
-              <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
-            </Button>
-          ) : null}
+          <div className="flex items-center gap-2">
+            <RefreshIconButton onRefresh={() => void fetchAllPlansAndSuites()} loading={loadingHierarchy} />
+            {canManage ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-9 w-9 rounded-xl border-brand-300 bg-brand-50 p-0 text-brand-700 hover:bg-brand-100"
+                onClick={handleCreatePlan}
+                aria-label="Create test plan"
+              >
+                <IconPlus className="h-5 w-5 shrink-0 text-brand-700" />
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {hierarchyError ? (
@@ -1503,6 +1507,8 @@ export function TestManagementWorkspace() {
                 onCreate={handleCreate}
                 onExportExcel={handleExportExcel}
                 onExportPdf={handleExportPdf}
+                onRefresh={() => void fetchCases()}
+                isRefreshing={loadingCases}
                 canCreate={canManage}
               />
             </div>

@@ -5,6 +5,8 @@ import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
 import type { TestSuitePayload, TestSuiteRecord } from "./types";
 
 type TestPlanOption = {
@@ -54,6 +56,7 @@ export function TestSuiteFormSheet({
   onSave,
   onDelete,
 }: TestSuiteFormSheetProps) {
+  const t = useT();
   const [form, setForm] = useState<TestSuiteFormState>(emptyForm);
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
   const [loadingParents, setLoadingParents] = useState(false);
@@ -63,8 +66,8 @@ export function TestSuiteFormSheet({
   const [error, setError] = useState<string | null>(null);
 
   const title = useMemo(
-    () => (suite ? "Edit test suite" : "New test suite"),
-    [suite],
+    () => (suite ? t.testSuites.form.titleEdit : t.testSuites.form.titleNew),
+    [suite, t],
   );
 
   useEffect(() => {
@@ -103,7 +106,7 @@ export function TestSuiteFormSheet({
           message?: string;
         };
         if (!response.ok) {
-          throw new Error(data.message || "Could not load suites.");
+          throw new Error(data.message || t.testSuites.form.couldNotLoad);
         }
         const options =
           data.items
@@ -115,7 +118,7 @@ export function TestSuiteFormSheet({
         setError(
           fetchError instanceof Error
             ? fetchError.message
-            : "Could not load suites.",
+            : t.testSuites.form.couldNotLoad,
         );
       } finally {
         setLoadingParents(false);
@@ -123,7 +126,7 @@ export function TestSuiteFormSheet({
     };
 
     fetchParents();
-  }, [form.testPlanId, open, suite?.id]);
+  }, [form.testPlanId, open, suite?.id, t]);
 
   useEffect(() => {
     if (!form.testPlanId) {
@@ -159,7 +162,7 @@ export function TestSuiteFormSheet({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Could not save suite.",
+          : t.testSuites.form.couldNotSave,
       );
     } finally {
       setSubmitting(false);
@@ -178,7 +181,7 @@ export function TestSuiteFormSheet({
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Could not delete suite.",
+          : t.testSuites.form.couldNotDelete,
       );
     } finally {
       setDeleting(false);
@@ -191,12 +194,12 @@ export function TestSuiteFormSheet({
     <Sheet
       open={open}
       title={title}
-      description="Define plan, hierarchy, and order for this suite."
+      description={t.testSuites.form.description}
       onClose={onClose}
     >
       <div className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Test plan
+          {t.testSuites.form.planLabel}
           <select
             value={form.testPlanId}
             onChange={(event) =>
@@ -208,7 +211,7 @@ export function TestSuiteFormSheet({
             }
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
           >
-            <option value="">Select a plan</option>
+            <option value="">{t.testSuites.form.selectPlan}</option>
             {testPlans.map((plan) => (
               <option key={plan.id} value={plan.id}>
                 {plan.projectKey} · {plan.name}
@@ -218,7 +221,7 @@ export function TestSuiteFormSheet({
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Parent suite
+          {t.testSuites.form.parentLabel}
           <select
             value={form.parentSuiteId}
             onChange={(event) =>
@@ -228,7 +231,7 @@ export function TestSuiteFormSheet({
             disabled={!form.testPlanId || loadingParents}
           >
             <option value="">
-              {loadingParents ? "Loading suites..." : "No parent (root)"}
+              {loadingParents ? t.testSuites.form.loadingSuites : t.testSuites.form.parentNone}
             </option>
             {parentOptions.map((suiteOption) => (
               <option key={suiteOption.id} value={suiteOption.id}>
@@ -239,31 +242,31 @@ export function TestSuiteFormSheet({
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Suite name
+          {t.testSuites.form.nameLabel}
           <Input
             value={form.name}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, name: event.target.value }))
             }
-            placeholder="UI Regression"
+            placeholder={t.testSuites.form.namePlaceholder}
             className="mt-2"
           />
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Description
+          {t.testSuites.form.descriptionLabel}
           <Input
             value={form.description}
             onChange={(event) =>
               setForm((prev) => ({ ...prev, description: event.target.value }))
             }
-            placeholder="Optional"
+            placeholder={t.testSuites.form.descriptionPlaceholder}
             className="mt-2"
           />
         </label>
 
         <label className="text-sm font-semibold text-ink">
-          Display order
+          {t.testSuites.form.displayOrderLabel}
           <Input
             type="number"
             min={0}
@@ -277,7 +280,7 @@ export function TestSuiteFormSheet({
 
         {!testPlans.length ? (
           <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-            You need at least one plan before creating a suite.
+            {t.testSuites.form.noPlansWarning}
           </p>
         ) : null}
 
@@ -295,22 +298,22 @@ export function TestSuiteFormSheet({
               disabled={submitting || deleting}
               className="mr-auto"
             >
-              Delete
+              {t.common.delete}
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-            {submitting ? "Saving..." : "Save suite"}
+            {submitting ? t.testSuites.form.saving : t.testSuites.form.save}
           </Button>
         </div>
       </div>
       <ConfirmationDialog
         open={confirmDeleteOpen}
-        title={`Delete test suite "${suite?.name ?? ""}"?`}
-        description="This action will permanently delete the test suite. This cannot be undone."
-        confirmText="Delete"
+        title={formatMessage(t.testSuites.form.deleteConfirmTitle, { name: suite?.name ?? "" })}
+        description={t.testSuites.form.deleteConfirmDescription}
+        confirmText={t.common.delete}
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDeleteOpen(false)}
         isConfirming={deleting}

@@ -1,0 +1,40 @@
+import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Gestión de pruebas"
+  title="Casos de prueba"
+  lead="Un caso de prueba es la definición reusable de qué verificar. Los casos viven dentro de suites y pueden tener uno de cuatro estilos — elige el que coincida con cómo se va a ejecutar la prueba."
+/>
+
+## Estilos
+
+### Step-by-step
+
+Pasos manuales numerados con un resultado esperado por paso. Úsalo para flujos de UI manuales.
+
+### Gherkin
+
+Escenarios Given / When / Then. Útil para specs orientadas a comportamiento que tal vez automatices después.
+
+### Data-driven
+
+Un escenario único ejecutado sobre una tabla de parámetros — útil para chequeos de límites o combinatorias.
+
+### API
+
+Forma de request/response y aserciones. Úsalo para verificación a nivel de servicio.
+
+## Claves externas
+
+Puedes asignar una **clave externa** (ej. `JIRA-1234`) a un caso para que aparezca en listas, run items y reportes exportados. Las claves no necesitan ser únicas entre proyectos.
+
+## Tags
+
+Los tags son etiquetas libres (ej. `smoke`, `regression`, `mobile`). Úsalos para filtrar casos al apuntar un run o para segmentar métricas más adelante.
+
+## Importar casos
+
+El importador CSV acepta un esquema reducido (title, style, externalKey, tags, steps). Ver la [Referencia de API](/docs/api) para el payload completo.
+
+<Pager currentPath="/docs/test-cases" />

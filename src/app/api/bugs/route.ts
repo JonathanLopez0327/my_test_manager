@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { can, require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { validateBugReferences } from "@/lib/bug-references";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -269,6 +270,24 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       projectId,
     });
 
+    // Verify the project itself is in the active organization. Without this,
+    // BUG_CREATE for a super_admin without an activeOrganizationId would let
+    // them target any project, but for a regular user we must ensure the
+    // project they pass is one they actually have access to.
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { organizationId: true },
+    });
+    if (!project) {
+      return NextResponse.json({ message: "Project not found." }, { status: 404 });
+    }
+    if (activeOrganizationId && project.organizationId !== activeOrganizationId) {
+      return NextResponse.json(
+        { message: "The project does not belong to the active organization." },
+        { status: 403 },
+      );
+    }
+
     const severity = parseSeverity(body.severity ?? null) ?? "medium";
     const priority = parsePriority(body.priority);
     const status = parseStatus(body.status ?? null) ?? "open";
@@ -281,6 +300,21 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
     const testRunItemId = body.testRunItemId?.trim() || null;
     const testCaseId = body.testCaseId?.trim() || null;
     const testRunId = body.testRunId?.trim() || null;
+
+    const refCheck = await validateBugReferences({
+      projectId,
+      organizationId: project.organizationId,
+      assignedToId,
+      testCaseId,
+      testRunId,
+      testRunItemId,
+    });
+    if (!refCheck.ok) {
+      return NextResponse.json(
+        { message: refCheck.message, field: refCheck.field },
+        { status: 400 },
+      );
+    }
 
     const bug = await prisma.bug.create({
       data: {

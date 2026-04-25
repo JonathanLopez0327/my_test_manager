@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { OrgRole } from "@/generated/prisma/client";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import type { MemberRecord } from "./types";
 
 type UserOption = {
@@ -14,18 +15,13 @@ type UserOption = {
 
 type MemberFormSheetProps = {
   open: boolean;
-  member: MemberRecord | null; // null = add mode
+  member: MemberRecord | null;
   organizationId: string;
   onClose: () => void;
   onSave: (userId: string, role: OrgRole, isEdit: boolean) => Promise<void>;
 };
 
-const ROLE_OPTIONS: { value: OrgRole; label: string }[] = [
-  { value: "owner", label: "Propietario" },
-  { value: "admin", label: "Admin" },
-  { value: "member", label: "Member" },
-  { value: "billing", label: "Billing" },
-];
+const ROLE_ORDER: OrgRole[] = ["owner", "admin", "member", "billing"];
 
 export function MemberFormSheet({
   open,
@@ -34,6 +30,7 @@ export function MemberFormSheet({
   onClose,
   onSave,
 }: MemberFormSheetProps) {
+  const t = useT();
   const [users, setUsers] = useState<UserOption[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState<OrgRole>("member");
@@ -51,7 +48,6 @@ export function MemberFormSheet({
     } else {
       setSelectedUserId("");
       setSelectedRole("member");
-      // Fetch users for the dropdown
       fetch(`/api/users?pageSize=50&organizationId=${organizationId}`)
         .then((res) => res.json())
         .then((data: { items?: UserOption[] }) => {
@@ -73,7 +69,7 @@ export function MemberFormSheet({
       onClose();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not save the member.",
+        err instanceof Error ? err.message : t.organizations.memberForm.couldNotSave,
       );
     } finally {
       setSubmitting(false);
@@ -83,11 +79,11 @@ export function MemberFormSheet({
   return (
     <Sheet
       open={open}
-      title={isEdit ? "Edit member" : "Add member"}
+      title={isEdit ? t.organizations.memberForm.titleEdit : t.organizations.memberForm.titleAdd}
       description={
         isEdit
-          ? "Change this member's role."
-          : "Select a user and assign a role."
+          ? t.organizations.memberForm.descriptionEdit
+          : t.organizations.memberForm.descriptionAdd
       }
       onClose={onClose}
     >
@@ -95,13 +91,13 @@ export function MemberFormSheet({
         {isEdit && member ? (
           <div className="rounded-lg border border-stroke bg-surface-muted p-4">
             <p className="text-sm font-semibold text-ink">
-              {member.user.fullName ?? "Unnamed"}
+              {member.user.fullName ?? t.organizations.memberForm.unnamedFallback}
             </p>
             <p className="text-xs text-ink-muted">{member.user.email}</p>
           </div>
         ) : (
           <label className="text-sm font-semibold text-ink">
-            User
+            {t.organizations.memberForm.userLabel}
             <select
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
@@ -118,15 +114,15 @@ export function MemberFormSheet({
         )}
 
         <label className="text-sm font-semibold text-ink">
-          Role
+          {t.organizations.memberForm.roleLabel}
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value as OrgRole)}
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           >
-            {ROLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
+            {ROLE_ORDER.map((value) => (
+              <option key={value} value={value}>
+                {t.organizations.roles[value]}
               </option>
             ))}
           </select>
@@ -140,24 +136,20 @@ export function MemberFormSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={submitting || !selectedUserId}
           >
             {submitting
-              ? "Saving..."
+              ? t.organizations.memberForm.saving
               : isEdit
-                ? "Save changes"
-                : "Add member"}
+                ? t.organizations.memberForm.saveChanges
+                : t.organizations.memberForm.addMember}
           </Button>
         </div>
       </div>
     </Sheet>
   );
 }
-
-
-
-

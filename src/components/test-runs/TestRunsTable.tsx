@@ -5,6 +5,9 @@ import { Badge } from "../ui/Badge";
 import { RowActionButton } from "../ui/RowActionButton";
 import { SortableHeaderCell } from "../ui/SortableHeaderCell";
 import { TableShell } from "../ui/TableShell";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
+import type { Messages } from "@/lib/i18n/messages/en";
 import type {
   TestRunRecord,
   TestRunStatus,
@@ -25,14 +28,6 @@ type TestRunsTableProps = {
   onSort: (column: TestRunSortBy) => void;
 };
 
-const statusLabels: Record<TestRunStatus, string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  canceled: "Canceled",
-  failed: "Failed",
-};
-
 const statusTones: Record<
   TestRunStatus,
   "success" | "warning" | "danger" | "neutral"
@@ -44,21 +39,24 @@ const statusTones: Record<
   failed: "danger",
 };
 
-const runTypeLabels: Record<TestRunType, string> = {
-  manual: "Manual",
-  automated: "Automated",
-};
+function statusLabel(t: Messages, status: TestRunStatus): string {
+  return t.testRuns.statuses[status] ?? status;
+}
 
-function formatDate(value?: string | null) {
-  if (!value) return "No date";
+function runTypeLabel(t: Messages, runType: TestRunType): string {
+  return t.testRuns.runTypes[runType] ?? runType;
+}
+
+function formatDate(t: Messages, value?: string | null) {
+  if (!value) return t.testRuns.noDate;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "No date";
+  if (Number.isNaN(date.getTime())) return t.testRuns.noDate;
   return date.toLocaleString();
 }
 
-function getRunTitle(run: TestRunRecord) {
+function getRunTitle(t: Messages, run: TestRunRecord) {
   if (run.name?.trim()) return run.name.trim();
-  return `Run ${run.id.slice(0, 6)}`;
+  return formatMessage(t.testRuns.runTitleFallback, { id: run.id.slice(0, 6) });
 }
 
 export function TestRunsTable({
@@ -72,132 +70,136 @@ export function TestRunsTable({
   sortDir,
   onSort,
 }: TestRunsTableProps) {
+  const t = useT();
   return (
     <TableShell
       loading={loading}
       hasItems={items.length > 0}
-      emptyTitle="No test runs found."
-      emptyDescription="Create a new run or adjust your filters."
+      emptyTitle={t.testRuns.emptyTitle}
+      emptyDescription={t.testRuns.emptyDescription}
       desktop={
         <table className="w-full border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-surface-elevated dark:bg-surface-muted after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-stroke">
             <tr className="text-left text-[13px] font-medium text-ink-soft">
               <SortableHeaderCell
-                label="Run"
+                label={t.testRuns.columns.run}
                 sortKey="run"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Project"
+                label={t.testRuns.columns.project}
                 sortKey="project"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Plan / Suite"
+                label={t.testRuns.columns.planSuite}
                 sortKey="planSuite"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Status"
+                label={t.common.status}
                 sortKey="status"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Metrics"
+                label={t.testRuns.columns.metrics}
                 sortKey="metrics"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Type"
+                label={t.testRuns.columns.type}
                 sortKey="runType"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
               <SortableHeaderCell
-                label="Dates"
+                label={t.testRuns.columns.dates}
                 sortKey="dates"
                 activeSortBy={sortBy}
                 activeSortDir={sortDir}
                 onSort={onSort}
               />
-              <th className="px-3 py-2 text-right">{canManage ? "Actions" : ""}</th>
+              <th className="px-3 py-2 text-right">{canManage ? t.common.actions : ""}</th>
             </tr>
           </thead>
           <tbody>
             {items.map((run) => (
               <tr key={run.id} className="transition-colors hover:bg-brand-50/35">
                 <td className="px-3 py-3">
-                  <p className="font-semibold text-ink">{getRunTitle(run)}</p>
+                  <p className="font-semibold text-ink">{getRunTitle(t, run)}</p>
                   <p className="text-xs text-ink-muted">
-                    {run.environment ?? "No environment"} · {run.buildNumber ?? "No build"}
+                    {run.environment ?? t.testRuns.noEnvironment} · {run.buildNumber ?? t.testRuns.noBuild}
                   </p>
-                  <p className="mt-2 text-xs text-ink-soft">{run.branch ?? "No branch"}</p>
+                  <p className="mt-2 text-xs text-ink-soft">{run.branch ?? t.testRuns.noBranch}</p>
                 </td>
                 <td className="px-3 py-3 text-ink">
                   <p className="font-semibold">
                     {run.project.key} · {run.project.name}
                   </p>
                   <p className="text-xs text-ink-muted">
-                    {run.commitSha ? run.commitSha.slice(0, 10) : "No commit"}
+                    {run.commitSha ? run.commitSha.slice(0, 10) : t.testRuns.noCommit}
                   </p>
                 </td>
                 <td className="px-3 py-3 text-ink-muted">
                   <p className="font-semibold text-ink">
-                    {run.testPlan?.name ?? run.suite?.testPlan.name ?? "No plan"}
+                    {run.testPlan?.name ?? run.suite?.testPlan.name ?? t.testRuns.noPlan}
                   </p>
-                  <p className="text-xs text-ink-muted">{run.suite?.name ?? "No suite"}</p>
+                  <p className="text-xs text-ink-muted">{run.suite?.name ?? t.testRuns.noSuite}</p>
                 </td>
                 <td className="px-3 py-3">
-                  <Badge tone={statusTones[run.status]}>{statusLabels[run.status]}</Badge>
+                  <Badge tone={statusTones[run.status]}>{statusLabel(t, run.status)}</Badge>
                 </td>
                 <td className="px-3 py-3 text-xs text-ink-muted">
                   {run.metrics ? (
                     <div>
                       <p className="text-sm font-semibold text-ink">{run.metrics.passRate}%</p>
                       <p>
-                        {run.metrics.passed}/{run.metrics.total} passed
+                        {formatMessage(t.testRuns.passedSummary, {
+                          passed: run.metrics.passed,
+                          total: run.metrics.total,
+                        })}
                       </p>
                     </div>
                   ) : (
-                    <span className="text-ink-soft">No metrics</span>
+                    <span className="text-ink-soft">{t.testRuns.noMetrics}</span>
                   )}
                 </td>
                 <td className="px-3 py-3 text-ink-muted">
-                  {runTypeLabels[run.runType]}
+                  {runTypeLabel(t, run.runType)}
                 </td>
                 <td className="px-3 py-3 text-xs text-ink-muted">
-                  <p>Start: {formatDate(run.startedAt)}</p>
-                  <p>End: {formatDate(run.finishedAt)}</p>
+                  <p>{formatMessage(t.testRuns.startLabel, { date: formatDate(t, run.startedAt) })}</p>
+                  <p>{formatMessage(t.testRuns.endLabel, { date: formatDate(t, run.finishedAt) })}</p>
                 </td>
                 <td className="px-3 py-3">
                   <div className="flex items-center justify-end gap-2">
                     <RowActionButton
                       onClick={() => onView(run)}
                       icon={<IconClipboard className="h-4 w-4" />}
-                      label="View run details"
+                      label={t.testRuns.viewRunDetails}
                     />
                     {canManage ? (
                       <>
                         <RowActionButton
                           onClick={() => onEdit(run)}
                           icon={<IconEdit className="h-4 w-4" />}
-                          label="Edit run"
+                          label={t.testRuns.editRun}
                         />
                         <RowActionButton
                           onClick={() => onDelete(run)}
                           icon={<IconTrash className="h-4 w-4" />}
-                          label="Delete run"
+                          label={t.testRuns.deleteRun}
                           tone="danger"
                         />
                       </>
@@ -221,41 +223,44 @@ export function TestRunsTable({
                   <p className="text-xs uppercase tracking-[0.2em] text-ink-soft">
                     {run.project.key}
                   </p>
-                  <p className="text-lg font-semibold text-ink">{getRunTitle(run)}</p>
+                  <p className="text-lg font-semibold text-ink">{getRunTitle(t, run)}</p>
                 </div>
-                <Badge tone={statusTones[run.status]}>{statusLabels[run.status]}</Badge>
+                <Badge tone={statusTones[run.status]}>{statusLabel(t, run.status)}</Badge>
               </div>
               <p className="mt-2 text-sm text-ink-muted">
-                {run.testPlan?.name ?? run.suite?.testPlan.name ?? "No plan"} · {" "}
-                {run.suite?.name ?? "No suite"}
+                {run.testPlan?.name ?? run.suite?.testPlan.name ?? t.testRuns.noPlan} · {" "}
+                {run.suite?.name ?? t.testRuns.noSuite}
               </p>
               <p className="mt-3 text-sm text-ink-muted">
-                {run.environment ?? "No environment"} · {run.buildNumber ?? "No build"}
+                {run.environment ?? t.testRuns.noEnvironment} · {run.buildNumber ?? t.testRuns.noBuild}
               </p>
               <div className="mt-3 text-sm text-ink-muted">
                 {run.metrics ? (
                   <p>
-                    Metrics: {run.metrics.passRate}% · {run.metrics.passed}/
-                    {run.metrics.total} passed
+                    {formatMessage(t.testRuns.metricsSummary, {
+                      rate: run.metrics.passRate,
+                      passed: run.metrics.passed,
+                      total: run.metrics.total,
+                    })}
                   </p>
                 ) : (
-                  <p className="text-ink-soft">Metrics: no data</p>
+                  <p className="text-ink-soft">{t.testRuns.noMetricsData}</p>
                 )}
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-soft">
-                <span>{runTypeLabels[run.runType]}</span>
-                <span>{run.branch ?? "No branch"}</span>
-                <span>{run.commitSha ? run.commitSha.slice(0, 10) : "No commit"}</span>
+                <span>{runTypeLabel(t, run.runType)}</span>
+                <span>{run.branch ?? t.testRuns.noBranch}</span>
+                <span>{run.commitSha ? run.commitSha.slice(0, 10) : t.testRuns.noCommit}</span>
               </div>
               <div className="mt-3 text-xs text-ink-muted">
-                <p>Start: {formatDate(run.startedAt)}</p>
-                <p>End: {formatDate(run.finishedAt)}</p>
+                <p>{formatMessage(t.testRuns.startLabel, { date: formatDate(t, run.startedAt) })}</p>
+                <p>{formatMessage(t.testRuns.endLabel, { date: formatDate(t, run.finishedAt) })}</p>
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <RowActionButton
                   onClick={() => onView(run)}
                   icon={<IconClipboard className="h-5 w-5" />}
-                  label="View run details"
+                  label={t.testRuns.viewRunDetails}
                   size="md"
                 />
                 {canManage ? (
@@ -263,13 +268,13 @@ export function TestRunsTable({
                     <RowActionButton
                       onClick={() => onEdit(run)}
                       icon={<IconEdit className="h-5 w-5" />}
-                      label="Edit run"
+                      label={t.testRuns.editRun}
                       size="md"
                     />
                     <RowActionButton
                       onClick={() => onDelete(run)}
                       icon={<IconTrash className="h-5 w-5" />}
-                      label="Delete run"
+                      label={t.testRuns.deleteRun}
                       tone="danger"
                       size="md"
                     />

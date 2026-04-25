@@ -4,6 +4,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { IconEdit } from "../icons";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import type { OrganizationDetail } from "./types";
 
 type OrganizationDetailsCardProps = {
@@ -17,6 +18,7 @@ export function OrganizationDetailsCard({
   canEdit,
   onEdit,
 }: OrganizationDetailsCardProps) {
+  const t = useT();
   return (
     <Card className="p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -26,12 +28,12 @@ export function OrganizationDetailsCard({
         </div>
         <div className="flex items-center gap-3">
           <Badge tone={org.isActive ? "success" : "neutral"}>
-            {org.isActive ? "Active" : "Inactive"}
+            {org.isActive ? t.common.active : t.common.inactive}
           </Badge>
           {canEdit && (
             <Button variant="secondary" size="sm" onClick={onEdit}>
               <IconEdit className="h-4 w-4" />
-              Edit
+              {t.common.edit}
             </Button>
           )}
         </div>
@@ -40,27 +42,27 @@ export function OrganizationDetailsCard({
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Members
+            {t.organizations.members}
           </p>
           <p className="mt-1 text-lg font-semibold text-ink">{org._count.members}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Projects
+            {t.organizations.projects}
           </p>
           <p className="mt-1 text-lg font-semibold text-ink">{org._count.projects}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Created
+            {t.organizations.created}
           </p>
           <p className="mt-1 text-sm text-ink">
-            {new Date(org.createdAt).toLocaleDateString("en-US")}
+            {new Date(org.createdAt).toLocaleDateString()}
           </p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-ink-muted">
-            Created by
+            {t.organizations.createdBy}
           </p>
           <p className="mt-1 text-sm text-ink">
             {org.createdBy?.fullName ?? org.createdBy?.email ?? "—"}

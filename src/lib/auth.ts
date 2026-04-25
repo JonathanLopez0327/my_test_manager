@@ -3,12 +3,26 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { compare } from "bcryptjs";
 import type { GlobalRole, OrgRole } from "@/generated/prisma/client";
-import { registerGoogleUserWithOrganization } from "@/lib/auth/sign-up";
+import { SignUpError, createGoogleSignupRequest } from "@/lib/auth/sign-up";
 
 import { prisma } from "./prisma";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function userHasLoginAccess(userId: string): Promise<boolean> {
+  const superAdmin = await prisma.userGlobalRole.findFirst({
+    where: { userId, role: "super_admin" },
+    select: { userId: true },
+  });
+  if (superAdmin) return true;
+
+  const activeMembership = await prisma.organizationMember.findFirst({
+    where: { userId, organization: { isActive: true } },
+    select: { organizationId: true },
+  });
+  return Boolean(activeMembership);
+}
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -40,14 +54,21 @@ export const authOptions: NextAuthOptions = {
           where: { email },
         });
 
-        if (!user || !user.isActive) {
-          return null;
-        }
+        // Wrong-email and wrong-password both return null so we don't leak
+        // account existence. Only once the password is verified do we raise
+        // the specific reason — an attacker without the password can't reach
+        // the inactive/no-org branches.
+        if (!user) return null;
 
         const isValid = await compare(password, user.passwordHash);
+        if (!isValid) return null;
 
-        if (!isValid) {
-          return null;
+        if (!user.isActive) {
+          throw new Error("account_inactive");
+        }
+
+        if (!(await userHasLoginAccess(user.id))) {
+          throw new Error("organization_inactive");
         }
 
         return {
@@ -66,23 +87,43 @@ export const authOptions: NextAuthOptions = {
 
       const resolvedEmail = (user.email ?? profile?.email)?.toLowerCase().trim();
       if (!resolvedEmail) {
-        return false;
+        return "/login?error=google_no_email";
       }
 
+      const existingUser = await prisma.user.findUnique({
+        where: { email: resolvedEmail },
+        select: { id: true, isActive: true },
+      });
+
+      if (existingUser?.isActive && (await userHasLoginAccess(existingUser.id))) {
+        user.id = existingUser.id;
+        user.email = resolvedEmail;
+        return true;
+      }
+
+      if (existingUser) {
+        return "/login?error=account_inactive";
+      }
+
+      const pendingUrl = `/sign-up/pending?email=${encodeURIComponent(resolvedEmail)}`;
+
       try {
-        const onboarding = await registerGoogleUserWithOrganization(
+        await createGoogleSignupRequest(
           {
             email: resolvedEmail,
             fullName: user.name ?? profile?.name,
           },
           prisma,
         );
-        user.id = onboarding.userId;
-        user.email = resolvedEmail;
-        return true;
-      } catch {
-        return false;
+      } catch (err) {
+        if (err instanceof SignUpError && err.code === "REQUEST_ALREADY_EXISTS") {
+          return pendingUrl;
+        }
+        console.error("[auth] failed to queue Google signup request:", err);
+        return "/login?error=signup_failed";
       }
+
+      return pendingUrl;
     },
     async jwt({ token, user, trigger, session }) {
       // Credentials sign-in already returns DB UUID.
@@ -123,7 +164,10 @@ export const authOptions: NextAuthOptions = {
         // Load active organization on first sign-in
         if (token.id && !token.activeOrganizationId) {
           const membership = await prisma.organizationMember.findFirst({
-            where: { userId: token.id as string },
+            where: {
+              userId: token.id as string,
+              organization: { isActive: true },
+            },
             orderBy: { createdAt: "asc" },
             select: { organizationId: true, role: true },
           });
@@ -131,6 +175,17 @@ export const authOptions: NextAuthOptions = {
             token.activeOrganizationId = membership.organizationId;
             token.organizationRole = membership.role;
           }
+        }
+
+        if (token.id && token.activeOrganizationId && token.hasProjectAccess === undefined) {
+          const projectMembership = await prisma.projectMember.findFirst({
+            where: {
+              userId: token.id as string,
+              project: { organizationId: token.activeOrganizationId as string },
+            },
+            select: { projectId: true },
+          });
+          token.hasProjectAccess = Boolean(projectMembership);
         }
 
         // Handle profile name update via session update
@@ -147,11 +202,23 @@ export const authOptions: NextAuthOptions = {
                 userId: token.id as string,
               },
             },
-            select: { organizationId: true, role: true },
+            select: {
+              organizationId: true,
+              role: true,
+              organization: { select: { isActive: true } },
+            },
           });
-          if (membership) {
+          if (membership && membership.organization.isActive) {
             token.activeOrganizationId = membership.organizationId;
             token.organizationRole = membership.role;
+            const projectMembership = await prisma.projectMember.findFirst({
+              where: {
+                userId: token.id as string,
+                project: { organizationId: membership.organizationId },
+              },
+              select: { projectId: true },
+            });
+            token.hasProjectAccess = Boolean(projectMembership);
           }
         }
       }
@@ -164,6 +231,7 @@ export const authOptions: NextAuthOptions = {
         session.user.globalRoles = (token.globalRoles ?? []) as GlobalRole[];
         session.user.activeOrganizationId = token.activeOrganizationId as string | undefined;
         session.user.organizationRole = token.organizationRole as OrgRole | undefined;
+        session.user.hasProjectAccess = Boolean(token.hasProjectAccess);
       }
       return session;
     },

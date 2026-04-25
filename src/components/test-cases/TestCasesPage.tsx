@@ -417,18 +417,17 @@ export function TestCasesPage() {
             onCreate={handleCreate}
             onExportExcel={handleExportExcel}
             onExportPdf={handleExportPdf}
+            onRefresh={fetchCases}
+            isRefreshing={loading}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
             canCreate={canManage}
           />
         }
         status={
-          <>
-            <p className="text-sm font-semibold text-ink">Test case list</p>
-            <div className="flex items-center gap-3 text-xs font-medium text-ink-soft">
-              {loading ? "Updating..." : `Total: ${total}`}
-            </div>
-          </>
+          <div className="ml-auto flex items-center gap-3 text-xs font-medium text-ink-soft">
+            {loading ? "Updating..." : `Total: ${total}`}
+          </div>
         }
         feedback={
           <>

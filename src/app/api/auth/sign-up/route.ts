@@ -3,22 +3,29 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   SignUpError,
-  registerUserWithOrganization,
+  createCredentialsSignupRequest,
+  createUserFromInvite,
+  type SignUpErrorCode,
 } from "@/lib/auth/sign-up";
 import { signUpSchema } from "@/lib/schemas/sign-up";
+import { clientIpFromHeaders, rateLimit } from "@/lib/api/rate-limit";
 
-type SignUpSuccessResponse = {
-  ok: true;
-  message: string;
-  organization: {
-    id: string;
-    slug: string;
-  };
-};
+type SignUpSuccessResponse =
+  | {
+      ok: true;
+      status: "pending";
+      message: string;
+    }
+  | {
+      ok: true;
+      status: "active";
+      message: string;
+      organizationSlug: string;
+    };
 
 type SignUpErrorResponse = {
   ok: false;
-  code: "VALIDATION_ERROR" | "EMAIL_TAKEN" | "UNKNOWN_ERROR";
+  code: SignUpErrorCode;
   message: string;
   fieldErrors?: Record<string, string[] | undefined>;
 };
@@ -30,8 +37,35 @@ function json(body: SignUpApiResponse, status = 200) {
 }
 
 export async function POST(req: Request) {
+  // Public endpoint: bcrypt + DB write per call. Without throttling it is a
+  // CPU-burn / signup-table-flood vector.
+  const ip = clientIpFromHeaders(req.headers);
+  const limited = rateLimit(
+    { key: "sign-up", capacity: 5, refillPerSecond: 1 / 60 },
+    ip,
+  );
+  if (!limited.allowed) {
+    return json(
+      {
+        ok: false,
+        code: "UNKNOWN_ERROR",
+        message: "Too many signup attempts. Please try again later.",
+      },
+      429,
+    );
+  }
+
   try {
-    const parsed = signUpSchema.safeParse(await req.json());
+    const rawBody = (await req.json()) as { inviteToken?: unknown } & Record<
+      string,
+      unknown
+    >;
+    const inviteToken =
+      typeof rawBody.inviteToken === "string" && rawBody.inviteToken.trim()
+        ? rawBody.inviteToken.trim()
+        : null;
+
+    const parsed = signUpSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return json(
@@ -45,16 +79,27 @@ export async function POST(req: Request) {
       );
     }
 
-    const created = await registerUserWithOrganization(parsed.data, prisma);
+    if (inviteToken) {
+      const result = await createUserFromInvite(parsed.data, inviteToken, prisma);
+      return json(
+        {
+          ok: true,
+          status: "active",
+          message: "Your account was created. You can now sign in.",
+          organizationSlug: result.organizationSlug,
+        },
+        201,
+      );
+    }
+
+    await createCredentialsSignupRequest(parsed.data, prisma);
 
     return json(
       {
         ok: true,
-        message: "Account created successfully.",
-        organization: {
-          id: created.organizationId,
-          slug: created.organizationSlug,
-        },
+        status: "pending",
+        message:
+          "Your account request was submitted. A super admin will review it shortly.",
       },
       201,
     );
@@ -71,7 +116,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fallback for race conditions on unique constraints.
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
@@ -85,7 +129,9 @@ export async function POST(req: Request) {
             ok: false,
             code: "EMAIL_TAKEN",
             message: "An account with that email already exists.",
-            fieldErrors: { email: ["An account with that email already exists."] },
+            fieldErrors: {
+              email: ["An account with that email already exists."],
+            },
           },
           409,
         );
@@ -96,7 +142,7 @@ export async function POST(req: Request) {
       {
         ok: false,
         code: "UNKNOWN_ERROR",
-        message: "We could not create your account. Please try again.",
+        message: "We could not submit your request. Please try again.",
       },
       500,
     );

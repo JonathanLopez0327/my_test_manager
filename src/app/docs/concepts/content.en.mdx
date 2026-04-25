@@ -1,0 +1,62 @@
+import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Getting started"
+  title="Core concepts"
+  lead="Test Manager organizes QA work in a single hierarchy. Once you understand the five primary entities, every screen in the app maps to one of them."
+/>
+
+## The hierarchy
+
+```
+Organization
+└─ Project
+   ├─ Test plan
+   │  └─ Suite
+   │     └─ Test case
+   └─ Test run
+      └─ Run item   ← one per case in the targeted plan/suite
+         └─ Execution attempt
+            └─ Artifact (screenshot, log, video)
+   └─ Bug
+      └─ Attachment
+```
+
+## Entities
+
+### Organization
+
+The billing and licensing boundary. Quotas (projects, members, test cases, test runs, artifact bytes) are enforced here. Members can have multiple organizations, but each session has one **active** org.
+
+### Project
+
+A product, repo, or team boundary inside the organization. Permissions (RBAC) are scoped per-project. Every test artifact ultimately belongs to a project.
+
+### Test plan
+
+A release- or initiative-level container of work. Plans hold suites and are the unit you target when creating a run.
+
+### Suite
+
+A logical grouping of cases inside a plan. Suites can nest. Use them to model feature areas, platforms, or release lanes.
+
+### Test case
+
+The reusable unit of test definition. Cases live in suites and can be one of four styles (step-by-step, Gherkin, data-driven, API). Cases describe **what** to verify, runs describe **what happened**.
+
+### Test run
+
+An execution cycle of a plan or suite. Each run snapshots the targeted cases as **run items** at creation time. Status, evidence, and metrics live on the run, not on the case.
+
+### Bug
+
+A defect found during testing. Bugs are project-scoped and can link back to the case, run item, and run that surfaced them, providing full traceability.
+
+## What this means in practice
+
+- **Test definition is reusable, execution is not.** A case is written once and executed many times across runs.
+- **Evidence lives on the run.** Don&apos;t edit a case to record what failed — log it on the run item.
+- **Quotas are organizational.** A single project can&apos;t exceed the org&apos;s case/run/storage limits.
+
+<Pager currentPath="/docs/concepts" />

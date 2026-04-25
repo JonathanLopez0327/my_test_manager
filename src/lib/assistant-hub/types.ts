@@ -35,7 +35,7 @@ export type AssistantEntityContext =
 /*  Chat types                                                         */
 /* ------------------------------------------------------------------ */
 
-export type MessageRole = "user" | "assistant";
+export type MessageRole = "user" | "assistant" | "approval_required";
 
 export type AssistantMessageMetadata = {
   type?: string;
@@ -52,6 +52,14 @@ export type AssistantDocumentVersion = {
   changeSummary?: string;
 };
 
+export type ApprovalCall = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+};
+
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "error";
+
 export type ChatMessage = {
   id: string;
   role: MessageRole;
@@ -60,6 +68,8 @@ export type ChatMessage = {
   documentVersions?: AssistantDocumentVersion[];
   threadId?: string | null;
   createdAt: string;
+  approvalCalls?: ApprovalCall[];
+  approvalStatus?: ApprovalStatus;
 };
 
 export type Conversation = {
@@ -126,6 +136,10 @@ export type AssistantHubState = {
   expandedAttachmentId: string | null;
 };
 
+export type ApprovalDecision =
+  | { approve_all: true }
+  | { approved: string[] };
+
 export type AssistantHubActions = {
   open: (context?: AssistantEntityContext, initialDraft?: string) => void;
   close: () => void;
@@ -134,6 +148,11 @@ export type AssistantHubActions = {
   selectConversation: (id: string) => void;
   createConversation: () => Promise<string | null>;
   sendMessage: (message: string) => Promise<void>;
+  respondApproval: (args: {
+    messageId: string;
+    threadId: string;
+    decision: ApprovalDecision;
+  }) => Promise<void>;
   setDraft: (draft: string) => void;
   toggleHistory: () => void;
   setScreenData: (screenData: ScreenData | undefined) => void;

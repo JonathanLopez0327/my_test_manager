@@ -5,6 +5,8 @@ import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { ConfirmationDialog } from "../ui/ConfirmationDialog";
+import { useT } from "@/lib/i18n/LocaleProvider";
+import { formatMessage } from "@/lib/i18n/format";
 import type { TestRunPayload, TestRunRecord, TestRunStatus, TestRunType } from "./types";
 
 type ProjectOption = {
@@ -74,18 +76,8 @@ const emptyForm: TestRunFormState = {
   finishedAt: "",
 };
 
-const statusOptions: Array<{ value: TestRunStatus; label: string }> = [
-  { value: "queued", label: "Queued" },
-  { value: "running", label: "Running" },
-  { value: "completed", label: "Completed" },
-  { value: "canceled", label: "Canceled" },
-  { value: "failed", label: "Failed" },
-];
-
-const typeOptions: Array<{ value: TestRunType; label: string }> = [
-  { value: "manual", label: "Manual" },
-  { value: "automated", label: "Automated" },
-];
+const statusOrder: TestRunStatus[] = ["queued", "running", "completed", "canceled", "failed"];
+const typeOrder: TestRunType[] = ["manual", "automated"];
 
 function toDateTimeInput(value?: string | null) {
   if (!value) return "";
@@ -107,13 +99,17 @@ export function TestRunFormSheet({
   onSave,
   onDelete,
 }: TestRunFormSheetProps) {
+  const t = useT();
   const [form, setForm] = useState<TestRunFormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const title = useMemo(() => (run ? "Edit test run" : "New test run"), [run]);
+  const title = useMemo(
+    () => (run ? t.testRuns.form.titleEdit : t.testRuns.form.titleNew),
+    [run, t],
+  );
 
   const availablePlans = useMemo(
     () => plans.filter((plan) => plan.projectId === form.projectId),
@@ -173,7 +169,7 @@ export function TestRunFormSheet({
 
   const handleSubmit = async () => {
     if (form.startedAt && form.finishedAt && form.finishedAt < form.startedAt) {
-      setError("End date must be after start date.");
+      setError(t.testRuns.form.invalidDateRange);
       return;
     }
 
@@ -202,7 +198,7 @@ export function TestRunFormSheet({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Could not save test run.",
+          : t.testRuns.form.couldNotSave,
       );
     } finally {
       setSubmitting(false);
@@ -221,7 +217,7 @@ export function TestRunFormSheet({
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Could not delete test run.",
+          : t.testRuns.form.couldNotDelete,
       );
     } finally {
       setDeleting(false);
@@ -234,18 +230,18 @@ export function TestRunFormSheet({
     <Sheet
       open={open}
       title={title}
-      description="Define scope, status, and environment for the run."
+      description={t.testRuns.form.description}
       onClose={onClose}
     >
       <div className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Project
+          {t.testRuns.form.projectLabel}
           <select
             value={form.projectId}
             onChange={(event) => setForm((prev) => ({ ...prev, projectId: event.target.value }))}
             className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
           >
-            <option value="">Select a project</option>
+            <option value="">{t.testRuns.form.selectProject}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.key} · {project.name}
@@ -256,7 +252,7 @@ export function TestRunFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Plan (optional)
+            {t.testRuns.form.planLabel}
             <select
               value={form.testPlanId}
               onChange={(event) =>
@@ -265,7 +261,7 @@ export function TestRunFormSheet({
               disabled={!form.projectId}
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:bg-surface-muted"
             >
-              <option value="">No plan</option>
+              <option value="">{t.testRuns.form.noPlan}</option>
               {availablePlans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
                   {plan.projectKey} · {plan.name}
@@ -274,14 +270,14 @@ export function TestRunFormSheet({
             </select>
           </label>
           <label className="text-sm font-semibold text-ink">
-            Suite (optional)
+            {t.testRuns.form.suiteLabel}
             <select
               value={form.suiteId}
               onChange={(event) => setForm((prev) => ({ ...prev, suiteId: event.target.value }))}
               disabled={!form.projectId}
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink disabled:bg-surface-muted"
             >
-              <option value="">No suite</option>
+              <option value="">{t.testRuns.form.noSuite}</option>
               {availableSuites.map((suite) => (
                 <option key={suite.id} value={suite.id}>
                   {suite.projectKey} · {suite.testPlanName} · {suite.name}
@@ -292,18 +288,18 @@ export function TestRunFormSheet({
         </div>
 
         <label className="text-sm font-semibold text-ink">
-          Name (optional)
+          {t.testRuns.form.nameLabel}
           <Input
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            placeholder="Regression nightly"
+            placeholder={t.testRuns.form.namePlaceholder}
             className="mt-2"
           />
         </label>
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Run type
+            {t.testRuns.form.runTypeLabel}
             <select
               value={form.runType}
               onChange={(event) =>
@@ -311,15 +307,15 @@ export function TestRunFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              {typeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {typeOrder.map((value) => (
+                <option key={value} value={value}>
+                  {t.testRuns.runTypes[value]}
                 </option>
               ))}
             </select>
           </label>
           <label className="text-sm font-semibold text-ink">
-            Status
+            {t.testRuns.form.statusLabel}
             <select
               value={form.status}
               onChange={(event) =>
@@ -327,9 +323,9 @@ export function TestRunFormSheet({
               }
               className="mt-2 h-10 w-full rounded-lg border border-stroke bg-surface-elevated dark:bg-surface-muted px-3 text-sm text-ink"
             >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {statusOrder.map((value) => (
+                <option key={value} value={value}>
+                  {t.testRuns.statuses[value]}
                 </option>
               ))}
             </select>
@@ -338,20 +334,20 @@ export function TestRunFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Environment
+            {t.testRuns.form.environmentLabel}
             <Input
               value={form.environment}
               onChange={(event) => setForm((prev) => ({ ...prev, environment: event.target.value }))}
-              placeholder="staging"
+              placeholder={t.testRuns.form.environmentPlaceholder}
               className="mt-2"
             />
           </label>
           <label className="text-sm font-semibold text-ink">
-            Build
+            {t.testRuns.form.buildLabel}
             <Input
               value={form.buildNumber}
               onChange={(event) => setForm((prev) => ({ ...prev, buildNumber: event.target.value }))}
-              placeholder="5.4.12"
+              placeholder={t.testRuns.form.buildPlaceholder}
               className="mt-2"
             />
           </label>
@@ -359,20 +355,20 @@ export function TestRunFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Branch
+            {t.testRuns.form.branchLabel}
             <Input
               value={form.branch}
               onChange={(event) => setForm((prev) => ({ ...prev, branch: event.target.value }))}
-              placeholder="release/5.4"
+              placeholder={t.testRuns.form.branchPlaceholder}
               className="mt-2"
             />
           </label>
           <label className="text-sm font-semibold text-ink">
-            Commit
+            {t.testRuns.form.commitLabel}
             <Input
               value={form.commitSha}
               onChange={(event) => setForm((prev) => ({ ...prev, commitSha: event.target.value }))}
-              placeholder="e7b1a9f"
+              placeholder={t.testRuns.form.commitPlaceholder}
               className="mt-2"
             />
           </label>
@@ -380,20 +376,20 @@ export function TestRunFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            CI Provider
+            {t.testRuns.form.ciProviderLabel}
             <Input
               value={form.ciProvider}
               onChange={(event) => setForm((prev) => ({ ...prev, ciProvider: event.target.value }))}
-              placeholder="GitHub Actions"
+              placeholder={t.testRuns.form.ciProviderPlaceholder}
               className="mt-2"
             />
           </label>
           <label className="text-sm font-semibold text-ink">
-            CI Run URL
+            {t.testRuns.form.ciRunUrlLabel}
             <Input
               value={form.ciRunUrl}
               onChange={(event) => setForm((prev) => ({ ...prev, ciRunUrl: event.target.value }))}
-              placeholder="https://..."
+              placeholder={t.testRuns.form.ciRunUrlPlaceholder}
               className="mt-2"
             />
           </label>
@@ -401,7 +397,7 @@ export function TestRunFormSheet({
 
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-semibold text-ink">
-            Start
+            {t.testRuns.form.startLabel}
             <Input
               type="datetime-local"
               value={form.startedAt}
@@ -410,7 +406,7 @@ export function TestRunFormSheet({
             />
           </label>
           <label className="text-sm font-semibold text-ink">
-            End
+            {t.testRuns.form.endLabel}
             <Input
               type="datetime-local"
               value={form.finishedAt}
@@ -422,7 +418,7 @@ export function TestRunFormSheet({
 
         {!projects.length ? (
           <p className="rounded-lg bg-warning-500/10 px-4 py-2 text-sm text-warning-600">
-            You need at least one project before creating test runs.
+            {t.testRuns.form.noProjectsWarning}
           </p>
         ) : null}
 
@@ -440,22 +436,24 @@ export function TestRunFormSheet({
               disabled={submitting || deleting}
               className="mr-auto"
             >
-              Delete
+              {t.common.delete}
             </Button>
           ) : null}
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button onClick={handleSubmit} disabled={submitting || !isValid}>
-            {submitting ? "Saving..." : "Save run"}
+            {submitting ? t.testRuns.form.saving : t.testRuns.form.save}
           </Button>
         </div>
       </div>
       <ConfirmationDialog
         open={confirmDeleteOpen}
-        title={`Delete test run "${run?.name ?? run?.id ?? ""}"?`}
-        description="This action will permanently delete the test run. This cannot be undone."
-        confirmText="Delete"
+        title={formatMessage(t.testRuns.form.deleteConfirmTitle, {
+          name: run?.name ?? run?.id ?? "",
+        })}
+        description={t.testRuns.form.deleteConfirmDescription}
+        confirmText={t.common.delete}
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDeleteOpen(false)}
         isConfirming={deleting}

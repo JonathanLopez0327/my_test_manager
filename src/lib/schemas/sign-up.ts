@@ -1,6 +1,10 @@
 import { z } from "zod";
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  checkPasswordPolicy,
+} from "./password";
 
-const PASSWORD_MIN_LENGTH = 8;
 const ORG_SLUG_MAX_LENGTH = 50;
 const ORG_SLUG_MIN_LENGTH = 3;
 const orgSlugRegex = /^[a-z0-9-]+$/;
@@ -25,7 +29,17 @@ export const signUpSchema = z.object({
     .min(
       PASSWORD_MIN_LENGTH,
       `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`,
-    ),
+    )
+    .max(
+      PASSWORD_MAX_LENGTH,
+      `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`,
+    )
+    .superRefine((value, ctx) => {
+      const result = checkPasswordPolicy(value);
+      if (!result.ok) {
+        ctx.addIssue({ code: "custom", message: result.message });
+      }
+    }),
   organization: z.object({
     name: z.string().trim().min(2, "Organization name is required.").max(120),
     slug: z

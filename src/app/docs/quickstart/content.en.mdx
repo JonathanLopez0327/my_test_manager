@@ -1,0 +1,51 @@
+import { Pager } from "@/components/docs/Pager";
+import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
+
+<DocPageHeader
+  eyebrow="Getting started"
+  title="Quickstart"
+  lead="Get from zero to your first executed test in about ten minutes."
+/>
+
+## 1. Create your account
+
+Sign up at `/sign-up` with the beta invite code provided to you. Your account starts a personal organization on the beta plan with the default quotas (3 projects, 5 members, 200 cases, 100 runs, 500 MB of artifact storage).
+
+<Callout tone="info" title="Need an invite?">
+  Beta access is invite-only. Request a code from the marketing site or your account manager.
+</Callout>
+
+## 2. Create a project
+
+Once signed in, head to the **Projects** workspace and create your first project. Pick a short, uppercase **key** (3–5 characters) — it scopes test case IDs and shows up in run titles.
+
+```
+Project key: CHK
+Name: Checkout
+```
+
+## 3. Build a test plan
+
+Open the project you just created and add a **test plan** for the work you&apos;re tracking — a release, a sprint, or a recurring regression cycle. Each plan can hold multiple **suites** (logical groupings) and each suite holds **test cases**.
+
+## 4. Add a test case
+
+Inside a suite, create a test case using one of the four styles:
+
+- **Step-by-step** — numbered manual steps with expected results
+- **Gherkin** — Given / When / Then scenarios
+- **Data-driven** — a single scenario run across a parameter table
+- **API** — request/response checks
+
+## 5. Run it
+
+From the Test Runs workspace, create a run for your plan or suite. Mark each item as passed/failed/skipped and attach screenshots, logs, or video evidence as you go. Metrics roll up automatically.
+
+## Next up
+
+- Read [Core concepts](/docs/concepts) to understand how plans, suites, cases, and runs relate.
+- Try the [AI workspace](/docs/ai-workspace) to draft test cases from a feature description.
+- See [Building an agent](/docs/agents) to plug your own automation in.
+
+<Pager currentPath="/docs/quickstart" />

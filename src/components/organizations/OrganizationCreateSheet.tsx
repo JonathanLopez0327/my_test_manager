@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import {
   organizationCreateSchema,
   type OrganizationCreateFormInput,
@@ -23,6 +24,7 @@ export function OrganizationCreateSheet({
   onClose,
   onCreated,
 }: OrganizationCreateSheetProps) {
+  const t = useT();
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const {
@@ -53,13 +55,13 @@ export function OrganizationCreateSheet({
       });
       const body = await res.json();
       if (!res.ok) {
-        throw new Error(body.message || "Could not create the organization.");
+        throw new Error(body.message || t.organizations.createForm.couldNotCreate);
       }
       onCreated(body as OrganizationRecord);
       onClose();
     } catch (err) {
       setGlobalError(
-        err instanceof Error ? err.message : "Could not create the organization.",
+        err instanceof Error ? err.message : t.organizations.createForm.couldNotCreate,
       );
     }
   };
@@ -67,16 +69,16 @@ export function OrganizationCreateSheet({
   return (
     <Sheet
       open={open}
-      title="Nueva organization"
-      description="Create a new organization. The slug must be unique."
+      title={t.organizations.createForm.title}
+      description={t.organizations.createForm.description}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
         <label className="text-sm font-semibold text-ink">
-          Slug
+          {t.organizations.createForm.slugLabel}
           <Input
             {...register("slug")}
-            placeholder="mi-empresa"
+            placeholder={t.organizations.createForm.slugPlaceholder}
             maxLength={50}
             className="mt-2"
             onChange={(e) => {
@@ -88,10 +90,10 @@ export function OrganizationCreateSheet({
           )}
         </label>
         <label className="text-sm font-semibold text-ink">
-          Name
+          {t.organizations.createForm.nameLabel}
           <Input
             {...register("name")}
-            placeholder="Mi Empresa"
+            placeholder={t.organizations.createForm.namePlaceholder}
             className="mt-2"
           />
           {errors.name && (
@@ -107,15 +109,15 @@ export function OrganizationCreateSheet({
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onClose} type="button">
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create organization"}
+            {isSubmitting
+              ? t.organizations.createForm.creating
+              : t.organizations.createForm.createOrg}
           </Button>
         </div>
       </form>
     </Sheet>
   );
 }
-
-
