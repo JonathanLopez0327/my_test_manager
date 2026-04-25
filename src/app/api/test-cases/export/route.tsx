@@ -103,6 +103,18 @@ function formatTimestampForFilename(date = new Date()): string {
   return date.toISOString().replace(/[:.]/g, "-");
 }
 
+// Neutralize spreadsheet formula injection (CWE-1236). Excel/Sheets/Numbers
+// will execute a cell whose first character is one of `= + - @ \t \r`,
+// which lets an attacker craft a test-case title like `=cmd|'/c calc'!A0`
+// and have it run when a teammate opens the export. Prefix a single quote
+// so the cell is treated as literal text.
+const FORMULA_TRIGGERS = new Set(["=", "+", "-", "@", "\t", "\r"]);
+function safeCell(value: string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (value.length === 0) return "";
+  return FORMULA_TRIGGERS.has(value[0]) ? `'${value}` : value;
+}
+
 function formatDate(value: Date): string {
   return value.toISOString();
 }
@@ -409,22 +421,22 @@ export const GET = withAuth(
       items.forEach((item) => {
         const serializedSteps = serializeTestCaseSteps(item.style, item.steps);
         sheet.addRow({
-          title: item.title,
-          externalKey: item.externalKey ?? "",
-          project: `${item.suite.testPlan.project.key} - ${item.suite.testPlan.project.name}`,
-          testPlan: item.suite.testPlan.name,
-          suite: item.suite.name,
+          title: safeCell(item.title),
+          externalKey: safeCell(item.externalKey),
+          project: safeCell(`${item.suite.testPlan.project.key} - ${item.suite.testPlan.project.name}`),
+          testPlan: safeCell(item.suite.testPlan.name),
+          suite: safeCell(item.suite.name),
           status: item.status,
           priority: `P${item.priority}`,
           style: formatStyle(item.style),
           automated: item.isAutomated ? "Yes" : "No",
-          automationType: item.automationType ?? "",
-          automationRef: item.automationRef ?? "",
-          tags: item.tags.join(", "),
-          description: item.description ?? "",
-          preconditions: item.preconditions ?? "",
-          stepsSummary: serializedSteps.summary,
-          stepsDetail: serializedSteps.detail,
+          automationType: safeCell(item.automationType),
+          automationRef: safeCell(item.automationRef),
+          tags: safeCell(item.tags.join(", ")),
+          description: safeCell(item.description),
+          preconditions: safeCell(item.preconditions),
+          stepsSummary: safeCell(serializedSteps.summary),
+          stepsDetail: safeCell(serializedSteps.detail),
           createdAt: formatDate(item.createdAt),
           updatedAt: formatDate(item.updatedAt),
         });
