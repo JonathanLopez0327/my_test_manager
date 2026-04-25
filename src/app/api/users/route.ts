@@ -6,6 +6,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { checkPasswordPolicy } from "@/lib/schemas/password";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -183,9 +184,10 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { globalRoles 
       );
     }
 
-    if (password.length < 8) {
+    const policy = checkPasswordPolicy(password);
+    if (!policy.ok) {
       return NextResponse.json(
-        { message: "Password must be at least 8 characters long." },
+        { message: policy.message, code: policy.code },
         { status: 400 },
       );
     }

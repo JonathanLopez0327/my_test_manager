@@ -51,7 +51,7 @@ export function ProfileSheet({ open, onClose }: ProfileSheetProps) {
   const handleSave = async () => {
     setError("");
 
-    if (password && password.length < 8) {
+    if (password && password.length < 12) {
       setError(t.profile.passwordTooShort);
       return;
     }

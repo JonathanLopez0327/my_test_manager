@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { compare, hash } from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkPasswordPolicy } from "@/lib/schemas/password";
 
 export async function PUT(req: Request) {
   const session = await getServerSession(authOptions);
@@ -21,11 +22,14 @@ export async function PUT(req: Request) {
     const password = body.password?.trim();
     const currentPassword = body.currentPassword;
 
-    if (password && password.length < 8) {
-      return NextResponse.json(
-        { message: "Password must be at least 8 characters." },
-        { status: 400 },
-      );
+    if (password) {
+      const policy = checkPasswordPolicy(password);
+      if (!policy.ok) {
+        return NextResponse.json(
+          { message: policy.message, code: policy.code },
+          { status: 400 },
+        );
+      }
     }
 
     const data: { fullName?: string | null; passwordHash?: string } = {};
