@@ -1,9 +1,12 @@
 import { Pager } from "@/components/docs/Pager";
 import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
 
-# Agent tokens & RBAC
-
-An **agent token** is a long-lived bearer credential that represents a specific user + organization. Every API call made with the token runs as if that user made it — same permissions, same audit trail.
+<DocPageHeader
+  eyebrow="AI & agents"
+  title="Agent tokens & RBAC"
+  lead={<>An <strong>agent token</strong> is a long-lived bearer credential that represents a specific user + organization. Every API call made with the token runs as if that user made it — same permissions, same audit trail.</>}
+/>
 
 ## Creating a token
 

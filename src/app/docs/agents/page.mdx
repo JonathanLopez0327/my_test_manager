@@ -1,9 +1,12 @@
 import { Pager } from "@/components/docs/Pager";
 import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
 
-# Building an agent
-
-An **agent** is any external program that calls the Test Manager API on behalf of a user. Agents inherit that user&apos;s permissions — there is no "service account" with its own role. This keeps the audit trail honest and avoids privilege escalation.
+<DocPageHeader
+  eyebrow="AI & agents"
+  title="Building an agent"
+  lead={<>An <strong>agent</strong> is any external program that calls the Test Manager API on behalf of a user. Agents inherit that user&apos;s permissions — there is no &quot;service account&quot; with its own role. This keeps the audit trail honest and avoids privilege escalation.</>}
+/>
 
 ## When to build an agent
 

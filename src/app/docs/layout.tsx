@@ -3,6 +3,8 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Button } from "@/components/ui/Button";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
+import { DocsTOC } from "@/components/docs/DocsTOC";
+import { MobileDocsNav } from "@/components/docs/MobileDocsNav";
 
 export const metadata: Metadata = {
   title: {
@@ -66,13 +68,20 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       <div className="relative mx-auto flex w-full max-w-7xl gap-10 px-6 py-10 lg:py-14">
-        <aside className="sticky top-24 hidden h-[calc(100vh-7rem)] w-64 shrink-0 overflow-y-auto pb-8 lg:block">
+        <aside className="sticky top-24 hidden h-[calc(100vh-7rem)] w-60 shrink-0 overflow-y-auto pb-8 lg:block">
           <DocsSidebar />
         </aside>
 
-        <main className="min-w-0 flex-1 lg:max-w-[760px]">
+        <main className="min-w-0 flex-1">
+          <div className="mb-6 lg:hidden">
+            <MobileDocsNav />
+          </div>
           <article className="docs-prose">{children}</article>
         </main>
+
+        <aside className="sticky top-24 hidden h-[calc(100vh-7rem)] w-56 shrink-0 overflow-y-auto pb-8 xl:block">
+          <DocsTOC />
+        </aside>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { docNav } from "./nav-config";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
 
 export const metadata: Metadata = {
   title: "Overview",
@@ -11,16 +12,13 @@ export const metadata: Metadata = {
 export default function DocsOverviewPage() {
   return (
     <>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">
-        Documentation
-      </p>
-      <h1>Test Manager docs</h1>
-      <p>
-        Guides for running QA inside Test Manager — from planning a release to wiring an
-        AI agent into your workflow. Pick the section that matches what you&apos;re trying to do.
-      </p>
+      <DocPageHeader
+        eyebrow="Documentation"
+        title="Test Manager docs"
+        lead="Guides for running QA inside Test Manager — from planning a release to wiring an AI agent into your workflow. Pick the section that matches what you're trying to do."
+      />
 
-      <div className="mt-10 grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         {docNav.map((section) => (
           <div
             key={section.title}

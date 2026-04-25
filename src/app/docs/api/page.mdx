@@ -1,9 +1,12 @@
 import { Pager } from "@/components/docs/Pager";
 import { Callout } from "@/components/docs/Callout";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
 
-# API reference
-
-Test Manager exposes a single REST API at `/api/*`. The same endpoints serve the web app (via session cookies) and external agents (via [agent tokens](/docs/agent-tokens)).
+<DocPageHeader
+  eyebrow="Platform"
+  title="API reference"
+  lead={<>Test Manager exposes a single REST API at <code>/api/*</code>. The same endpoints serve the web app (via session cookies) and external agents (via <a href="/docs/agent-tokens">agent tokens</a>).</>}
+/>
 
 <Callout tone="info" title="Format">
   All requests/responses are JSON. Errors return an envelope with `code`, `message`, and any context fields.

@@ -1,8 +1,13 @@
 import { Pager } from "@/components/docs/Pager";
+import { DocPageHeader } from "@/components/docs/DocPageHeader";
 
-# Test plans & suites
+<DocPageHeader
+  eyebrow="Test management"
+  title="Test plans & suites"
+  lead={<>A <strong>test plan</strong> groups the QA work for a release, sprint, or cycle. Inside a plan, <strong>suites</strong> hold the actual test cases.</>}
+/>
 
-A **test plan** groups the QA work for a release, sprint, or cycle. Inside a plan, **suites** hold the actual test cases. Suites can nest, so you can model feature areas like:
+Suites can nest, so you can model feature areas like:
 
 ```
 Release 24.8 regression
