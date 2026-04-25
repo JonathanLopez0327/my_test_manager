@@ -22,7 +22,22 @@
  */
 
 import { execSync } from "node:child_process";
-import { prisma } from "@/lib/prisma";
+import dotenv from "dotenv";
+
+// Load .env.prod first so DATABASE_URL is set before we instantiate Prisma.
+dotenv.config({ path: ".env.prod", override: true });
+
+import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL as string,
+  max: 5,
+  connectionTimeoutMillis: 10_000,
+  idleTimeoutMillis: 30_000,
+  statement_timeout: 60_000,
+});
+const prisma = new PrismaClient({ adapter });
 
 type Args = {
   dryRun: boolean;
@@ -41,6 +56,10 @@ function parseArgs(): Args {
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
+    if (arg === "--") {
+      // Some package managers forward the literal "--" separator.
+      continue;
+    }
     if (arg === "--apply") {
       args.apply = true;
       args.dryRun = false;

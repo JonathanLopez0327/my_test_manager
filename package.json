@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:english": "node scripts/check-english-ui.mjs",
-    "cleanup:prod": "node --env-file=.env.prod --loader ts-node/esm scripts/cleanup-prod.ts",
+    "cleanup:prod": "ts-node --project scripts/tsconfig.json scripts/cleanup-prod.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "postinstall": "prisma generate"
