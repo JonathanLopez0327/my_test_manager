@@ -8,6 +8,10 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { requireRunPermission } from "@/lib/auth/require-run-permission";
 import { buildS3ObjectUrl, getS3Client, getS3Config } from "@/lib/s3";
 import { validateArtifactUploadPolicy } from "@/lib/artifact-upload-policy";
+import {
+  sanitizeContentDispositionFilename,
+  validateUploadMime,
+} from "@/lib/upload-mime";
 
 const ARTIFACT_TYPE_VALUES: ArtifactType[] = [
   "screenshot",
@@ -97,16 +101,31 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       );
     }
 
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Re-derive MIME from magic bytes — file.type is attacker-controlled.
+    const mimeCheck = validateUploadMime({ type, buffer: fileBuffer });
+    if (!mimeCheck.ok) {
+      return NextResponse.json(
+        { message: mimeCheck.message },
+        { status: 400 },
+      );
+    }
+
     const scope = typeof metadata.scope === "string" ? metadata.scope : null;
     const requiresImage =
       type === "screenshot" || scope === "general" || scope === "step";
-    if (requiresImage && !(file.type || "").toLowerCase().startsWith("image/")) {
+    if (requiresImage && !mimeCheck.effectiveMime.startsWith("image/")) {
       return NextResponse.json(
         { message: "Only image files are allowed for execution evidence." },
         { status: 400 },
       );
     }
 
+    // Use the sanitized filename when composing the display name so the
+    // attacker cannot smuggle control characters or path separators through
+    // the persisted record.
+    const safeOriginalName = sanitizeFileName(file.name || "artifact");
     let generatedName = name;
 
     if (executionId) {
@@ -147,7 +166,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         const caseName = execution.runItem.testCase.externalKey
           ? `${execution.runItem.testCase.externalKey} ${execution.runItem.testCase.title}`
           : execution.runItem.testCase.title;
-        generatedName = `${caseName} - ${type} - ${file.name}`;
+        generatedName = `${caseName} - ${type} - ${safeOriginalName}`;
       } catch (error) {
         if (!isLegacyExecutionSchemaError(error)) throw error;
         // Legacy schema fallback: execution linkage is unavailable until migration is applied.
@@ -176,15 +195,14 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       const caseName = belongs.testCase.externalKey
         ? `${belongs.testCase.externalKey} ${belongs.testCase.title}`
         : belongs.testCase.title;
-      generatedName = `${caseName} - ${type} - ${file.name}`;
+      generatedName = `${caseName} - ${type} - ${safeOriginalName}`;
     } else {
-      generatedName = `Run - ${type} - ${file.name}`;
+      generatedName = `Run - ${type} - ${safeOriginalName}`;
     }
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
     const hash = createHash("sha256").update(fileBuffer).digest("hex");
-    const safeName = sanitizeFileName(file.name || "artifact");
-    const key = `test-runs/${id}/${runItemId ?? "run"}/${Date.now()}-${safeName}`;
+    const dispositionName = sanitizeContentDispositionFilename(safeOriginalName);
+    const key = `test-runs/${id}/${runItemId ?? "run"}/${Date.now()}-${safeOriginalName}`;
 
     const { bucket } = getS3Config("artifacts");
     const client = getS3Client("artifacts");
@@ -193,7 +211,10 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         Bucket: bucket,
         Key: key,
         Body: fileBuffer,
-        ContentType: file.type || "application/octet-stream",
+        ContentType: mimeCheck.effectiveMime,
+        ContentDisposition: mimeCheck.inlineSafe
+          ? `inline; filename="${dispositionName}"`
+          : `attachment; filename="${dispositionName}"`,
       }),
     );
 
@@ -209,7 +230,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           type,
           name: generatedName,
           url,
-          mimeType: file.type || null,
+          mimeType: mimeCheck.effectiveMime,
           sizeBytes: uploadPolicy.sizeBytes,
           checksumSha256: hash,
           metadata: metadata as Prisma.InputJsonValue,
@@ -238,7 +259,7 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
           type,
           name: generatedName,
           url,
-          mimeType: file.type || null,
+          mimeType: mimeCheck.effectiveMime,
           sizeBytes: uploadPolicy.sizeBytes,
           checksumSha256: hash,
           metadata: metadata as Prisma.InputJsonValue,

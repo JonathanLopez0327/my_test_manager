@@ -13,6 +13,10 @@ import {
   sanitizeAttachmentFileName,
   serializeSizeBytes,
 } from "@/lib/bug-attachments";
+import {
+  sanitizeContentDispositionFilename,
+  validateUploadMime,
+} from "@/lib/upload-mime";
 
 export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrganizationId, organizationRole }, routeCtx) => {
   const { id } = await routeCtx.params;
@@ -53,16 +57,22 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       );
     }
 
-    if (type === "screenshot" && !(file.type || "").toLowerCase().startsWith("image/")) {
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // Re-derive the MIME from magic bytes; the client-supplied file.type is
+    // attacker-controlled and could otherwise be used to land active content
+    // (HTML/SVG/JS) in the artifacts bucket.
+    const mimeCheck = validateUploadMime({ type, buffer: fileBuffer });
+    if (!mimeCheck.ok) {
       return NextResponse.json(
-        { message: "Only image files are allowed for screenshot attachments." },
+        { message: mimeCheck.message },
         { status: 400 },
       );
     }
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
     const hash = createHash("sha256").update(fileBuffer).digest("hex");
     const safeName = sanitizeAttachmentFileName(file.name || "attachment");
+    const dispositionName = sanitizeContentDispositionFilename(safeName);
     const key = `bugs/${id}/${Date.now()}-${safeName}`;
 
     const { bucket } = getS3Config("artifacts");
@@ -72,7 +82,13 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
         Bucket: bucket,
         Key: key,
         Body: fileBuffer,
-        ContentType: file.type || "application/octet-stream",
+        ContentType: mimeCheck.effectiveMime,
+        // Force attachment for anything that isn't a known inline-safe type so
+        // an attacker cannot stage an HTML/SVG payload that the bucket would
+        // otherwise serve as active content.
+        ContentDisposition: mimeCheck.inlineSafe
+          ? `inline; filename="${dispositionName}"`
+          : `attachment; filename="${dispositionName}"`,
       }),
     );
 
@@ -81,9 +97,11 @@ export const POST = withAuth(null, async (req, { userId, globalRoles, activeOrga
       data: {
         bug: { connect: { id: access.bug.id } },
         type,
-        name: file.name || safeName,
+        // Persist the sanitized name so it cannot inject control characters
+        // when later rendered in the UI or echoed in headers.
+        name: safeName,
         url,
-        mimeType: file.type || null,
+        mimeType: mimeCheck.effectiveMime,
         sizeBytes: uploadPolicy.sizeBytes,
         checksumSha256: hash,
         metadata: {},
