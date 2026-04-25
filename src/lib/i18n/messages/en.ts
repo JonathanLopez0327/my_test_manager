@@ -699,6 +699,7 @@ export const en = {
       tagsPlaceholder: "Type a tag and press Enter",
       attachmentsLabel: "Attachments",
       browseFiles: "Browse files…",
+      pasteHint: "Tip: paste a screenshot from your clipboard to attach it.",
       noProjectsWarning: "You need at least one project to create bugs.",
       couldNotSave: "Could not save bug.",
       saving: "Saving...",

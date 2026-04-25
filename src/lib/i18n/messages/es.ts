@@ -701,6 +701,7 @@ export const es: Messages = {
       tagsPlaceholder: "Escribe una etiqueta y presiona Enter",
       attachmentsLabel: "Adjuntos",
       browseFiles: "Seleccionar archivos…",
+      pasteHint: "Tip: pega una captura desde el portapapeles para adjuntarla.",
       noProjectsWarning: "Necesitas al menos un proyecto para crear bugs.",
       couldNotSave: "No se pudo guardar el bug.",
       saving: "Guardando...",
