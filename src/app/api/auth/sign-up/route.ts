@@ -8,6 +8,7 @@ import {
   type SignUpErrorCode,
 } from "@/lib/auth/sign-up";
 import { signUpSchema } from "@/lib/schemas/sign-up";
+import { clientIpFromHeaders, rateLimit } from "@/lib/api/rate-limit";
 
 type SignUpSuccessResponse =
   | {
@@ -36,6 +37,24 @@ function json(body: SignUpApiResponse, status = 200) {
 }
 
 export async function POST(req: Request) {
+  // Public endpoint: bcrypt + DB write per call. Without throttling it is a
+  // CPU-burn / signup-table-flood vector.
+  const ip = clientIpFromHeaders(req.headers);
+  const limited = rateLimit(
+    { key: "sign-up", capacity: 5, refillPerSecond: 1 / 60 },
+    ip,
+  );
+  if (!limited.allowed) {
+    return json(
+      {
+        ok: false,
+        code: "UNKNOWN_ERROR",
+        message: "Too many signup attempts. Please try again later.",
+      },
+      429,
+    );
+  }
+
   try {
     const rawBody = (await req.json()) as { inviteToken?: unknown } & Record<
       string,
