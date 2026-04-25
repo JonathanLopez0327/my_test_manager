@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import { hash } from "bcryptjs";
+import { hashPassword } from "./password-hash";
 import type {
   OrgRole,
   PrismaClient,
@@ -321,7 +321,7 @@ export async function createCredentialsSignupRequest(
   const organizationSlug = input.organization.slug ?? null;
 
   const { existingRequestId } = await assertEmailAvailableForRequest(prisma, email);
-  const passwordHash = await hash(input.password, 10);
+  const passwordHash = await hashPassword(input.password);
 
   if (existingRequestId) {
     const updated = await prisma.signupRequest.update({
@@ -489,7 +489,7 @@ export async function approveSignupRequest(
     request.organizationSlug ?? undefined,
   );
   const passwordHash =
-    request.passwordHash ?? (await hash(randomBytes(48).toString("hex"), 10));
+    request.passwordHash ?? (await hashPassword(randomBytes(48).toString("hex")));
   const autoCode = generateBetaCode();
 
   const license = await provisionLicense(request.email, displayName);
@@ -650,7 +650,7 @@ export async function createUserFromInvite(
   const email = input.email.toLowerCase().trim();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
-  const passwordHash = await hash(input.password, 10);
+  const passwordHash = await hashPassword(input.password);
 
   try {
     return await prisma.$transaction(async (tx) => {

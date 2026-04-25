@@ -12,13 +12,13 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const email = process.env.SEED_QA_EMAIL ?? "";
   const password = process.env.SEED_QA_PASSWORD ?? "";
-  const passwordHash = await hash(password, 10);
+  const passwordHash = await hash(password, 12);
 
   const superAdminEmail =
     process.env.SEED_SUPER_ADMIN_EMAIL ?? "";
   const superAdminPassword =
     process.env.SEED_SUPER_ADMIN_PASSWORD ?? "";
-  const superAdminHash = await hash(superAdminPassword, 10);
+  const superAdminHash = await hash(superAdminPassword, 12);
 
   const user = await prisma.user.upsert({
     where: { email },

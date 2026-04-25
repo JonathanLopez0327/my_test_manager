@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { compare, hash } from "bcryptjs";
+import { compare } from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkPasswordPolicy } from "@/lib/schemas/password";
+import { hashPassword } from "@/lib/auth/password-hash";
 
 export async function PUT(req: Request) {
   const session = await getServerSession(authOptions);
@@ -65,7 +66,7 @@ export async function PUT(req: Request) {
         );
       }
 
-      data.passwordHash = await hash(password, 10);
+      data.passwordHash = await hashPassword(password);
     }
 
     if (Object.keys(data).length === 0) {

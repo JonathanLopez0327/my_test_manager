@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { checkPasswordPolicy } from "@/lib/schemas/password";
+import { hashPassword } from "@/lib/auth/password-hash";
 
 export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: requesterId, globalRoles }, routeCtx) => {
   const { id } = await routeCtx.params;
@@ -47,7 +47,7 @@ export const PUT = withAuth(PERMISSIONS.USER_UPDATE, async (req, { userId: reque
       }
     }
 
-    const passwordHash = password ? await hash(password, 10) : null;
+    const passwordHash = password ? await hashPassword(password) : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.user.update({

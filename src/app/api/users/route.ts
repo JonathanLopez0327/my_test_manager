@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { hash } from "bcryptjs";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERMISSIONS } from "@/lib/auth/permissions.constants";
@@ -7,6 +6,7 @@ import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
 import { checkPasswordPolicy } from "@/lib/schemas/password";
+import { hashPassword } from "@/lib/auth/password-hash";
 
 const DEFAULT_PAGE_SIZE = 10;
 const MAX_PAGE_SIZE = 50;
@@ -192,7 +192,7 @@ export const POST = withAuth(PERMISSIONS.USER_CREATE, async (req, { globalRoles 
       );
     }
 
-    const passwordHash = await hash(password, 10);
+    const passwordHash = await hashPassword(password);
 
     const created = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
