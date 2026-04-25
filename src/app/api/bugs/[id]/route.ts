@@ -7,6 +7,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { require as requirePerm, AuthorizationError } from "@/lib/auth/policy-engine";
 import { withAuth } from "@/lib/auth/with-auth";
 import { maybeSignAttachmentUrl, serializeSizeBytes } from "@/lib/bug-attachments";
+import { validateBugReferences } from "@/lib/bug-references";
 
 const STATUS_VALUES: BugStatus[] = ["open", "in_progress", "resolved", "verified", "closed", "reopened"];
 const SEVERITY_VALUES: BugSeverity[] = ["critical", "high", "medium", "low"];
@@ -223,6 +224,8 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       projectId: existing.projectId,
     });
 
+    const targetOrganizationId = existing.project.organizationId;
+
     const body = (await req.json()) as {
       title?: string;
       description?: string | null;
@@ -270,21 +273,39 @@ export const PUT = withAuth(null, async (req, { userId, globalRoles, activeOrgan
       const type = parseType(body.type);
       if (type) data.type = type;
     }
-    if (body.assignedToId !== undefined) {
-      const val = body.assignedToId?.trim() || null;
-      data.assignedTo = val ? { connect: { id: val } } : { disconnect: true };
+    const assignedToVal = body.assignedToId !== undefined ? body.assignedToId?.trim() || null : undefined;
+    const testRunItemVal = body.testRunItemId !== undefined ? body.testRunItemId?.trim() || null : undefined;
+    const testCaseVal = body.testCaseId !== undefined ? body.testCaseId?.trim() || null : undefined;
+    const testRunVal = body.testRunId !== undefined ? body.testRunId?.trim() || null : undefined;
+
+    const refCheck = await validateBugReferences({
+      projectId: existing.projectId,
+      organizationId: targetOrganizationId,
+      // Only validate fields the caller actually set to a non-null value;
+      // null means disconnect and undefined means no change.
+      assignedToId: assignedToVal ?? undefined,
+      testCaseId: testCaseVal ?? undefined,
+      testRunId: testRunVal ?? undefined,
+      testRunItemId: testRunItemVal ?? undefined,
+    });
+    if (!refCheck.ok) {
+      return NextResponse.json(
+        { message: refCheck.message, field: refCheck.field },
+        { status: 400 },
+      );
     }
-    if (body.testRunItemId !== undefined) {
-      const val = body.testRunItemId?.trim() || null;
-      data.testRunItem = val ? { connect: { id: val } } : { disconnect: true };
+
+    if (assignedToVal !== undefined) {
+      data.assignedTo = assignedToVal ? { connect: { id: assignedToVal } } : { disconnect: true };
     }
-    if (body.testCaseId !== undefined) {
-      const val = body.testCaseId?.trim() || null;
-      data.testCase = val ? { connect: { id: val } } : { disconnect: true };
+    if (testRunItemVal !== undefined) {
+      data.testRunItem = testRunItemVal ? { connect: { id: testRunItemVal } } : { disconnect: true };
     }
-    if (body.testRunId !== undefined) {
-      const val = body.testRunId?.trim() || null;
-      data.testRun = val ? { connect: { id: val } } : { disconnect: true };
+    if (testCaseVal !== undefined) {
+      data.testCase = testCaseVal ? { connect: { id: testCaseVal } } : { disconnect: true };
+    }
+    if (testRunVal !== undefined) {
+      data.testRun = testRunVal ? { connect: { id: testRunVal } } : { disconnect: true };
     }
     if (body.reproductionSteps !== undefined) data.reproductionSteps = body.reproductionSteps?.trim() || null;
     if (body.expectedResult !== undefined) data.expectedResult = body.expectedResult?.trim() || null;
