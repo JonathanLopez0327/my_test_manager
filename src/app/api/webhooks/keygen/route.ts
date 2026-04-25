@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getLicenseQuotas, getLicenseState } from "@/lib/keygen/client";
 import { invalidateLicenseStatusCache } from "@/lib/keygen/license-sync";
@@ -91,6 +92,26 @@ export async function POST(req: Request) {
   console.info(
     `[keygen] webhook received event=${eventName} resourceType=${resourceType} resourceId=${resourceId} webhookEventId=${webhookEventId}`,
   );
+
+  // Drop replays. The signature is verified above but Keygen permits a 5-min
+  // clock skew; without dedupe an attacker could replay a captured webhook
+  // inside that window.
+  if (webhookEventId) {
+    try {
+      await prisma.webhookEvent.create({
+        data: { source: "keygen", eventId: webhookEventId },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        console.info(`[keygen] webhook replay ignored eventId=${webhookEventId}`);
+        return Response.json({ received: true, deduped: true });
+      }
+      throw error;
+    }
+  }
 
   // Entitlement-scoped events carry the entitlement id, not a license id.
   // Keygen does not fire a per-license event when an entitlement's metadata

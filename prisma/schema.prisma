@@ -681,6 +681,17 @@ model AiConversationMessage {
   @@map("ai_conversation_messages")
 }
 
+model WebhookEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source    String
+  eventId   String   @map("event_id")
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  @@unique([source, eventId], map: "uq_webhook_events_source_event_id")
+  @@index([receivedAt], map: "idx_webhook_events_received_at")
+  @@map("webhook_events")
+}
+
 model BetaCode {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code        String    @unique
