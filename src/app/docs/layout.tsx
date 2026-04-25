@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { Button } from "@/components/ui/Button";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { DocsSidebar } from "@/components/docs/DocsSidebar";
 import { DocsTOC } from "@/components/docs/DocsTOC";
 import { MobileDocsNav } from "@/components/docs/MobileDocsNav";
@@ -54,6 +55,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
           </nav>
 
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <Link
               href="/login"
               className="hidden rounded-lg border border-stroke bg-surface-elevated px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-brand-50 sm:inline-flex"
