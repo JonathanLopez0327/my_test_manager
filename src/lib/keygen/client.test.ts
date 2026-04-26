@@ -11,6 +11,7 @@ const DEFAULTS = {
   maxMembers: 5,
   maxTestCases: 200,
   maxTestRuns: 100,
+  maxArtifactBytes: BigInt(524_288_000),
   aiTokenLimitMonthly: 250_000,
 };
 
@@ -58,6 +59,7 @@ describe("getLicenseQuotas", () => {
       maxMembers: 25,
       maxTestCases: 5000,
       maxTestRuns: 1000,
+      maxArtifactBytes: BigInt(524_288_000),
       aiTokenLimitMonthly: 5_000_000,
     });
   });
