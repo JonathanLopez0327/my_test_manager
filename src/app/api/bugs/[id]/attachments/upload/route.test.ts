@@ -24,6 +24,11 @@ jest.mock("@/lib/auth/require-bug-permission", () => ({
   requireBugPermission: jest.fn(),
 }));
 
+jest.mock("@/lib/beta/quota", () => ({
+  checkQuota: jest.fn().mockResolvedValue({ allowed: true }),
+  quotaExceededResponse: jest.fn(),
+}));
+
 jest.mock("@/lib/prisma", () => ({
   prisma: {
     bugAttachment: {

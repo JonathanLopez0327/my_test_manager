@@ -328,6 +328,8 @@ export const es: Messages = {
       slug: "Slug",
       members: "Miembros",
       projects: "Proyectos",
+      aiTokens: "Tokens IA",
+      storage: "Almacenamiento",
       status: "Estado",
       license: "Licencia",
       actions: "Acciones",
@@ -335,6 +337,13 @@ export const es: Messages = {
     mobile: {
       members: "Miembros",
       projects: "Proyectos",
+      aiTokens: "Tokens IA",
+      storage: "Almacenamiento",
+    },
+    usage: {
+      noLimit: "—",
+      aiTokensTitle: "Tokens IA consumidos este mes",
+      storageTitle: "Almacenamiento de artefactos usado",
     },
     actions: {
       editOrg: "Editar organización",

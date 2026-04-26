@@ -15,6 +15,10 @@ export type OrganizationRecord = {
   maxMembers: number;
   maxTestCases: number;
   maxTestRuns: number;
+  maxArtifactBytes?: string;
+  aiTokenLimitMonthly?: number;
+  aiTokensUsed?: string;
+  storageUsedBytes?: string;
   betaExpiresAt: string | null;
   _count: {
     members: number;
