@@ -326,6 +326,8 @@ export const en = {
       slug: "Slug",
       members: "Members",
       projects: "Projects",
+      aiTokens: "AI tokens",
+      storage: "Storage",
       status: "Status",
       license: "License",
       actions: "Actions",
@@ -333,6 +335,13 @@ export const en = {
     mobile: {
       members: "Members",
       projects: "Projects",
+      aiTokens: "AI tokens",
+      storage: "Storage",
+    },
+    usage: {
+      noLimit: "—",
+      aiTokensTitle: "AI tokens used this month",
+      storageTitle: "Artifact storage used",
     },
     actions: {
       editOrg: "Edit organization",

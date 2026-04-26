@@ -19,6 +19,16 @@ function startOfNextMonth(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 }
 
+export function getCurrentPeriodBounds(now: Date = new Date()): {
+  periodStart: Date;
+  periodEnd: Date;
+} {
+  return {
+    periodStart: startOfCurrentMonth(now),
+    periodEnd: startOfNextMonth(now),
+  };
+}
+
 /**
  * Returns the current period row for the org, creating it on first access.
  * Prisma's upsert is not atomic (SELECT + INSERT/UPDATE), so under concurrent

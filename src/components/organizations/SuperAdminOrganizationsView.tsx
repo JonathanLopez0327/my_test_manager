@@ -308,6 +308,18 @@ export function SuperAdminOrganizationsView() {
                   activeSortDir={sortDir}
                   onSort={handleSort}
                 />
+                <th
+                  className="px-3 py-2"
+                  title={t.superAdminOrgs.usage.aiTokensTitle}
+                >
+                  {t.superAdminOrgs.columns.aiTokens}
+                </th>
+                <th
+                  className="px-3 py-2"
+                  title={t.superAdminOrgs.usage.storageTitle}
+                >
+                  {t.superAdminOrgs.columns.storage}
+                </th>
                 <SortableHeaderCell
                   label={t.superAdminOrgs.columns.status}
                   sortKey="isActive"
@@ -334,6 +346,22 @@ export function SuperAdminOrganizationsView() {
                   </td>
                   <td className="px-3 py-2.5 text-ink-muted">
                     {org._count.projects}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <UsageBarCell
+                      used={org.aiTokensUsed}
+                      limit={org.aiTokenLimitMonthly}
+                      format="number"
+                      noLimitLabel={t.superAdminOrgs.usage.noLimit}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <UsageBarCell
+                      used={org.storageUsedBytes}
+                      limit={org.maxArtifactBytes}
+                      format="bytes"
+                      noLimitLabel={t.superAdminOrgs.usage.noLimit}
+                    />
                   </td>
                   <td className="px-3 py-2.5">
                     <Badge tone={org.isActive ? "success" : "neutral"}>
@@ -428,6 +456,30 @@ export function SuperAdminOrganizationsView() {
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-ink-muted">
                   <div>{t.superAdminOrgs.mobile.members}: {org._count.members}</div>
                   <div>{t.superAdminOrgs.mobile.projects}: {org._count.projects}</div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-soft">
+                      {t.superAdminOrgs.mobile.aiTokens}
+                    </p>
+                    <UsageBarCell
+                      used={org.aiTokensUsed}
+                      limit={org.aiTokenLimitMonthly}
+                      format="number"
+                      noLimitLabel={t.superAdminOrgs.usage.noLimit}
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-ink-soft">
+                      {t.superAdminOrgs.mobile.storage}
+                    </p>
+                    <UsageBarCell
+                      used={org.storageUsedBytes}
+                      limit={org.maxArtifactBytes}
+                      format="bytes"
+                      noLimitLabel={t.superAdminOrgs.usage.noLimit}
+                    />
+                  </div>
                 </div>
                 <div className="mt-3">{renderLicenseCell(org.betaExpiresAt, t)}</div>
                 <div className="mt-3 flex items-center justify-end gap-1">
@@ -574,6 +626,60 @@ export function SuperAdminOrganizationsView() {
 function isLicenseSuspended(betaExpiresAt: string | null): boolean {
   if (!betaExpiresAt) return false;
   return new Date(betaExpiresAt).getTime() <= 0;
+}
+
+function formatNumberCompact(n: bigint): string {
+  return new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
+}
+
+function formatBytes(n: bigint): string {
+  const num = Number(n);
+  if (num < 1024) return `${num} B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  if (num < 1024 * 1024 * 1024) return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(num / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+type UsageBarCellProps = {
+  used: string | undefined;
+  limit: string | number | undefined;
+  format: "number" | "bytes";
+  noLimitLabel: string;
+};
+
+function UsageBarCell({ used, limit, format, noLimitLabel }: UsageBarCellProps) {
+  if (used === undefined || limit === undefined) {
+    return <span className="text-xs text-ink-muted">{noLimitLabel}</span>;
+  }
+  const usedBig = BigInt(used);
+  const limitBig = typeof limit === "number" ? BigInt(limit) : BigInt(limit);
+
+  if (limitBig <= BigInt(0)) {
+    return <span className="text-xs text-ink-muted">{noLimitLabel}</span>;
+  }
+
+  const pct = Math.min(100, Number((usedBig * BigInt(100)) / limitBig));
+  const barColor =
+    pct >= 100 ? "bg-danger-500" : pct >= 80 ? "bg-warning-500" : "bg-brand-500";
+  const fmt = format === "bytes" ? formatBytes : formatNumberCompact;
+
+  return (
+    <div className="min-w-[6.5rem]">
+      <p className="text-[11px] tabular-nums text-ink-muted">
+        <span className="font-medium text-ink">{fmt(usedBig)}</span>
+        <span> / {fmt(limitBig)}</span>
+      </p>
+      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className={`h-full transition-all ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function renderLicenseCell(betaExpiresAt: string | null, t: Messages) {

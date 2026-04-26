@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@/lib/auth/permissions.constants";
 import { withAuth } from "@/lib/auth/with-auth";
 import { anyGlobalRoleHasPermission } from "@/lib/auth/role-permissions.map";
 import { parseSortBy, parseSortDir } from "@/lib/sorting";
+import { getCurrentPeriodBounds } from "@/lib/ai/usage";
 
 const SORTABLE_FIELDS = ["name", "slug", "members", "projects", "isActive"] as const;
 type OrganizationSortBy = (typeof SORTABLE_FIELDS)[number];
@@ -56,9 +57,54 @@ export const GET = withAuth(null, async (req, { userId, globalRoles }) => {
     },
   });
 
+  if (!isSuperAdmin) {
+    const items = rows.map((row) => ({
+      ...row,
+      maxArtifactBytes: row.maxArtifactBytes.toString(),
+    }));
+    return NextResponse.json({ items });
+  }
+
+  // Super admin: enrich each org with current AI token usage and storage usage.
+  const { periodStart } = getCurrentPeriodBounds();
+
+  const [periods, runRows, bugRows] = await Promise.all([
+    prisma.aiUsagePeriod.findMany({
+      where: { periodStart },
+      select: { organizationId: true, totalTokens: true },
+    }),
+    prisma.$queryRaw<{ org_id: string; total: bigint }[]>`
+      SELECT p.organization_id AS org_id, COALESCE(SUM(a.size_bytes), 0)::bigint AS total
+      FROM test_run_artifacts a
+      JOIN test_runs r ON r.id = a.run_id
+      JOIN projects p ON p.id = r.project_id
+      GROUP BY p.organization_id
+    `,
+    prisma.$queryRaw<{ org_id: string; total: bigint }[]>`
+      SELECT p.organization_id AS org_id, COALESCE(SUM(a.size_bytes), 0)::bigint AS total
+      FROM bug_attachments a
+      JOIN bugs b ON b.id = a.bug_id
+      JOIN projects p ON p.id = b.project_id
+      GROUP BY p.organization_id
+    `,
+  ]);
+
+  const tokensByOrg = new Map<string, bigint>(
+    periods.map((p) => [p.organizationId, p.totalTokens]),
+  );
+  const storageByOrg = new Map<string, bigint>();
+  for (const r of runRows) {
+    storageByOrg.set(r.org_id, (storageByOrg.get(r.org_id) ?? BigInt(0)) + r.total);
+  }
+  for (const r of bugRows) {
+    storageByOrg.set(r.org_id, (storageByOrg.get(r.org_id) ?? BigInt(0)) + r.total);
+  }
+
   const items = rows.map((row) => ({
     ...row,
     maxArtifactBytes: row.maxArtifactBytes.toString(),
+    aiTokensUsed: (tokensByOrg.get(row.id) ?? BigInt(0)).toString(),
+    storageUsedBytes: (storageByOrg.get(row.id) ?? BigInt(0)).toString(),
   }));
 
   return NextResponse.json({ items });
